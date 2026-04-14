@@ -250,12 +250,14 @@ function ShopCard({ item, language, labels }) {
     <article className="overflow-hidden rounded-[22px] border border-emerald-500/15 bg-[#0c1830] shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition duration-200 hover:-translate-y-1 hover:border-emerald-400/40">
       <div className="relative">
         {item.image ? (
-          <img
-            src={item.image}
-            alt={displayName}
-            loading="lazy"
-            className="h-56 w-full object-cover sm:h-64 md:h-72"
-          />
+          <div className="flex h-56 w-full items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.16),_transparent_45%),linear-gradient(180deg,_#0b1730_0%,_#091120_100%)] p-3 sm:h-64 sm:p-4 md:h-72">
+            <img
+              src={item.image}
+              alt={displayName}
+              loading="lazy"
+              className="h-full w-full object-contain md:object-cover"
+            />
+          </div>
         ) : (
           <div className="grid h-56 w-full place-items-center bg-slate-800 text-slate-400 sm:h-64 md:h-72">
             {labels.noImage}
@@ -667,57 +669,80 @@ export default function Home() {
           </aside>
 
           <section>
-            <div className="mb-5 flex flex-col gap-4 rounded-[24px] border border-white/5 bg-[#071426]/80 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.2)] md:mb-6 md:rounded-[28px] md:p-5 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-300 sm:text-sm md:tracking-[0.3em]">
-                  {labels.brand}
-                </p>
-                <h2 className="mt-2 text-2xl font-black uppercase italic sm:text-3xl md:text-5xl">
-                  {selectedSectionTitle}
-                </h2>
-              </div>
-
-              <div className="hidden flex-1 items-center justify-end gap-3 md:flex">
-                <div className="w-full max-w-xl">
-                  <input
-                    type="text"
-                    placeholder={labels.search}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full rounded-full border border-slate-700 bg-[#101b2d] px-5 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-emerald-400"
-                  />
+            <div className="mb-5 rounded-[24px] border border-white/5 bg-[#071426]/80 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.2)] md:mb-6 md:rounded-[28px] md:p-5">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-300 sm:text-sm md:tracking-[0.3em]">
+                    {labels.brand}
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black uppercase italic sm:text-3xl md:text-5xl">
+                    {selectedSectionTitle}
+                  </h2>
                 </div>
 
-                <select
-                  value={language}
-                  onChange={(e) => {
-                    const newLanguage = e.target.value;
-                    setSearch("");
-                    setLanguage(newLanguage);
-                    setSection(newLanguage === "es-419" ? "Todas" : "All");
-                  }}
-                  className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-emerald-400"
-                >
-                  <option value="es-419">ES</option>
-                  <option value="en">EN</option>
-                </select>
+                <div className="hidden w-full max-w-3xl flex-col gap-3 md:flex xl:items-end">
+                  <div className="flex w-full flex-wrap items-center gap-3 xl:justify-end">
+                    <div className="min-w-[280px] flex-1 xl:max-w-xl">
+                      <input
+                        type="text"
+                        placeholder={labels.search}
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full rounded-full border border-slate-700 bg-[#101b2d] px-5 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-emerald-400"
+                      />
+                    </div>
 
-                <button
-                  onClick={() => loadShop(true, language)}
-                  className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-extrabold text-slate-950 transition hover:bg-emerald-400"
-                >
-                  {labels.refresh}
-                </button>
-              </div>
+                    <select
+                      value={language}
+                      onChange={(e) => {
+                        const newLanguage = e.target.value;
+                        setSearch("");
+                        setLanguage(newLanguage);
+                        setSection(newLanguage === "es-419" ? "Todas" : "All");
+                      }}
+                      className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-emerald-400"
+                    >
+                      <option value="es-419">ES</option>
+                      <option value="en">EN</option>
+                    </select>
 
-              <div className="flex flex-wrap gap-3 text-xs text-slate-300 sm:text-sm">
-                <div className="rounded-full border border-slate-700 bg-[#0d1c31] px-4 py-2">
-                  {labels.total}:{" "}
-                  <span className="font-extrabold text-white">{allItems.length}</span>
+                    <button
+                      onClick={() => loadShop(true, language)}
+                      className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-extrabold text-slate-950 transition hover:bg-emerald-400"
+                    >
+                      {labels.refresh}
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3 text-xs text-slate-300 sm:text-sm xl:justify-end">
+                    <div className="rounded-full border border-slate-700 bg-[#0d1c31] px-4 py-2">
+                      {labels.total}:{" "}
+                      <span className="font-extrabold text-white">
+                        {allItems.length}
+                      </span>
+                    </div>
+                    <div className="rounded-full border border-slate-700 bg-[#0d1c31] px-4 py-2">
+                      {labels.showing}:{" "}
+                      <span className="font-extrabold text-white">
+                        {items.length}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded-full border border-slate-700 bg-[#0d1c31] px-4 py-2">
-                  {labels.showing}:{" "}
-                  <span className="font-extrabold text-white">{items.length}</span>
+
+                <div className="flex flex-wrap gap-3 text-xs text-slate-300 sm:text-sm md:hidden">
+                  <div className="rounded-full border border-slate-700 bg-[#0d1c31] px-4 py-2">
+                    {labels.total}:{" "}
+                    <span className="font-extrabold text-white">
+                      {allItems.length}
+                    </span>
+                  </div>
+                  <div className="rounded-full border border-slate-700 bg-[#0d1c31] px-4 py-2">
+                    {labels.showing}:{" "}
+                    <span className="font-extrabold text-white">
+                      {items.length}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
