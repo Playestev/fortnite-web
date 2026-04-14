@@ -184,14 +184,10 @@ function getDisplayName(item, lang) {
   const englishName = item.nameEnglish || item.nameLocalized || "";
   const localizedName = item.nameLocalized || englishName;
 
-  if (lang === "en") {
-    return englishName;
-  }
+  if (lang === "en") return englishName;
 
   const manualTranslation = NAME_TRANSLATIONS_ES_MX[englishName];
-  if (manualTranslation) {
-    return manualTranslation;
-  }
+  if (manualTranslation) return manualTranslation;
 
   if (
     localizedName &&
@@ -251,59 +247,62 @@ function ShopCard({ item, language, labels }) {
   const leaveCountdown = getTimeUntilDate(item.outDate, language);
 
   return (
-    <article className="overflow-hidden rounded-[24px] border border-emerald-500/15 bg-[#0c1830] shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition duration-200 hover:-translate-y-1 hover:border-emerald-400/40">
+    <article className="overflow-hidden rounded-[22px] border border-emerald-500/15 bg-[#0c1830] shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition duration-200 hover:-translate-y-1 hover:border-emerald-400/40">
       <div className="relative">
         {item.image ? (
           <img
             src={item.image}
             alt={displayName}
-            className="h-72 w-full object-cover"
+            loading="lazy"
+            className="h-56 w-full object-cover sm:h-64 md:h-72"
           />
         ) : (
-          <div className="grid h-72 w-full place-items-center bg-slate-800 text-slate-400">
+          <div className="grid h-56 w-full place-items-center bg-slate-800 text-slate-400 sm:h-64 md:h-72">
             {labels.noImage}
           </div>
         )}
 
         {leavingSoon && (
-          <div className="absolute left-3 top-3 rounded-full border border-red-300 bg-red-500 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-white shadow-lg">
+          <div className="absolute left-3 top-3 rounded-full border border-red-300 bg-red-500 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-lg sm:text-xs">
             {labels.leavingSoon}
           </div>
         )}
       </div>
 
       <div className="p-4">
-        <p className="mb-2 text-sm font-semibold text-emerald-300">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-300 sm:text-sm">
           {displaySection}
         </p>
 
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-extrabold leading-tight text-white">
+            <h2 className="text-base font-extrabold leading-tight text-white sm:text-lg">
               {displayName}
             </h2>
 
             {secondaryEnglishName && (
-              <p className="mt-1 text-xs italic text-slate-400">
+              <p className="mt-1 text-[11px] italic text-slate-400 sm:text-xs">
                 {secondaryEnglishName}
               </p>
             )}
           </div>
 
-          <div className="shrink-0 rounded-full border border-emerald-300 bg-emerald-500 px-3 py-1 text-sm font-extrabold text-slate-950 shadow-lg">
+          <div className="shrink-0 rounded-full border border-emerald-300 bg-emerald-500 px-3 py-1 text-xs font-extrabold text-slate-950 shadow-lg sm:text-sm">
             {mxnPrice}
           </div>
         </div>
 
-        <p className="mt-2 text-sm text-slate-300">{displayType}</p>
+        <p className="mt-2 text-xs text-slate-300 sm:text-sm">{displayType}</p>
 
-        <p className="mt-3 text-base font-extrabold text-white">
+        <p className="mt-3 text-sm font-extrabold text-white sm:text-base">
           {item.price} {labels.vbucks}
         </p>
 
         {item.outDate && (
           <div className="mt-3 rounded-xl border border-slate-700 bg-[#091120] px-3 py-2">
-            <p className="text-xs text-slate-400">{labels.leavesIn}</p>
+            <p className="text-[11px] text-slate-400 sm:text-xs">
+              {labels.leavesIn}
+            </p>
             <p className="text-sm font-bold text-orange-300">{leaveCountdown}</p>
           </div>
         )}
@@ -322,6 +321,7 @@ export default function Home() {
   const [section, setSection] = useState("Todas");
   const [language, setLanguage] = useState("es-419");
   const [timeLeft, setTimeLeft] = useState("");
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   async function loadShop(showRefreshState = false, selectedLanguage = language) {
     try {
@@ -380,6 +380,7 @@ export default function Home() {
           total: "Total en API",
           showing: "Mostrando",
           filters: "Filtros",
+          closeFilters: "Cerrar filtros",
           loading: "Cargando tienda...",
           noResults: "No se encontraron resultados con ese filtro.",
           noImage: "Sin imagen",
@@ -404,6 +405,7 @@ export default function Home() {
           total: "Total in API",
           showing: "Showing",
           filters: "Filters",
+          closeFilters: "Close filters",
           loading: "Loading shop...",
           noResults: "No results found for that filter.",
           noImage: "No image",
@@ -484,23 +486,30 @@ export default function Home() {
   const selectedSectionTitle =
     section === translatedAllLabel ? labels.heroTitle : section;
 
+  function handleSectionChange(sectionName) {
+    setSection(sectionName);
+    setShowMobileFilters(false);
+  }
+
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(52,211,153,0.18),_transparent_24%),linear-gradient(180deg,_#06132a_0%,_#041022_50%,_#030b18_100%)] text-white">
-      <header className="sticky top-0 z-50 border-b border-white/5 bg-[#07111f]/85 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 md:px-6">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-500 font-black text-slate-950 shadow-lg">
+    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_right,_rgba(52,211,153,0.18),_transparent_24%),linear-gradient(180deg,_#06132a_0%,_#041022_50%,_#030b18_100%)] text-white">
+      <header className="sticky top-0 z-50 border-b border-white/5 bg-[#07111f]/90 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 md:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500 font-black text-slate-950 shadow-lg">
               GG
             </div>
-            <div>
-              <p className="text-lg font-extrabold leading-none">{labels.brand}</p>
-              <p className="text-xs uppercase tracking-[0.25em] text-emerald-300">
+            <div className="min-w-0">
+              <p className="truncate text-base font-extrabold leading-none sm:text-lg">
+                {labels.brand}
+              </p>
+              <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-300 sm:text-xs">
                 Fortnite Shop
               </p>
             </div>
           </div>
 
-          <nav className="ml-2 hidden items-center gap-2 md:flex">
+          <nav className="ml-auto hidden items-center gap-2 md:flex">
             <Link
               href="/"
               className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950"
@@ -514,79 +523,40 @@ export default function Home() {
               {labels.navNews}
             </Link>
           </nav>
-
-          <div className="ml-auto hidden flex-1 items-center justify-end gap-3 md:flex">
-            <div className="w-full max-w-xl">
-              <input
-                type="text"
-                placeholder={labels.search}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-full border border-slate-700 bg-[#101b2d] px-5 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-emerald-400"
-              />
-            </div>
-
-            <select
-              value={language}
-              onChange={(e) => {
-                const newLanguage = e.target.value;
-                setSearch("");
-                setLanguage(newLanguage);
-                setSection(newLanguage === "es-419" ? "Todas" : "All");
-              }}
-              className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-emerald-400"
-            >
-              <option value="es-419">ES</option>
-              <option value="en">EN</option>
-            </select>
-
-            <button
-              onClick={() => loadShop(true, language)}
-              className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-extrabold text-slate-950 transition hover:bg-emerald-400"
-            >
-              {labels.refresh}
-            </button>
-          </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
-        <section className="mb-6 overflow-hidden rounded-[28px] border border-emerald-500/20 bg-[linear-gradient(120deg,_rgba(16,185,129,0.20)_0%,_rgba(6,24,54,0.95)_35%,_rgba(7,36,66,0.88)_100%)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="mx-auto max-w-7xl px-4 py-4 md:px-6 md:py-6">
+        <section className="mb-5 overflow-hidden rounded-[24px] border border-emerald-500/20 bg-[linear-gradient(120deg,_rgba(16,185,129,0.20)_0%,_rgba(6,24,54,0.95)_35%,_rgba(7,36,66,0.88)_100%)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.25)] md:mb-6 md:rounded-[28px] md:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <p className="mb-2 text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.28em] text-emerald-300 sm:text-sm md:tracking-[0.3em]">
                 {labels.brand}
               </p>
-              <h1 className="text-4xl font-black uppercase italic md:text-6xl">
+              <h1 className="text-3xl font-black uppercase italic sm:text-4xl md:text-6xl">
                 {labels.title}
               </h1>
-              <p className="mt-3 max-w-2xl text-base text-slate-200 md:text-lg">
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200 sm:text-base md:text-lg">
                 {labels.heroText}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-emerald-400/20 bg-[#08121f]/70 p-5 backdrop-blur">
+            <div className="rounded-2xl border border-emerald-400/20 bg-[#08121f]/70 p-4 backdrop-blur md:p-5">
               <p className="text-sm font-semibold text-emerald-300">
                 {labels.countdownTitle}
               </p>
-              <p className="mt-2 text-3xl font-black tracking-wider md:text-4xl">
+              <p className="mt-2 text-2xl font-black tracking-wider sm:text-3xl md:text-4xl">
                 {timeLeft}
               </p>
-              <p className="mt-2 text-sm text-slate-300">{labels.countdownNote}</p>
+              <p className="mt-2 text-xs text-slate-300 sm:text-sm">
+                {labels.countdownNote}
+              </p>
             </div>
           </div>
         </section>
 
-        <div className="mb-4 grid gap-4 md:hidden">
-          <input
-            type="text"
-            placeholder={labels.search}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-2xl border border-slate-700 bg-[#101b2d] px-4 py-3 text-white outline-none placeholder:text-slate-400 focus:border-emerald-400"
-          />
-
-          <div className="grid grid-cols-3 gap-3">
+        <div className="mb-5 grid gap-3 md:hidden">
+          <div className="grid grid-cols-2 gap-3">
             <Link
               href="/"
               className="rounded-xl bg-emerald-500 px-4 py-3 text-center text-sm font-extrabold text-slate-950"
@@ -599,6 +569,24 @@ export default function Home() {
             >
               {labels.navNews}
             </Link>
+          </div>
+
+          <input
+            type="text"
+            placeholder={labels.search}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-2xl border border-slate-700 bg-[#101b2d] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-emerald-400"
+          />
+
+          <div className="grid grid-cols-[1fr_90px] gap-3">
+            <button
+              onClick={() => setShowMobileFilters((prev) => !prev)}
+              className="rounded-xl border border-slate-700 bg-[#0d1c31] px-4 py-3 text-sm font-extrabold text-white"
+            >
+              {showMobileFilters ? labels.closeFilters : labels.filters}
+            </button>
+
             <select
               value={language}
               onChange={(e) => {
@@ -620,10 +608,34 @@ export default function Home() {
           >
             {labels.refresh}
           </button>
+
+          {showMobileFilters && (
+            <div className="rounded-2xl border border-emerald-500/15 bg-[#071426]/95 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+              <div className="max-h-[45vh] space-y-2 overflow-y-auto pr-1">
+                {sections.map((sectionName) => {
+                  const active = section === sectionName;
+
+                  return (
+                    <button
+                      key={sectionName}
+                      onClick={() => handleSectionChange(sectionName)}
+                      className={`w-full rounded-2xl px-4 py-3 text-left text-sm font-extrabold uppercase tracking-wide transition ${
+                        active
+                          ? "bg-emerald-500 text-slate-950 shadow-lg"
+                          : "bg-[#0d1c31] text-white hover:bg-[#132744]"
+                      }`}
+                    >
+                      {sectionName}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-          <aside className="h-fit rounded-[28px] border border-emerald-500/15 bg-[#071426]/90 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.22)] lg:sticky lg:top-24">
+        <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
+          <aside className="hidden h-fit rounded-[28px] border border-emerald-500/15 bg-[#071426]/90 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.22)] lg:sticky lg:top-24 lg:block">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-black uppercase tracking-wide text-white">
                 {labels.filters}
@@ -655,17 +667,50 @@ export default function Home() {
           </aside>
 
           <section>
-            <div className="mb-6 flex flex-col gap-4 rounded-[28px] border border-white/5 bg-[#071426]/80 p-5 shadow-[0_12px_40px_rgba(0,0,0,0.2)] md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
+            <div className="mb-5 flex flex-col gap-4 rounded-[24px] border border-white/5 bg-[#071426]/80 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.2)] md:mb-6 md:rounded-[28px] md:p-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-300 sm:text-sm md:tracking-[0.3em]">
                   {labels.brand}
                 </p>
-                <h2 className="mt-2 text-3xl font-black uppercase italic md:text-5xl">
+                <h2 className="mt-2 text-2xl font-black uppercase italic sm:text-3xl md:text-5xl">
                   {selectedSectionTitle}
                 </h2>
               </div>
 
-              <div className="flex flex-wrap gap-3 text-sm text-slate-300">
+              <div className="hidden flex-1 items-center justify-end gap-3 md:flex">
+                <div className="w-full max-w-xl">
+                  <input
+                    type="text"
+                    placeholder={labels.search}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full rounded-full border border-slate-700 bg-[#101b2d] px-5 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-emerald-400"
+                  />
+                </div>
+
+                <select
+                  value={language}
+                  onChange={(e) => {
+                    const newLanguage = e.target.value;
+                    setSearch("");
+                    setLanguage(newLanguage);
+                    setSection(newLanguage === "es-419" ? "Todas" : "All");
+                  }}
+                  className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-emerald-400"
+                >
+                  <option value="es-419">ES</option>
+                  <option value="en">EN</option>
+                </select>
+
+                <button
+                  onClick={() => loadShop(true, language)}
+                  className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-extrabold text-slate-950 transition hover:bg-emerald-400"
+                >
+                  {labels.refresh}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-3 text-xs text-slate-300 sm:text-sm">
                 <div className="rounded-full border border-slate-700 bg-[#0d1c31] px-4 py-2">
                   {labels.total}:{" "}
                   <span className="font-extrabold text-white">{allItems.length}</span>
@@ -695,46 +740,52 @@ export default function Home() {
               </div>
             )}
 
-            {!loading && !error && items.length > 0 && section !== translatedAllLabel && (
-              <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {items.map((item) => (
-                  <ShopCard
-                    key={item.id}
-                    item={item}
-                    language={language}
-                    labels={labels}
-                  />
-                ))}
-              </section>
-            )}
+            {!loading &&
+              !error &&
+              items.length > 0 &&
+              section !== translatedAllLabel && (
+                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {items.map((item) => (
+                    <ShopCard
+                      key={item.id}
+                      item={item}
+                      language={language}
+                      labels={labels}
+                    />
+                  ))}
+                </section>
+              )}
 
-            {!loading && !error && items.length > 0 && section === translatedAllLabel && (
-              <div className="space-y-10">
-                {groupedItems.map(([groupName, groupItems]) => (
-                  <section key={groupName}>
-                    <div className="mb-4 flex items-center justify-between">
-                      <h3 className="text-2xl font-black uppercase italic text-emerald-300">
-                        {groupName}
-                      </h3>
-                      <span className="rounded-full border border-slate-700 bg-[#0d1c31] px-3 py-1 text-sm font-bold text-slate-300">
-                        {groupItems.length}
-                      </span>
-                    </div>
+            {!loading &&
+              !error &&
+              items.length > 0 &&
+              section === translatedAllLabel && (
+                <div className="space-y-8 md:space-y-10">
+                  {groupedItems.map(([groupName, groupItems]) => (
+                    <section key={groupName}>
+                      <div className="mb-4 flex items-center justify-between gap-3">
+                        <h3 className="text-xl font-black uppercase italic text-emerald-300 sm:text-2xl">
+                          {groupName}
+                        </h3>
+                        <span className="rounded-full border border-slate-700 bg-[#0d1c31] px-3 py-1 text-xs font-bold text-slate-300 sm:text-sm">
+                          {groupItems.length}
+                        </span>
+                      </div>
 
-                    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                      {groupItems.map((item) => (
-                        <ShopCard
-                          key={item.id}
-                          item={item}
-                          language={language}
-                          labels={labels}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            )}
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {groupItems.map((item) => (
+                          <ShopCard
+                            key={item.id}
+                            item={item}
+                            language={language}
+                            labels={labels}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
           </section>
         </div>
       </div>
