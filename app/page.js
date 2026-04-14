@@ -32,6 +32,7 @@ const NAME_TRANSLATIONS_ES_MX = {
 };
 
 const VB_TO_MXN_RATE = 0.09;
+const LEAVING_SOON_HOURS = 12;
 
 function getTimeUntilNextShopUpdate(lang) {
   const now = new Date();
@@ -62,6 +63,49 @@ function getTimeUntilNextShopUpdate(lang) {
   const ss = String(seconds).padStart(2, "0");
 
   return `${hh}:${mm}:${ss}`;
+}
+
+function getTimeUntilDate(dateString, lang) {
+  if (!dateString) {
+    return lang === "es-419" ? "Sin fecha" : "No date";
+  }
+
+  const now = new Date();
+  const target = new Date(dateString);
+  const diff = target - now;
+
+  if (!Number.isFinite(target.getTime())) {
+    return lang === "es-419" ? "Sin fecha" : "No date";
+  }
+
+  if (diff <= 0) {
+    return lang === "es-419" ? "Ya salió" : "Gone";
+  }
+
+  const totalSeconds = Math.floor(diff / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+  if (lang === "es-419") {
+    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+    return `${hours}h ${minutes}m`;
+  }
+
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  return `${hours}h ${minutes}m`;
+}
+
+function isLeavingSoon(dateString) {
+  if (!dateString) return false;
+
+  const now = new Date();
+  const target = new Date(dateString);
+  const diff = target - now;
+
+  if (!Number.isFinite(target.getTime()) || diff <= 0) return false;
+
+  return diff <= LEAVING_SOON_HOURS * 60 * 60 * 1000;
 }
 
 function translateType(type, lang) {
@@ -207,6 +251,8 @@ function ShopCard({ item, language, labels }) {
   const displayType = getDisplayType(item, language);
   const displaySection = getDisplaySection(item, language);
   const mxnPrice = formatMxPrice(item.price);
+  const leavingSoon = isLeavingSoon(item.outDate);
+  const leaveCountdown = getTimeUntilDate(item.outDate, language);
 
   return (
     <article className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg transition hover:-translate-y-1">
@@ -223,29 +269,46 @@ function ShopCard({ item, language, labels }) {
           </div>
         )}
 
-        <div className="absolute right-3 top-3 rounded-full border border-emerald-300 bg-emerald-500 px-3 py-1 text-sm font-extrabold text-white shadow-lg">
-          {mxnPrice}
-        </div>
+        {leavingSoon && (
+          <div className="absolute left-3 top-3 rounded-full border border-red-300 bg-red-500 px-3 py-1 text-xs font-extrabold text-white shadow-lg">
+            {labels.leavingSoon}
+          </div>
+        )}
       </div>
 
       <div className="p-4">
         <p className="mb-2 text-sm text-cyan-400">{displaySection}</p>
 
-        <h2 className="text-lg font-semibold leading-tight">
-          {displayName}
-        </h2>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-semibold leading-tight">
+              {displayName}
+            </h2>
 
-        {secondaryEnglishName && (
-          <p className="mt-1 text-xs italic text-slate-500">
-            {secondaryEnglishName}
-          </p>
-        )}
+            {secondaryEnglishName && (
+              <p className="mt-1 text-xs italic text-slate-500">
+                {secondaryEnglishName}
+              </p>
+            )}
+          </div>
+
+          <div className="shrink-0 rounded-full border border-emerald-300 bg-emerald-500 px-3 py-1 text-sm font-extrabold text-white shadow-lg">
+            {mxnPrice}
+          </div>
+        </div>
 
         <p className="mt-2 text-sm text-slate-400">{displayType}</p>
 
         <p className="mt-3 text-base font-bold text-white">
           {item.price} {labels.vbucks}
         </p>
+
+        {item.outDate && (
+          <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
+            <p className="text-xs text-slate-400">{labels.leavesIn}</p>
+            <p className="text-sm font-bold text-orange-300">{leaveCountdown}</p>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -320,6 +383,8 @@ export default function Home() {
           vbucks: "V-Bucks",
           countdownTitle: "Próxima actualización",
           countdownNote: "La tienda cambia diario a las 00:00 UTC",
+          leavingSoon: "Se va pronto",
+          leavesIn: "Se va en",
         }
       : {
           title: "FORTNITE SHOP",
@@ -335,6 +400,8 @@ export default function Home() {
           vbucks: "V-Bucks",
           countdownTitle: "Next update",
           countdownNote: "The shop refreshes daily at 00:00 UTC",
+          leavingSoon: "Leaving soon",
+          leavesIn: "Leaves in",
         };
 
   const translatedAllLabel = language === "es-419" ? "Todas" : "All";

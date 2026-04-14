@@ -88,6 +88,8 @@ export async function GET(request) {
         typeEnglish: getType(englishItem),
         typeLocalized: getType(localizedItem),
         devName: englishItem.devName || localizedItem.devName || "",
+        outDate: localizedItem.outDate || englishItem.outDate || null,
+        inDate: localizedItem.inDate || englishItem.inDate || null,
       };
     });
 
