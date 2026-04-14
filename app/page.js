@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 const NAME_TRANSLATIONS_ES_MX = {
@@ -480,6 +481,13 @@ export default function Home() {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/noticias"
+                className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 font-semibold text-white transition hover:border-cyan-400"
+              >
+                Noticias
+              </Link>
+
               <select
                 value={language}
                 onChange={(e) => {
