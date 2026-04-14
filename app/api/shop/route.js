@@ -1,3 +1,7 @@
+function getKey(item, index) {
+  return item.offerId || item.devName || `item-${index}`;
+}
+
 function getName(item) {
   return (
     item.brItems?.[0]?.name ||
@@ -6,7 +10,7 @@ function getName(item) {
     item.tracks?.[0]?.title ||
     item.bundle?.name ||
     item.devName ||
-    "Artículo"
+    "Item"
   );
 }
 
@@ -32,33 +36,63 @@ function getType(item) {
   );
 }
 
-export async function GET() {
-  try {
-    const res = await fetch("https://fortnite-api.com/v2/shop", {
-      cache: "no-store",
-    });
+function getSection(item) {
+  return item.layout?.name || "Shop";
+}
 
-    if (!res.ok) {
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const lang = searchParams.get("lang") || "es-419";
+
+    const allowedLanguages = ["es-419", "en"];
+    const safeLang = allowedLanguages.includes(lang) ? lang : "es-419";
+
+    const englishUrl = "https://fortnite-api.com/v2/shop?language=en";
+    const localizedUrl = `https://fortnite-api.com/v2/shop?language=${safeLang}`;
+
+    const [englishRes, localizedRes] = await Promise.all([
+      fetch(englishUrl, { cache: "no-store" }),
+      fetch(localizedUrl, { cache: "no-store" }),
+    ]);
+
+    if (!englishRes.ok || !localizedRes.ok) {
       return Response.json(
         { error: "No se pudo obtener la tienda de Fortnite" },
         { status: 500 }
       );
     }
 
-    const json = await res.json();
-    const entries = json.data?.entries || [];
+    const englishJson = await englishRes.json();
+    const localizedJson = await localizedRes.json();
 
-    const items = entries.map((item, index) => ({
-      id: item.offerId || item.devName || `item-${index}`,
-      name: getName(item),
-      image: getImage(item),
-      price: item.finalPrice ?? item.regularPrice ?? "N/D",
-      section: item.layout?.name || "Tienda",
-      type: getType(item),
-      devName: item.devName || "",
-    }));
+    const englishEntries = englishJson.data?.entries || [];
+    const localizedEntries = localizedJson.data?.entries || [];
+
+    const localizedMap = new Map(
+      localizedEntries.map((item, index) => [getKey(item, index), item])
+    );
+
+    const items = englishEntries.map((englishItem, index) => {
+      const key = getKey(englishItem, index);
+      const localizedItem = localizedMap.get(key) || englishItem;
+
+      return {
+        id: key,
+        nameEnglish: getName(englishItem),
+        nameLocalized: getName(localizedItem),
+        image: getImage(localizedItem) || getImage(englishItem),
+        price: localizedItem.finalPrice ?? localizedItem.regularPrice ?? "N/D",
+        sectionEnglish: getSection(englishItem),
+        sectionLocalized: getSection(localizedItem),
+        typeEnglish: getType(englishItem),
+        typeLocalized: getType(localizedItem),
+        devName: englishItem.devName || localizedItem.devName || "",
+      };
+    });
 
     return Response.json({
+      language: safeLang,
       total: items.length,
       items,
     });
