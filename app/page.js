@@ -695,52 +695,46 @@ export default function Home() {
               </div>
             )}
 
-            {!loading &&
-              !error &&
-              items.length > 0 &&
-              section !== translatedAllLabel && (
-                <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                  {items.map((item) => (
-                    <ShopCard
-                      key={item.id}
-                      item={item}
-                      language={language}
-                      labels={labels}
-                    />
-                  ))}
-                </section>
-              )}
+            {!loading && !error && items.length > 0 && section !== translatedAllLabel && (
+              <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                {items.map((item) => (
+                  <ShopCard
+                    key={item.id}
+                    item={item}
+                    language={language}
+                    labels={labels}
+                  />
+                ))}
+              </section>
+            )}
 
-            {!loading &&
-              !error &&
-              items.length > 0 &&
-              section === translatedAllLabel && (
-                <div className="space-y-10">
-                  {groupedItems.map(([groupName, groupItems]) => (
-                    <section key={groupName}>
-                      <div className="mb-4 flex items-center justify-between">
-                        <h3 className="text-2xl font-black uppercase italic text-emerald-300">
-                          {groupName}
-                        </h3>
-                        <span className="rounded-full border border-slate-700 bg-[#0d1c31] px-3 py-1 text-sm font-bold text-slate-300">
-                          {groupItems.length}
-                        </span>
-                      </div>
+            {!loading && !error && items.length > 0 && section === translatedAllLabel && (
+              <div className="space-y-10">
+                {groupedItems.map(([groupName, groupItems]) => (
+                  <section key={groupName}>
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-2xl font-black uppercase italic text-emerald-300">
+                        {groupName}
+                      </h3>
+                      <span className="rounded-full border border-slate-700 bg-[#0d1c31] px-3 py-1 text-sm font-bold text-slate-300">
+                        {groupItems.length}
+                      </span>
+                    </div>
 
-                      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                        {groupItems.map((item) => (
-                          <ShopCard
-                            key={item.id}
-                            item={item}
-                            language={language}
-                            labels={labels}
-                          />
-                        ))}
-                      </div>
-                    </section>
-                  ))}
-                </div>
-              )}
+                    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                      {groupItems.map((item) => (
+                        <ShopCard
+                          key={item.id}
+                          item={item}
+                          language={language}
+                          labels={labels}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </div>
