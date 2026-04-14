@@ -33,7 +33,7 @@ const NAME_TRANSLATIONS_ES_MX = {
 };
 
 const VB_TO_MXN_RATE = 0.09;
-const LEAVING_SOON_HOURS = 12;
+const LEAVING_SOON_HOURS = 24;
 
 function getTimeUntilNextShopUpdate(lang) {
   const now = new Date();
@@ -59,11 +59,10 @@ function getTimeUntilNextShopUpdate(lang) {
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
   const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-  const hh = String(hours).padStart(2, "0");
-  const mm = String(minutes).padStart(2, "0");
-  const ss = String(seconds).padStart(2, "0");
-
-  return `${hh}:${mm}:${ss}`;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+    2,
+    "0"
+  )}:${String(seconds).padStart(2, "0")}`;
 }
 
 function getTimeUntilDate(dateString, lang) {
@@ -247,19 +246,25 @@ function ShopCard({ item, language, labels }) {
   const leaveCountdown = getTimeUntilDate(item.outDate, language);
 
   return (
-    <article className="overflow-hidden rounded-[22px] border border-emerald-500/15 bg-[#0c1830] shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition duration-200 hover:-translate-y-1 hover:border-emerald-400/40">
+    <article
+      className={`overflow-hidden rounded-[22px] bg-[#0d1210] shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition duration-200 hover:-translate-y-1 ${
+        leavingSoon
+          ? "border-2 border-red-500 ring-2 ring-red-500/30"
+          : "border border-[#1f3a2b]"
+      }`}
+    >
       <div className="relative">
         {item.image ? (
-          <div className="flex h-56 w-full items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.16),_transparent_45%),linear-gradient(180deg,_#0b1730_0%,_#091120_100%)] p-3 sm:h-64 sm:p-4 md:h-72">
+          <div className="flex h-56 w-full items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(0,255,87,0.18),_transparent_45%),linear-gradient(180deg,_#060706_0%,_#0b120d_100%)] p-3 sm:h-64 sm:p-4 md:h-72">
             <img
               src={item.image}
               alt={displayName}
               loading="lazy"
-              className="h-full w-full object-contain md:object-cover"
+              className="h-full w-full object-contain"
             />
           </div>
         ) : (
-          <div className="grid h-56 w-full place-items-center bg-slate-800 text-slate-400 sm:h-64 md:h-72">
+          <div className="grid h-56 w-full place-items-center bg-[#101812] text-slate-400 sm:h-64 md:h-72">
             {labels.noImage}
           </div>
         )}
@@ -272,7 +277,7 @@ function ShopCard({ item, language, labels }) {
       </div>
 
       <div className="p-4">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-300 sm:text-sm">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#67ff9a] sm:text-sm">
           {displaySection}
         </p>
 
@@ -289,7 +294,7 @@ function ShopCard({ item, language, labels }) {
             )}
           </div>
 
-          <div className="shrink-0 rounded-full border border-emerald-300 bg-emerald-500 px-3 py-1 text-xs font-extrabold text-slate-950 shadow-lg sm:text-sm">
+          <div className="shrink-0 rounded-full border border-[#88ffae] bg-[#15d863] px-3 py-1 text-xs font-extrabold text-[#06110a] shadow-lg sm:text-sm">
             {mxnPrice}
           </div>
         </div>
@@ -301,11 +306,23 @@ function ShopCard({ item, language, labels }) {
         </p>
 
         {item.outDate && (
-          <div className="mt-3 rounded-xl border border-slate-700 bg-[#091120] px-3 py-2">
+          <div
+            className={`mt-3 rounded-xl px-3 py-2 ${
+              leavingSoon
+                ? "border border-red-500/50 bg-red-500/10"
+                : "border border-[#28392f] bg-[#07100a]"
+            }`}
+          >
             <p className="text-[11px] text-slate-400 sm:text-xs">
               {labels.leavesIn}
             </p>
-            <p className="text-sm font-bold text-orange-300">{leaveCountdown}</p>
+            <p
+              className={`text-sm font-bold ${
+                leavingSoon ? "text-red-300" : "text-[#8dffb3]"
+              }`}
+            >
+              {leaveCountdown}
+            </p>
           </div>
         )}
       </div>
@@ -372,15 +389,12 @@ export default function Home() {
       ? {
           brand: "Ganker Games",
           title: "TIENDA",
-          subtitle: "Tienda completa del día de Fortnite",
           heroTitle: "Lo más destacado de hoy",
           heroText:
             "Explora la tienda diaria con precios en MXN, V-Bucks, filtros por sección y objetos que están por salir.",
           refresh: loadingRefresh ? "Actualizando..." : "Actualizar tienda",
           search: "Buscar skin, bundle, track, sección...",
           all: "Todas",
-          total: "Total en API",
-          showing: "Mostrando",
           filters: "Filtros",
           closeFilters: "Cerrar filtros",
           loading: "Cargando tienda...",
@@ -397,15 +411,12 @@ export default function Home() {
       : {
           brand: "Ganker Games",
           title: "SHOP",
-          subtitle: "Full daily Fortnite shop",
           heroTitle: "Top picks for today",
           heroText:
             "Browse the daily shop with MXN pricing, V-Bucks, section filters and items that are leaving soon.",
           refresh: loadingRefresh ? "Refreshing..." : "Refresh shop",
           search: "Search skin, bundle, track, section...",
           all: "All",
-          total: "Total in API",
-          showing: "Showing",
           filters: "Filters",
           closeFilters: "Close filters",
           loading: "Loading shop...",
@@ -494,18 +505,20 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_right,_rgba(52,211,153,0.18),_transparent_24%),linear-gradient(180deg,_#06132a_0%,_#041022_50%,_#030b18_100%)] text-white">
-      <header className="sticky top-0 z-50 border-b border-white/5 bg-[#07111f]/90 backdrop-blur">
+    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_20%),linear-gradient(180deg,_#000000_0%,_#021106_45%,_#000000_100%)] text-white">
+      <header className="sticky top-0 z-50 border-b border-[#153321] bg-[#030603]/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 md:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500 font-black text-slate-950 shadow-lg">
-              GG
-            </div>
+            <img
+              src="/ganker-logo.png"
+              alt="Ganker Games"
+              className="h-12 w-12 shrink-0 rounded-full border border-[#19ff72]/40 object-cover shadow-[0_0_18px_rgba(25,255,114,0.25)]"
+            />
             <div className="min-w-0">
               <p className="truncate text-base font-extrabold leading-none sm:text-lg">
                 {labels.brand}
               </p>
-              <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-300 sm:text-xs">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-[#67ff9a] sm:text-xs">
                 Fortnite Shop
               </p>
             </div>
@@ -514,13 +527,13 @@ export default function Home() {
           <nav className="ml-auto hidden items-center gap-2 md:flex">
             <Link
               href="/"
-              className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950"
+              className="rounded-xl bg-[#15d863] px-4 py-2 text-sm font-bold text-[#06110a]"
             >
               {labels.navShop}
             </Link>
             <Link
               href="/noticias"
-              className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:border-emerald-400"
+              className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white transition hover:border-[#67ff9a]"
             >
               {labels.navNews}
             </Link>
@@ -529,10 +542,10 @@ export default function Home() {
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-4 md:px-6 md:py-6">
-        <section className="mb-5 overflow-hidden rounded-[24px] border border-emerald-500/20 bg-[linear-gradient(120deg,_rgba(16,185,129,0.20)_0%,_rgba(6,24,54,0.95)_35%,_rgba(7,36,66,0.88)_100%)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.25)] md:mb-6 md:rounded-[28px] md:p-6">
+        <section className="mb-5 overflow-hidden rounded-[24px] border border-[#1d4a2d] bg-[linear-gradient(120deg,_rgba(0,255,102,0.10)_0%,_rgba(5,14,8,0.96)_35%,_rgba(2,7,3,0.96)_100%)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.35)] md:mb-6 md:rounded-[28px] md:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <p className="mb-2 text-xs font-black uppercase tracking-[0.28em] text-emerald-300 sm:text-sm md:tracking-[0.3em]">
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a] sm:text-sm md:tracking-[0.3em]">
                 {labels.brand}
               </p>
               <h1 className="text-3xl font-black uppercase italic sm:text-4xl md:text-6xl">
@@ -543,8 +556,8 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-emerald-400/20 bg-[#08121f]/70 p-4 backdrop-blur md:p-5">
-              <p className="text-sm font-semibold text-emerald-300">
+            <div className="rounded-2xl border border-[#255239] bg-[#040804]/80 p-4 backdrop-blur md:p-5">
+              <p className="text-sm font-semibold text-[#67ff9a]">
                 {labels.countdownTitle}
               </p>
               <p className="mt-2 text-2xl font-black tracking-wider sm:text-3xl md:text-4xl">
@@ -561,13 +574,13 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-3">
             <Link
               href="/"
-              className="rounded-xl bg-emerald-500 px-4 py-3 text-center text-sm font-extrabold text-slate-950"
+              className="rounded-xl bg-[#15d863] px-4 py-3 text-center text-sm font-extrabold text-[#06110a]"
             >
               {labels.navShop}
             </Link>
             <Link
               href="/noticias"
-              className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-center text-sm font-extrabold text-white"
+              className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-3 text-center text-sm font-extrabold text-white"
             >
               {labels.navNews}
             </Link>
@@ -578,13 +591,13 @@ export default function Home() {
             placeholder={labels.search}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-2xl border border-slate-700 bg-[#101b2d] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-emerald-400"
+            className="w-full rounded-2xl border border-[#284635] bg-[#0c110d] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-[#67ff9a]"
           />
 
           <div className="grid grid-cols-[1fr_90px] gap-3">
             <button
               onClick={() => setShowMobileFilters((prev) => !prev)}
-              className="rounded-xl border border-slate-700 bg-[#0d1c31] px-4 py-3 text-sm font-extrabold text-white"
+              className="rounded-xl border border-[#284635] bg-[#0d1210] px-4 py-3 text-sm font-extrabold text-white"
             >
               {showMobileFilters ? labels.closeFilters : labels.filters}
             </button>
@@ -597,7 +610,7 @@ export default function Home() {
                 setLanguage(newLanguage);
                 setSection(newLanguage === "es-419" ? "Todas" : "All");
               }}
-              className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm font-semibold text-white outline-none"
+              className="rounded-xl border border-[#284635] bg-[#0b120d] px-3 py-3 text-sm font-semibold text-white outline-none"
             >
               <option value="es-419">ES</option>
               <option value="en">EN</option>
@@ -606,13 +619,13 @@ export default function Home() {
 
           <button
             onClick={() => loadShop(true, language)}
-            className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-extrabold text-slate-950"
+            className="rounded-xl bg-[#15d863] px-4 py-3 text-sm font-extrabold text-[#06110a]"
           >
             {labels.refresh}
           </button>
 
           {showMobileFilters && (
-            <div className="rounded-2xl border border-emerald-500/15 bg-[#071426]/95 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.22)]">
+            <div className="rounded-2xl border border-[#1f3a2b] bg-[#060b07]/95 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.28)]">
               <div className="max-h-[45vh] space-y-2 overflow-y-auto pr-1">
                 {sections.map((sectionName) => {
                   const active = section === sectionName;
@@ -623,8 +636,8 @@ export default function Home() {
                       onClick={() => handleSectionChange(sectionName)}
                       className={`w-full rounded-2xl px-4 py-3 text-left text-sm font-extrabold uppercase tracking-wide transition ${
                         active
-                          ? "bg-emerald-500 text-slate-950 shadow-lg"
-                          : "bg-[#0d1c31] text-white hover:bg-[#132744]"
+                          ? "bg-[#15d863] text-[#06110a] shadow-lg"
+                          : "bg-[#0d1210] text-white hover:bg-[#131b15]"
                       }`}
                     >
                       {sectionName}
@@ -637,14 +650,11 @@ export default function Home() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
-          <aside className="hidden h-fit rounded-[28px] border border-emerald-500/15 bg-[#071426]/90 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.22)] lg:sticky lg:top-24 lg:block">
+          <aside className="hidden h-fit rounded-[28px] border border-[#1f3a2b] bg-[#060b07]/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.28)] lg:sticky lg:top-24 lg:block">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-black uppercase tracking-wide text-white">
                 {labels.filters}
               </h2>
-              <div className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-black text-slate-950">
-                {sections.length - 1}
-              </div>
             </div>
 
             <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
@@ -657,8 +667,8 @@ export default function Home() {
                     onClick={() => setSection(sectionName)}
                     className={`w-full rounded-2xl px-4 py-3 text-left text-sm font-extrabold uppercase tracking-wide transition ${
                       active
-                        ? "bg-emerald-500 text-slate-950 shadow-lg"
-                        : "bg-[#0d1c31] text-white hover:bg-[#132744]"
+                        ? "bg-[#15d863] text-[#06110a] shadow-lg"
+                        : "bg-[#0d1210] text-white hover:bg-[#131b15]"
                     }`}
                   >
                     {sectionName}
@@ -669,10 +679,10 @@ export default function Home() {
           </aside>
 
           <section>
-            <div className="mb-5 rounded-[24px] border border-white/5 bg-[#071426]/80 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.2)] md:mb-6 md:rounded-[28px] md:p-5">
+            <div className="mb-5 rounded-[24px] border border-[#1a2c21] bg-[#060b07]/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.25)] md:mb-6 md:rounded-[28px] md:p-5">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-300 sm:text-sm md:tracking-[0.3em]">
+                  <p className="text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a] sm:text-sm md:tracking-[0.3em]">
                     {labels.brand}
                   </p>
                   <h2 className="mt-2 text-2xl font-black uppercase italic sm:text-3xl md:text-5xl">
@@ -688,7 +698,7 @@ export default function Home() {
                         placeholder={labels.search}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full rounded-full border border-slate-700 bg-[#101b2d] px-5 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-emerald-400"
+                        className="w-full rounded-full border border-[#284635] bg-[#0c110d] px-5 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-[#67ff9a]"
                       />
                     </div>
 
@@ -700,7 +710,7 @@ export default function Home() {
                         setLanguage(newLanguage);
                         setSection(newLanguage === "es-419" ? "Todas" : "All");
                       }}
-                      className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-emerald-400"
+                      className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-3 text-sm font-semibold text-white outline-none focus:border-[#67ff9a]"
                     >
                       <option value="es-419">ES</option>
                       <option value="en">EN</option>
@@ -708,47 +718,17 @@ export default function Home() {
 
                     <button
                       onClick={() => loadShop(true, language)}
-                      className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-extrabold text-slate-950 transition hover:bg-emerald-400"
+                      className="rounded-xl bg-[#15d863] px-4 py-3 text-sm font-extrabold text-[#06110a] transition hover:bg-[#2cff7a]"
                     >
                       {labels.refresh}
                     </button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3 text-xs text-slate-300 sm:text-sm xl:justify-end">
-                    <div className="rounded-full border border-slate-700 bg-[#0d1c31] px-4 py-2">
-                      {labels.total}:{" "}
-                      <span className="font-extrabold text-white">
-                        {allItems.length}
-                      </span>
-                    </div>
-                    <div className="rounded-full border border-slate-700 bg-[#0d1c31] px-4 py-2">
-                      {labels.showing}:{" "}
-                      <span className="font-extrabold text-white">
-                        {items.length}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-3 text-xs text-slate-300 sm:text-sm md:hidden">
-                  <div className="rounded-full border border-slate-700 bg-[#0d1c31] px-4 py-2">
-                    {labels.total}:{" "}
-                    <span className="font-extrabold text-white">
-                      {allItems.length}
-                    </span>
-                  </div>
-                  <div className="rounded-full border border-slate-700 bg-[#0d1c31] px-4 py-2">
-                    {labels.showing}:{" "}
-                    <span className="font-extrabold text-white">
-                      {items.length}
-                    </span>
                   </div>
                 </div>
               </div>
             </div>
 
             {loading && (
-              <div className="rounded-2xl border border-slate-800 bg-[#071426] p-6">
+              <div className="rounded-2xl border border-[#1a2c21] bg-[#060b07] p-6">
                 {labels.loading}
               </div>
             )}
@@ -760,7 +740,7 @@ export default function Home() {
             )}
 
             {!loading && !error && items.length === 0 && (
-              <div className="rounded-2xl border border-slate-800 bg-[#071426] p-6 text-slate-300">
+              <div className="rounded-2xl border border-[#1a2c21] bg-[#060b07] p-6 text-slate-300">
                 {labels.noResults}
               </div>
             )}
@@ -789,12 +769,9 @@ export default function Home() {
                   {groupedItems.map(([groupName, groupItems]) => (
                     <section key={groupName}>
                       <div className="mb-4 flex items-center justify-between gap-3">
-                        <h3 className="text-xl font-black uppercase italic text-emerald-300 sm:text-2xl">
+                        <h3 className="text-xl font-black uppercase italic text-[#67ff9a] sm:text-2xl">
                           {groupName}
                         </h3>
-                        <span className="rounded-full border border-slate-700 bg-[#0d1c31] px-3 py-1 text-xs font-bold text-slate-300 sm:text-sm">
-                          {groupItems.length}
-                        </span>
                       </div>
 
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
