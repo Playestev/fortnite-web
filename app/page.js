@@ -88,11 +88,6 @@ function getTimeUntilDate(dateString, lang) {
   const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
 
-  if (lang === "es-419") {
-    if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-    return `${hours}h ${minutes}m`;
-  }
-
   if (days > 0) return `${days}d ${hours}h ${minutes}m`;
   return `${hours}h ${minutes}m`;
 }
@@ -256,7 +251,7 @@ function ShopCard({ item, language, labels }) {
   const leaveCountdown = getTimeUntilDate(item.outDate, language);
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg transition hover:-translate-y-1">
+    <article className="overflow-hidden rounded-[24px] border border-emerald-500/15 bg-[#0c1830] shadow-[0_10px_30px_rgba(0,0,0,0.25)] transition duration-200 hover:-translate-y-1 hover:border-emerald-400/40">
       <div className="relative">
         {item.image ? (
           <img
@@ -271,41 +266,43 @@ function ShopCard({ item, language, labels }) {
         )}
 
         {leavingSoon && (
-          <div className="absolute left-3 top-3 rounded-full border border-red-300 bg-red-500 px-3 py-1 text-xs font-extrabold text-white shadow-lg">
+          <div className="absolute left-3 top-3 rounded-full border border-red-300 bg-red-500 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-white shadow-lg">
             {labels.leavingSoon}
           </div>
         )}
       </div>
 
       <div className="p-4">
-        <p className="mb-2 text-sm text-cyan-400">{displaySection}</p>
+        <p className="mb-2 text-sm font-semibold text-emerald-300">
+          {displaySection}
+        </p>
 
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-semibold leading-tight">
+            <h2 className="text-lg font-extrabold leading-tight text-white">
               {displayName}
             </h2>
 
             {secondaryEnglishName && (
-              <p className="mt-1 text-xs italic text-slate-500">
+              <p className="mt-1 text-xs italic text-slate-400">
                 {secondaryEnglishName}
               </p>
             )}
           </div>
 
-          <div className="shrink-0 rounded-full border border-emerald-300 bg-emerald-500 px-3 py-1 text-sm font-extrabold text-white shadow-lg">
+          <div className="shrink-0 rounded-full border border-emerald-300 bg-emerald-500 px-3 py-1 text-sm font-extrabold text-slate-950 shadow-lg">
             {mxnPrice}
           </div>
         </div>
 
-        <p className="mt-2 text-sm text-slate-400">{displayType}</p>
+        <p className="mt-2 text-sm text-slate-300">{displayType}</p>
 
-        <p className="mt-3 text-base font-bold text-white">
+        <p className="mt-3 text-base font-extrabold text-white">
           {item.price} {labels.vbucks}
         </p>
 
         {item.outDate && (
-          <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2">
+          <div className="mt-3 rounded-xl border border-slate-700 bg-[#091120] px-3 py-2">
             <p className="text-xs text-slate-400">{labels.leavesIn}</p>
             <p className="text-sm font-bold text-orange-300">{leaveCountdown}</p>
           </div>
@@ -371,13 +368,18 @@ export default function Home() {
   const labels =
     language === "es-419"
       ? {
-          title: "FORTNITE SHOP",
+          brand: "Ganker Games",
+          title: "TIENDA",
           subtitle: "Tienda completa del día de Fortnite",
+          heroTitle: "Lo más destacado de hoy",
+          heroText:
+            "Explora la tienda diaria con precios en MXN, V-Bucks, filtros por sección y objetos que están por salir.",
           refresh: loadingRefresh ? "Actualizando..." : "Actualizar tienda",
           search: "Buscar skin, bundle, track, sección...",
           all: "Todas",
           total: "Total en API",
           showing: "Mostrando",
+          filters: "Filtros",
           loading: "Cargando tienda...",
           noResults: "No se encontraron resultados con ese filtro.",
           noImage: "Sin imagen",
@@ -386,15 +388,22 @@ export default function Home() {
           countdownNote: "La tienda cambia diario a las 00:00 UTC",
           leavingSoon: "Se va pronto",
           leavesIn: "Se va en",
+          navShop: "Tienda",
+          navNews: "Noticias",
         }
       : {
-          title: "FORTNITE SHOP",
+          brand: "Ganker Games",
+          title: "SHOP",
           subtitle: "Full daily Fortnite shop",
+          heroTitle: "Top picks for today",
+          heroText:
+            "Browse the daily shop with MXN pricing, V-Bucks, section filters and items that are leaving soon.",
           refresh: loadingRefresh ? "Refreshing..." : "Refresh shop",
           search: "Search skin, bundle, track, section...",
           all: "All",
           total: "Total in API",
           showing: "Showing",
+          filters: "Filters",
           loading: "Loading shop...",
           noResults: "No results found for that filter.",
           noImage: "No image",
@@ -403,6 +412,8 @@ export default function Home() {
           countdownNote: "The shop refreshes daily at 00:00 UTC",
           leavingSoon: "Leaving soon",
           leavesIn: "Leaves in",
+          navShop: "Shop",
+          navNews: "News",
         };
 
   const translatedAllLabel = language === "es-419" ? "Todas" : "All";
@@ -470,138 +481,226 @@ export default function Home() {
     );
   }, [items, language, translatedAllLabel]);
 
+  const selectedSectionTitle =
+    section === translatedAllLabel ? labels.heroTitle : section;
+
   return (
-    <main className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-7xl px-6 py-10">
-        <header className="mb-8">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h1 className="text-4xl font-bold md:text-5xl">{labels.title}</h1>
-              <p className="mt-2 text-lg text-slate-300">{labels.subtitle}</p>
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(52,211,153,0.18),_transparent_24%),linear-gradient(180deg,_#06132a_0%,_#041022_50%,_#030b18_100%)] text-white">
+      <header className="sticky top-0 z-50 border-b border-white/5 bg-[#07111f]/85 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 md:px-6">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-500 font-black text-slate-950 shadow-lg">
+              GG
             </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/noticias"
-                className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 font-semibold text-white transition hover:border-cyan-400"
-              >
-                Noticias
-              </Link>
-
-              <select
-                value={language}
-                onChange={(e) => {
-                  const newLanguage = e.target.value;
-                  setSearch("");
-                  setLanguage(newLanguage);
-                  setSection(newLanguage === "es-419" ? "Todas" : "All");
-                }}
-                className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-white outline-none focus:border-cyan-400"
-              >
-                <option value="es-419">Español (México / Latam)</option>
-                <option value="en">English</option>
-              </select>
-
-              <button
-                onClick={() => loadShop(true, language)}
-                className="rounded-xl bg-cyan-500 px-4 py-2 font-semibold text-slate-950 transition hover:bg-cyan-400"
-              >
-                {labels.refresh}
-              </button>
+            <div>
+              <p className="text-lg font-extrabold leading-none">{labels.brand}</p>
+              <p className="text-xs uppercase tracking-[0.25em] text-emerald-300">
+                Fortnite Shop
+              </p>
             </div>
           </div>
-        </header>
 
-        <section className="mb-6 rounded-2xl border border-cyan-500/20 bg-slate-900 p-5">
-          <p className="mb-2 text-sm text-cyan-400">{labels.countdownTitle}</p>
-          <p className="text-3xl font-bold tracking-wider md:text-4xl">
-            {timeLeft}
-          </p>
-          <p className="mt-2 text-sm text-slate-400">{labels.countdownNote}</p>
+          <nav className="ml-2 hidden items-center gap-2 md:flex">
+            <Link
+              href="/"
+              className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950"
+            >
+              {labels.navShop}
+            </Link>
+            <Link
+              href="/noticias"
+              className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:border-emerald-400"
+            >
+              {labels.navNews}
+            </Link>
+          </nav>
+
+          <div className="ml-auto hidden flex-1 items-center justify-end gap-3 md:flex">
+            <div className="w-full max-w-xl">
+              <input
+                type="text"
+                placeholder={labels.search}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-full border border-slate-700 bg-[#101b2d] px-5 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-emerald-400"
+              />
+            </div>
+
+            <select
+              value={language}
+              onChange={(e) => {
+                const newLanguage = e.target.value;
+                setSearch("");
+                setLanguage(newLanguage);
+                setSection(newLanguage === "es-419" ? "Todas" : "All");
+              }}
+              className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-emerald-400"
+            >
+              <option value="es-419">ES</option>
+              <option value="en">EN</option>
+            </select>
+
+            <button
+              onClick={() => loadShop(true, language)}
+              className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-extrabold text-slate-950 transition hover:bg-emerald-400"
+            >
+              {labels.refresh}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
+        <section className="mb-6 overflow-hidden rounded-[28px] border border-emerald-500/20 bg-[linear-gradient(120deg,_rgba(16,185,129,0.20)_0%,_rgba(6,24,54,0.95)_35%,_rgba(7,36,66,0.88)_100%)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.25)]">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="mb-2 text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
+                {labels.brand}
+              </p>
+              <h1 className="text-4xl font-black uppercase italic md:text-6xl">
+                {labels.title}
+              </h1>
+              <p className="mt-3 max-w-2xl text-base text-slate-200 md:text-lg">
+                {labels.heroText}
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-emerald-400/20 bg-[#08121f]/70 p-5 backdrop-blur">
+              <p className="text-sm font-semibold text-emerald-300">
+                {labels.countdownTitle}
+              </p>
+              <p className="mt-2 text-3xl font-black tracking-wider md:text-4xl">
+                {timeLeft}
+              </p>
+              <p className="mt-2 text-sm text-slate-300">{labels.countdownNote}</p>
+            </div>
+          </div>
         </section>
 
-        <section className="mb-6 grid gap-4 md:grid-cols-2">
+        <div className="mb-4 grid gap-4 md:hidden">
           <input
             type="text"
             placeholder={labels.search}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-cyan-400"
+            className="w-full rounded-2xl border border-slate-700 bg-[#101b2d] px-4 py-3 text-white outline-none placeholder:text-slate-400 focus:border-emerald-400"
           />
 
-          <select
-            value={section}
-            onChange={(e) => setSection(e.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white outline-none focus:border-cyan-400"
+          <div className="grid grid-cols-3 gap-3">
+            <Link
+              href="/"
+              className="rounded-xl bg-emerald-500 px-4 py-3 text-center text-sm font-extrabold text-slate-950"
+            >
+              {labels.navShop}
+            </Link>
+            <Link
+              href="/noticias"
+              className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-center text-sm font-extrabold text-white"
+            >
+              {labels.navNews}
+            </Link>
+            <select
+              value={language}
+              onChange={(e) => {
+                const newLanguage = e.target.value;
+                setSearch("");
+                setLanguage(newLanguage);
+                setSection(newLanguage === "es-419" ? "Todas" : "All");
+              }}
+              className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-3 text-sm font-semibold text-white outline-none"
+            >
+              <option value="es-419">ES</option>
+              <option value="en">EN</option>
+            </select>
+          </div>
+
+          <button
+            onClick={() => loadShop(true, language)}
+            className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-extrabold text-slate-950"
           >
-            <option value={translatedAllLabel}>{labels.all}</option>
-            {sections
-              .filter((sectionName) => sectionName !== translatedAllLabel)
-              .map((sectionName) => (
-                <option key={sectionName} value={sectionName}>
-                  {sectionName}
-                </option>
-              ))}
-          </select>
-        </section>
+            {labels.refresh}
+          </button>
+        </div>
 
-        <section className="mb-6 flex flex-wrap gap-3 text-sm text-slate-300">
-          <div className="rounded-full border border-slate-800 bg-slate-900 px-4 py-2">
-            {labels.total}:{" "}
-            <span className="font-semibold text-white">{allItems.length}</span>
-          </div>
-          <div className="rounded-full border border-slate-800 bg-slate-900 px-4 py-2">
-            {labels.showing}:{" "}
-            <span className="font-semibold text-white">{items.length}</span>
-          </div>
-        </section>
+        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+          <aside className="h-fit rounded-[28px] border border-emerald-500/15 bg-[#071426]/90 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.22)] lg:sticky lg:top-24">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-black uppercase tracking-wide text-white">
+                {labels.filters}
+              </h2>
+              <div className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-black text-slate-950">
+                {sections.length - 1}
+              </div>
+            </div>
 
-        {loading && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-            {labels.loading}
-          </div>
-        )}
+            <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
+              {sections.map((sectionName) => {
+                const active = section === sectionName;
 
-        {error && (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-red-300">
-            {error}
-          </div>
-        )}
+                return (
+                  <button
+                    key={sectionName}
+                    onClick={() => setSection(sectionName)}
+                    className={`w-full rounded-2xl px-4 py-3 text-left text-sm font-extrabold uppercase tracking-wide transition ${
+                      active
+                        ? "bg-emerald-500 text-slate-950 shadow-lg"
+                        : "bg-[#0d1c31] text-white hover:bg-[#132744]"
+                    }`}
+                  >
+                    {sectionName}
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
 
-        {!loading && !error && items.length === 0 && (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 text-slate-300">
-            {labels.noResults}
-          </div>
-        )}
+          <section>
+            <div className="mb-6 flex flex-col gap-4 rounded-[28px] border border-white/5 bg-[#071426]/80 p-5 shadow-[0_12px_40px_rgba(0,0,0,0.2)] md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
+                  {labels.brand}
+                </p>
+                <h2 className="mt-2 text-3xl font-black uppercase italic md:text-5xl">
+                  {selectedSectionTitle}
+                </h2>
+              </div>
 
-        {!loading && !error && items.length > 0 && section !== translatedAllLabel && (
-          <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {items.map((item) => (
-              <ShopCard
-                key={item.id}
-                item={item}
-                language={language}
-                labels={labels}
-              />
-            ))}
-          </section>
-        )}
-
-        {!loading && !error && items.length > 0 && section === translatedAllLabel && (
-          <div className="space-y-10">
-            {groupedItems.map(([groupName, groupItems]) => (
-              <section key={groupName}>
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-cyan-400">
-                    {groupName}
-                  </h2>
-                  <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-sm text-slate-300">
-                    {groupItems.length}
-                  </span>
+              <div className="flex flex-wrap gap-3 text-sm text-slate-300">
+                <div className="rounded-full border border-slate-700 bg-[#0d1c31] px-4 py-2">
+                  {labels.total}:{" "}
+                  <span className="font-extrabold text-white">{allItems.length}</span>
                 </div>
+                <div className="rounded-full border border-slate-700 bg-[#0d1c31] px-4 py-2">
+                  {labels.showing}:{" "}
+                  <span className="font-extrabold text-white">{items.length}</span>
+                </div>
+              </div>
+            </div>
 
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {groupItems.map((item) => (
+            {loading && (
+              <div className="rounded-2xl border border-slate-800 bg-[#071426] p-6">
+                {labels.loading}
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-red-300">
+                {error}
+              </div>
+            )}
+
+            {!loading && !error && items.length === 0 && (
+              <div className="rounded-2xl border border-slate-800 bg-[#071426] p-6 text-slate-300">
+                {labels.noResults}
+              </div>
+            )}
+
+            {!loading &&
+              !error &&
+              items.length > 0 &&
+              section !== translatedAllLabel && (
+                <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                  {items.map((item) => (
                     <ShopCard
                       key={item.id}
                       item={item}
@@ -609,11 +708,41 @@ export default function Home() {
                       labels={labels}
                     />
                   ))}
+                </section>
+              )}
+
+            {!loading &&
+              !error &&
+              items.length > 0 &&
+              section === translatedAllLabel && (
+                <div className="space-y-10">
+                  {groupedItems.map(([groupName, groupItems]) => (
+                    <section key={groupName}>
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-2xl font-black uppercase italic text-emerald-300">
+                          {groupName}
+                        </h3>
+                        <span className="rounded-full border border-slate-700 bg-[#0d1c31] px-3 py-1 text-sm font-bold text-slate-300">
+                          {groupItems.length}
+                        </span>
+                      </div>
+
+                      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                        {groupItems.map((item) => (
+                          <ShopCard
+                            key={item.id}
+                            item={item}
+                            language={language}
+                            labels={labels}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
                 </div>
-              </section>
-            ))}
-          </div>
-        )}
+              )}
+          </section>
+        </div>
       </div>
     </main>
   );
