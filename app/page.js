@@ -18,20 +18,51 @@ const NAME_TRANSLATIONS_ES_MX = {
   Renegade: "Renegada",
   "Star Wand": "Varita Estelar",
   Lyrik: "Lírik",
-  "Destroy Buzz": "Destruye a Buzz",
   "Sandy Salute": "Saludo Arenoso",
   "Motor Monster": "Monstruo Motorizado",
-  "Hatcback": "Eclosión",
+  Hatcback: "Eclosión",
   "Side To Side": "De Lado a Lado",
   "Wild Blade": "Hoja Salvaje",
   "Captain Hook's Flag": "Bandera del Capitán Garfio",
-  "Destroy Buzz": "Destruye a Buzz",
   "Nike Air Kukini SE 'Leopard'": "Nike Air Kukini SE 'Leopard'",
   "Silver Surfer's Surfboard": "Tabla de Silver Surfer",
   Gabriela: "Gabriela",
   Demolisher: "Demoledora",
   "Tactical Crusher": "Trituradora Táctica",
 };
+
+const VB_TO_MXN_RATE = 0.09;
+
+function getTimeUntilNextShopUpdate(lang) {
+  const now = new Date();
+
+  const nextUtcMidnight = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1,
+      0,
+      0,
+      0
+    )
+  );
+
+  const diff = nextUtcMidnight - now;
+
+  if (diff <= 0) {
+    return lang === "es-419" ? "Actualizando..." : "Updating...";
+  }
+
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+  const hh = String(hours).padStart(2, "0");
+  const mm = String(minutes).padStart(2, "0");
+  const ss = String(seconds).padStart(2, "0");
+
+  return `${hh}:${mm}:${ss}`;
+}
 
 function translateType(type, lang) {
   const english = type || "";
@@ -159,6 +190,67 @@ function getDisplaySection(item, lang) {
   return translateSection(englishSection, lang);
 }
 
+function formatMxPrice(vbucks) {
+  const numericPrice = Number(vbucks);
+
+  if (!Number.isFinite(numericPrice)) {
+    return "MXN N/D";
+  }
+
+  const mxnPrice = numericPrice * VB_TO_MXN_RATE;
+  return `MX$${mxnPrice.toFixed(2)}`;
+}
+
+function ShopCard({ item, language, labels }) {
+  const displayName = getDisplayName(item, language);
+  const secondaryEnglishName = getSecondaryEnglishName(item, language);
+  const displayType = getDisplayType(item, language);
+  const displaySection = getDisplaySection(item, language);
+  const mxnPrice = formatMxPrice(item.price);
+
+  return (
+    <article className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg transition hover:-translate-y-1">
+      <div className="relative">
+        {item.image ? (
+          <img
+            src={item.image}
+            alt={displayName}
+            className="h-72 w-full object-cover"
+          />
+        ) : (
+          <div className="grid h-72 w-full place-items-center bg-slate-800 text-slate-400">
+            {labels.noImage}
+          </div>
+        )}
+
+        <div className="absolute right-3 top-3 rounded-full border border-emerald-300 bg-emerald-500 px-3 py-1 text-sm font-extrabold text-white shadow-lg">
+          {mxnPrice}
+        </div>
+      </div>
+
+      <div className="p-4">
+        <p className="mb-2 text-sm text-cyan-400">{displaySection}</p>
+
+        <h2 className="text-lg font-semibold leading-tight">
+          {displayName}
+        </h2>
+
+        {secondaryEnglishName && (
+          <p className="mt-1 text-xs italic text-slate-500">
+            {secondaryEnglishName}
+          </p>
+        )}
+
+        <p className="mt-2 text-sm text-slate-400">{displayType}</p>
+
+        <p className="mt-3 text-base font-bold text-white">
+          {item.price} {labels.vbucks}
+        </p>
+      </div>
+    </article>
+  );
+}
+
 export default function Home() {
   const [items, setItems] = useState([]);
   const [allItems, setAllItems] = useState([]);
@@ -168,6 +260,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [section, setSection] = useState("Todas");
   const [language, setLanguage] = useState("es-419");
+  const [timeLeft, setTimeLeft] = useState("");
 
   async function loadShop(showRefreshState = false, selectedLanguage = language) {
     try {
@@ -201,6 +294,16 @@ export default function Home() {
     loadShop(false, language);
   }, [language]);
 
+  useEffect(() => {
+    setTimeLeft(getTimeUntilNextShopUpdate(language));
+
+    const interval = setInterval(() => {
+      setTimeLeft(getTimeUntilNextShopUpdate(language));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [language]);
+
   const labels =
     language === "es-419"
       ? {
@@ -215,6 +318,8 @@ export default function Home() {
           noResults: "No se encontraron resultados con ese filtro.",
           noImage: "Sin imagen",
           vbucks: "V-Bucks",
+          countdownTitle: "Próxima actualización",
+          countdownNote: "La tienda cambia diario a las 00:00 UTC",
         }
       : {
           title: "FORTNITE SHOP",
@@ -228,6 +333,8 @@ export default function Home() {
           noResults: "No results found for that filter.",
           noImage: "No image",
           vbucks: "V-Bucks",
+          countdownTitle: "Next update",
+          countdownNote: "The shop refreshes daily at 00:00 UTC",
         };
 
   const translatedAllLabel = language === "es-419" ? "Todas" : "All";
@@ -277,14 +384,32 @@ export default function Home() {
     setItems(filtered);
   }, [search, section, allItems, language, translatedAllLabel]);
 
+  const groupedItems = useMemo(() => {
+    const groups = {};
+
+    for (const item of items) {
+      const groupName = getDisplaySection(item, language) || translatedAllLabel;
+
+      if (!groups[groupName]) {
+        groups[groupName] = [];
+      }
+
+      groups[groupName].push(item);
+    }
+
+    return Object.entries(groups).sort((a, b) =>
+      a[0].localeCompare(b[0], language === "es-419" ? "es" : "en")
+    );
+  }, [items, language, translatedAllLabel]);
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <div className="max-w-7xl mx-auto px-6 py-10">
+      <div className="mx-auto max-w-7xl px-6 py-10">
         <header className="mb-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <h1 className="text-4xl md:text-5xl font-bold">{labels.title}</h1>
-              <p className="text-slate-300 mt-2 text-lg">{labels.subtitle}</p>
+              <h1 className="text-4xl font-bold md:text-5xl">{labels.title}</h1>
+              <p className="mt-2 text-lg text-slate-300">{labels.subtitle}</p>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -304,13 +429,21 @@ export default function Home() {
 
               <button
                 onClick={() => loadShop(true, language)}
-                className="rounded-xl bg-cyan-500 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-400 transition"
+                className="rounded-xl bg-cyan-500 px-4 py-2 font-semibold text-slate-950 transition hover:bg-cyan-400"
               >
                 {labels.refresh}
               </button>
             </div>
           </div>
         </header>
+
+        <section className="mb-6 rounded-2xl border border-cyan-500/20 bg-slate-900 p-5">
+          <p className="mb-2 text-sm text-cyan-400">{labels.countdownTitle}</p>
+          <p className="text-3xl font-bold tracking-wider md:text-4xl">
+            {timeLeft}
+          </p>
+          <p className="mt-2 text-sm text-slate-400">{labels.countdownNote}</p>
+        </section>
 
         <section className="mb-6 grid gap-4 md:grid-cols-2">
           <input
@@ -338,13 +471,13 @@ export default function Home() {
         </section>
 
         <section className="mb-6 flex flex-wrap gap-3 text-sm text-slate-300">
-          <div className="rounded-full bg-slate-900 px-4 py-2 border border-slate-800">
+          <div className="rounded-full border border-slate-800 bg-slate-900 px-4 py-2">
             {labels.total}:{" "}
-            <span className="text-white font-semibold">{allItems.length}</span>
+            <span className="font-semibold text-white">{allItems.length}</span>
           </div>
-          <div className="rounded-full bg-slate-900 px-4 py-2 border border-slate-800">
+          <div className="rounded-full border border-slate-800 bg-slate-900 px-4 py-2">
             {labels.showing}:{" "}
-            <span className="text-white font-semibold">{items.length}</span>
+            <span className="font-semibold text-white">{items.length}</span>
           </div>
         </section>
 
@@ -366,59 +499,45 @@ export default function Home() {
           </div>
         )}
 
-        {!loading && !error && items.length > 0 && (
+        {!loading && !error && items.length > 0 && section !== translatedAllLabel && (
           <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {items.map((item) => {
-              const displayName = getDisplayName(item, language);
-              const secondaryEnglishName = getSecondaryEnglishName(
-                item,
-                language
-              );
-              const displayType = getDisplayType(item, language);
-              const displaySection = getDisplaySection(item, language);
-
-              return (
-                <article
-                  key={item.id}
-                  className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-lg hover:-translate-y-1 transition"
-                >
-                  {item.image ? (
-                    <img
-                      src={item.image}
-                      alt={displayName}
-                      className="h-72 w-full object-cover"
-                    />
-                  ) : (
-                    <div className="grid h-72 w-full place-items-center bg-slate-800 text-slate-400">
-                      {labels.noImage}
-                    </div>
-                  )}
-
-                  <div className="p-4">
-                    <p className="mb-2 text-sm text-cyan-400">
-                      {displaySection}
-                    </p>
-
-                    <h2 className="text-lg font-semibold leading-tight">
-                      {displayName}
-                    </h2>
-
-                    {secondaryEnglishName && (
-                      <p className="mt-1 text-xs italic text-slate-500">
-                        {secondaryEnglishName}
-                      </p>
-                    )}
-
-                    <p className="mt-2 text-sm text-slate-400">{displayType}</p>
-
-                    <p className="mt-3 text-base font-bold text-white">
-                      {item.price} {labels.vbucks}
-                    </p>
-                  </div>
-                </article>
-              );
-            })}
+            {items.map((item) => (
+              <ShopCard
+                key={item.id}
+                item={item}
+                language={language}
+                labels={labels}
+              />
+            ))}
           </section>
+        )}
+
+        {!loading && !error && items.length > 0 && section === translatedAllLabel && (
+          <div className="space-y-10">
+            {groupedItems.map(([groupName, groupItems]) => (
+              <section key={groupName}>
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-cyan-400">
+                    {groupName}
+                  </h2>
+                  <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-sm text-slate-300">
+                    {groupItems.length}
+                  </span>
+                </div>
+
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {groupItems.map((item) => (
+                    <ShopCard
+                      key={item.id}
+                      item={item}
+                      language={language}
+                      labels={labels}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
         )}
       </div>
     </main>
