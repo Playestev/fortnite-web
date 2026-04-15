@@ -1112,23 +1112,17 @@ export default function Home() {
       </header>
 
       <div className="mx-auto max-w-7xl px-4 py-4 md:px-6 md:py-6">
-        <div className="mb-5 grid grid-cols-4 gap-3 md:hidden">
-          <Link href="/" className="rounded-xl bg-[#15d863] px-4 py-3 text-center text-sm font-extrabold text-[#06110a]">
-            {labels.navShop}
-          </Link>
-          <Link href="/noticias" className={mobileNavButton}>
-            {labels.navNews}
-          </Link>
-          <Link href="/stw" className={mobileNavButton}>
-            STW
-          </Link>
-          <button
-            onClick={() => setCartOpen(true)}
-            className="rounded-xl border border-[#67ff9a] bg-[#0b120d] px-4 py-3 text-center text-sm font-extrabold text-[#67ff9a]"
-          >
-            {labels.cart} ({cartCount})
-          </button>
-        </div>
+        <div className="mb-5 grid grid-cols-3 gap-3 md:hidden">
+  <Link href="/" className="rounded-xl bg-[#15d863] px-4 py-3 text-center text-sm font-extrabold text-[#06110a]">
+    {labels.navShop}
+  </Link>
+  <Link href="/noticias" className={mobileNavButton}>
+    {labels.navNews}
+  </Link>
+  <Link href="/stw" className={mobileNavButton}>
+    STW
+  </Link>
+</div>
 
         <section className="mb-5 overflow-hidden rounded-[24px] border border-[#1d4a2d] bg-[linear-gradient(120deg,_rgba(0,255,102,0.10)_0%,_rgba(5,14,8,0.96)_35%,_rgba(2,7,3,0.96)_100%)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.35)] md:mb-6 md:rounded-[28px] md:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
