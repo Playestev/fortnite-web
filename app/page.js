@@ -34,6 +34,7 @@ const NAME_TRANSLATIONS_ES_MX = {
 
 const VB_TO_MXN_RATE = 0.09;
 const LEAVING_SOON_HOURS = 24;
+const WHATSAPP_BASE_URL = "https://wa.me/5216568558434";
 
 function getTimeUntilNextShopUpdate(lang) {
   const now = new Date();
@@ -236,7 +237,31 @@ function formatMxPrice(vbucks) {
   return `MX$${mxnPrice.toFixed(2)}`;
 }
 
-function ShopCard({ item, language, labels }) {
+function encodeCart(cart) {
+  return cart
+    .filter((item) => item.qty > 0)
+    .map((item) => `${encodeURIComponent(item.id)}:${item.qty}`)
+    .join(",");
+}
+
+function decodeCart(value) {
+  if (!value) return [];
+
+  return value
+    .split(",")
+    .map((part) => {
+      const [rawId, rawQty] = part.split(":");
+      const id = decodeURIComponent(rawId || "");
+      const qty = Number(rawQty);
+
+      if (!id || !Number.isFinite(qty) || qty <= 0) return null;
+
+      return { id, qty };
+    })
+    .filter(Boolean);
+}
+
+function ShopCard({ item, language, labels, onAddToCart }) {
   const displayName = getDisplayName(item, language);
   const secondaryEnglishName = getSecondaryEnglishName(item, language);
   const displayType = getDisplayType(item, language);
@@ -325,6 +350,13 @@ function ShopCard({ item, language, labels }) {
             </p>
           </div>
         )}
+
+        <button
+          onClick={() => onAddToCart(item)}
+          className="mt-4 w-full rounded-xl bg-[#15d863] px-4 py-3 text-sm font-extrabold text-[#06110a] transition hover:bg-[#2cff7a]"
+        >
+          {labels.addToCart}
+        </button>
       </div>
     </article>
   );
@@ -341,6 +373,9 @@ export default function Home() {
   const [language, setLanguage] = useState("es-419");
   const [timeLeft, setTimeLeft] = useState("");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [cart, setCart] = useState([]);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [copyStatus, setCopyStatus] = useState("");
 
   async function loadShop(showRefreshState = false, selectedLanguage = language) {
     try {
@@ -384,6 +419,32 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [language]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const cartFromUrl = new URLSearchParams(window.location.search).get("cart");
+    const savedCart = window.localStorage.getItem("gkg-cart");
+
+    if (cartFromUrl) {
+      setCart(decodeCart(cartFromUrl));
+      return;
+    }
+
+    if (savedCart) {
+      try {
+        const parsed = JSON.parse(savedCart);
+        if (Array.isArray(parsed)) {
+          setCart(parsed);
+        }
+      } catch {}
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("gkg-cart", JSON.stringify(cart));
+  }, [cart]);
+
   const labels =
     language === "es-419"
       ? {
@@ -407,6 +468,23 @@ export default function Home() {
           leavesIn: "Se va en",
           navShop: "Tienda",
           navNews: "Noticias",
+          addToCart: "Agregar al carrito",
+          cart: "Carrito",
+          yourCart: "Tu carrito",
+          emptyCart: "Tu carrito está vacío",
+          quantity: "Cantidad",
+          clearCart: "Vaciar carrito",
+          shareCart: "Copiar enlace",
+          sendWhatsApp: "Enviar por WhatsApp",
+          close: "Cerrar",
+          copied: "Enlace copiado",
+          itemsLabel: "artículos",
+          totalVbucks: "Total V-Bucks",
+          totalMxn: "Total MXN",
+          remove: "Quitar",
+          orderText: "Hola, quiero cotizar este carrito de Ganker Games Fortnite:",
+          sharedLink: "Link del carrito",
+          openCart: "Abrir carrito",
         }
       : {
           brand: "Ganker Games",
@@ -429,6 +507,23 @@ export default function Home() {
           leavesIn: "Leaves in",
           navShop: "Shop",
           navNews: "News",
+          addToCart: "Add to cart",
+          cart: "Cart",
+          yourCart: "Your cart",
+          emptyCart: "Your cart is empty",
+          quantity: "Quantity",
+          clearCart: "Clear cart",
+          shareCart: "Copy link",
+          sendWhatsApp: "Send on WhatsApp",
+          close: "Close",
+          copied: "Link copied",
+          itemsLabel: "items",
+          totalVbucks: "Total V-Bucks",
+          totalMxn: "Total MXN",
+          remove: "Remove",
+          orderText: "Hi, I want a quote for this Ganker Games Fortnite cart:",
+          sharedLink: "Cart link",
+          openCart: "Open cart",
         };
 
   const translatedAllLabel = language === "es-419" ? "Todas" : "All";
@@ -496,12 +591,138 @@ export default function Home() {
     );
   }, [items, language, translatedAllLabel]);
 
+  const cartDetailed = useMemo(() => {
+    return cart
+      .map((cartItem) => {
+        const item = allItems.find((shopItem) => shopItem.id === cartItem.id);
+
+        if (!item) return null;
+
+        const priceVbucks = Number(item.price) || 0;
+        const priceMxn = priceVbucks * VB_TO_MXN_RATE;
+
+        return {
+          ...item,
+          qty: cartItem.qty,
+          totalVbucks: priceVbucks * cartItem.qty,
+          totalMxn: priceMxn * cartItem.qty,
+        };
+      })
+      .filter(Boolean);
+  }, [cart, allItems]);
+
+  const cartCount = useMemo(
+    () => cart.reduce((total, item) => total + item.qty, 0),
+    [cart]
+  );
+
+  const cartTotalVbucks = useMemo(
+    () => cartDetailed.reduce((total, item) => total + item.totalVbucks, 0),
+    [cartDetailed]
+  );
+
+  const cartTotalMxn = useMemo(
+    () => cartDetailed.reduce((total, item) => total + item.totalMxn, 0),
+    [cartDetailed]
+  );
+
   const selectedSectionTitle =
     section === translatedAllLabel ? labels.heroTitle : section;
 
   function handleSectionChange(sectionName) {
     setSection(sectionName);
     setShowMobileFilters(false);
+  }
+
+  function addToCart(item) {
+    setCart((prev) => {
+      const existing = prev.find((cartItem) => cartItem.id === item.id);
+
+      if (existing) {
+        return prev.map((cartItem) =>
+          cartItem.id === item.id
+            ? { ...cartItem, qty: cartItem.qty + 1 }
+            : cartItem
+        );
+      }
+
+      return [...prev, { id: item.id, qty: 1 }];
+    });
+
+    setCartOpen(true);
+  }
+
+  function updateCartQty(itemId, nextQty) {
+    setCart((prev) => {
+      if (nextQty <= 0) {
+        return prev.filter((item) => item.id !== itemId);
+      }
+
+      return prev.map((item) =>
+        item.id === itemId ? { ...item, qty: nextQty } : item
+      );
+    });
+  }
+
+  function removeFromCart(itemId) {
+    setCart((prev) => prev.filter((item) => item.id !== itemId));
+  }
+
+  function clearCart() {
+    setCart([]);
+  }
+
+  function buildShareLink() {
+    if (typeof window === "undefined") return "";
+
+    const encoded = encodeCart(cart);
+    const url = new URL(window.location.origin + window.location.pathname);
+
+    if (encoded) {
+      url.searchParams.set("cart", encoded);
+    }
+
+    return url.toString();
+  }
+
+  async function copyCartLink() {
+    const link = buildShareLink();
+
+    if (!link) return;
+
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopyStatus(labels.copied);
+      setTimeout(() => setCopyStatus(""), 2500);
+    } catch {
+      setCopyStatus("Error");
+      setTimeout(() => setCopyStatus(""), 2500);
+    }
+  }
+
+  function sendCartToWhatsApp() {
+    const shareLink = buildShareLink();
+
+    const lines = cartDetailed.map((item) => {
+      const name = getDisplayName(item, language);
+      return `• ${name} x${item.qty} - ${item.totalVbucks} ${labels.vbucks} - MX$${item.totalMxn.toFixed(
+        2
+      )}`;
+    });
+
+    const message = [
+      labels.orderText,
+      "",
+      ...lines,
+      "",
+      `${labels.totalVbucks}: ${cartTotalVbucks} ${labels.vbucks}`,
+      `${labels.totalMxn}: MX$${cartTotalMxn.toFixed(2)}`,
+      "",
+      `${labels.sharedLink}:`,
+      shareLink,
+    ].join("\n");
+
+    window.open(`${WHATSAPP_BASE_URL}?text=${encodeURIComponent(message)}`, "_blank");
   }
 
   return (
@@ -537,6 +758,12 @@ export default function Home() {
             >
               {labels.navNews}
             </Link>
+            <button
+              onClick={() => setCartOpen(true)}
+              className="rounded-xl border border-[#67ff9a] bg-[#0b120d] px-4 py-2 text-sm font-bold text-[#67ff9a]"
+            >
+              {labels.cart} ({cartCount})
+            </button>
           </nav>
         </div>
       </header>
@@ -571,7 +798,7 @@ export default function Home() {
         </section>
 
         <div className="mb-5 grid gap-3 md:hidden">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Link
               href="/"
               className="rounded-xl bg-[#15d863] px-4 py-3 text-center text-sm font-extrabold text-[#06110a]"
@@ -584,6 +811,12 @@ export default function Home() {
             >
               {labels.navNews}
             </Link>
+            <button
+              onClick={() => setCartOpen(true)}
+              className="rounded-xl border border-[#67ff9a] bg-[#0b120d] px-4 py-3 text-center text-sm font-extrabold text-[#67ff9a]"
+            >
+              {labels.cart} ({cartCount})
+            </button>
           </div>
 
           <input
@@ -756,6 +989,7 @@ export default function Home() {
                       item={item}
                       language={language}
                       labels={labels}
+                      onAddToCart={addToCart}
                     />
                   ))}
                 </section>
@@ -781,6 +1015,7 @@ export default function Home() {
                             item={item}
                             language={language}
                             labels={labels}
+                            onAddToCart={addToCart}
                           />
                         ))}
                       </div>
@@ -791,6 +1026,173 @@ export default function Home() {
           </section>
         </div>
       </div>
+
+      {cartCount > 0 && !cartOpen && (
+        <button
+          onClick={() => setCartOpen(true)}
+          className="fixed bottom-4 right-4 z-40 rounded-full border border-[#88ffae] bg-[#15d863] px-5 py-3 text-sm font-extrabold text-[#06110a] shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+        >
+          {labels.openCart} ({cartCount})
+        </button>
+      )}
+
+      {cartOpen && (
+        <div className="fixed inset-0 z-[70]">
+          <div
+            className="absolute inset-0 bg-black/65"
+            onClick={() => setCartOpen(false)}
+          />
+
+          <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-[#1f3a2b] bg-[#050905] shadow-[0_0_40px_rgba(0,0,0,0.45)]">
+            <div className="flex items-center justify-between border-b border-[#1f3a2b] px-4 py-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">
+                  {labels.brand}
+                </p>
+                <h2 className="mt-1 text-2xl font-black uppercase italic">
+                  {labels.yourCart}
+                </h2>
+              </div>
+
+              <button
+                onClick={() => setCartOpen(false)}
+                className="rounded-xl border border-[#284635] bg-[#0d1210] px-3 py-2 text-sm font-bold text-white"
+              >
+                {labels.close}
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {cartDetailed.length === 0 ? (
+                <div className="rounded-2xl border border-[#1f3a2b] bg-[#0d1210] p-4 text-slate-300">
+                  {labels.emptyCart}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {cartDetailed.map((item) => {
+                    const displayName = getDisplayName(item, language);
+                    const unitMxn = Number(item.price || 0) * VB_TO_MXN_RATE;
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="rounded-2xl border border-[#1f3a2b] bg-[#0d1210] p-3"
+                      >
+                        <div className="flex gap-3">
+                          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-[#101812]">
+                            {item.image ? (
+                              <img
+                                src={item.image}
+                                alt={displayName}
+                                className="h-full w-full object-contain"
+                              />
+                            ) : null}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <p className="line-clamp-2 text-sm font-extrabold text-white">
+                              {displayName}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-400">
+                              {item.price} {labels.vbucks}
+                            </p>
+                            <p className="mt-1 text-xs text-[#67ff9a]">
+                              MX${unitMxn.toFixed(2)} c/u
+                            </p>
+
+                            <div className="mt-3 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() =>
+                                    updateCartQty(item.id, item.qty - 1)
+                                  }
+                                  className="grid h-8 w-8 place-items-center rounded-lg border border-[#284635] bg-[#060b07] text-white"
+                                >
+                                  -
+                                </button>
+
+                                <span className="min-w-[24px] text-center text-sm font-bold text-white">
+                                  {item.qty}
+                                </span>
+
+                                <button
+                                  onClick={() =>
+                                    updateCartQty(item.id, item.qty + 1)
+                                  }
+                                  className="grid h-8 w-8 place-items-center rounded-lg border border-[#284635] bg-[#060b07] text-white"
+                                >
+                                  +
+                                </button>
+                              </div>
+
+                              <button
+                                onClick={() => removeFromCart(item.id)}
+                                className="text-xs font-bold text-red-300"
+                              >
+                                {labels.remove}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-[#1f3a2b] bg-[#040804] p-4">
+              <div className="mb-4 space-y-2 rounded-2xl border border-[#1f3a2b] bg-[#0d1210] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-slate-300">{labels.totalVbucks}</span>
+                  <span className="text-sm font-extrabold text-white">
+                    {cartTotalVbucks} {labels.vbucks}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-slate-300">{labels.totalMxn}</span>
+                  <span className="text-sm font-extrabold text-[#67ff9a]">
+                    MX${cartTotalMxn.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {copyStatus && (
+                <p className="mb-3 text-sm font-bold text-[#67ff9a]">
+                  {copyStatus}
+                </p>
+              )}
+
+              <div className="grid gap-3">
+                <button
+                  onClick={copyCartLink}
+                  disabled={cartDetailed.length === 0}
+                  className="rounded-xl border border-[#67ff9a] bg-transparent px-4 py-3 text-sm font-extrabold text-[#67ff9a] transition hover:bg-[#15d863] hover:text-[#06110a] disabled:opacity-50"
+                >
+                  {labels.shareCart}
+                </button>
+
+                <button
+                  onClick={sendCartToWhatsApp}
+                  disabled={cartDetailed.length === 0}
+                  className="rounded-xl bg-[#15d863] px-4 py-3 text-sm font-extrabold text-[#06110a] transition hover:bg-[#2cff7a] disabled:opacity-50"
+                >
+                  {labels.sendWhatsApp}
+                </button>
+
+                <button
+                  onClick={clearCart}
+                  disabled={cartDetailed.length === 0}
+                  className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm font-extrabold text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+                >
+                  {labels.clearCart}
+                </button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
     </main>
   );
 }
