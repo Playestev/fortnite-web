@@ -1,43 +1,260 @@
+function toArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function asDisplayText(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+
+  if (typeof value === "object") {
+    return (
+      value.displayValue ||
+      value.value ||
+      value.backendValue ||
+      value.text ||
+      value.name ||
+      value.title ||
+      ""
+    );
+  }
+
+  return "";
+}
+
+function uniqueStrings(values) {
+  return [...new Set(values.filter((value) => typeof value === "string" && value.trim()))];
+}
+
 function getKey(item, index) {
-  return item.offerId || item.devName || `item-${index}`;
+  return item?.offerId || item?.devName || `item-${index}`;
 }
 
 function getName(item) {
+  const brItems = toArray(item?.brItems);
+  const instruments = toArray(item?.instruments);
+  const cars = toArray(item?.cars);
+  const tracks = toArray(item?.tracks);
+
   return (
-    item.brItems?.[0]?.name ||
-    item.instruments?.[0]?.name ||
-    item.cars?.[0]?.name ||
-    item.tracks?.[0]?.title ||
-    item.bundle?.name ||
-    item.devName ||
+    asDisplayText(brItems[0]?.name) ||
+    asDisplayText(instruments[0]?.name) ||
+    asDisplayText(cars[0]?.name) ||
+    asDisplayText(tracks[0]?.title) ||
+    asDisplayText(item?.bundle?.name) ||
+    asDisplayText(item?.devName) ||
     "Item"
   );
 }
 
-function getImage(item) {
-  return (
-    item.newDisplayAsset?.renderImages?.[0]?.image ||
-    item.brItems?.[0]?.images?.featured ||
-    item.brItems?.[0]?.images?.icon ||
-    item.instruments?.[0]?.images?.large ||
-    item.instruments?.[0]?.images?.small ||
-    item.cars?.[0]?.images?.large ||
-    item.tracks?.[0]?.albumArt ||
-    item.bundle?.image ||
-    ""
-  );
-}
-
 function getType(item) {
+  const brItems = toArray(item?.brItems);
+  const instruments = toArray(item?.instruments);
+  const cars = toArray(item?.cars);
+  const tracks = toArray(item?.tracks);
+
   return (
-    item.brItems?.[0]?.type?.displayValue ||
-    item.layout?.name ||
-    (item.tracks ? "Jam Track" : "Fortnite")
+    asDisplayText(brItems[0]?.type?.displayValue) ||
+    asDisplayText(brItems[0]?.type) ||
+    asDisplayText(instruments[0]?.type?.displayValue) ||
+    asDisplayText(instruments[0]?.type) ||
+    asDisplayText(cars[0]?.type?.displayValue) ||
+    asDisplayText(cars[0]?.type) ||
+    (tracks.length ? "Jam Track" : "") ||
+    asDisplayText(item?.layout?.name) ||
+    "Fortnite"
   );
 }
 
 function getSection(item) {
-  return item.layout?.name || "Shop";
+  return asDisplayText(item?.layout?.name) || "Shop";
+}
+
+function getImage(item) {
+  const renderImages = toArray(item?.newDisplayAsset?.renderImages);
+  const brItems = toArray(item?.brItems);
+  const instruments = toArray(item?.instruments);
+  const cars = toArray(item?.cars);
+  const tracks = toArray(item?.tracks);
+
+  return (
+    asDisplayText(renderImages[0]?.image) ||
+    asDisplayText(brItems[0]?.images?.featured) ||
+    asDisplayText(brItems[0]?.images?.icon) ||
+    asDisplayText(brItems[0]?.images?.smallIcon) ||
+    asDisplayText(instruments[0]?.images?.large) ||
+    asDisplayText(instruments[0]?.images?.small) ||
+    asDisplayText(cars[0]?.images?.large) ||
+    asDisplayText(cars[0]?.images?.small) ||
+    asDisplayText(tracks[0]?.albumArt) ||
+    asDisplayText(item?.bundle?.image) ||
+    ""
+  );
+}
+
+function getAddedDate(item) {
+  const brItems = toArray(item?.brItems);
+  const instruments = toArray(item?.instruments);
+  const cars = toArray(item?.cars);
+  const tracks = toArray(item?.tracks);
+
+  return (
+    asDisplayText(brItems[0]?.added) ||
+    asDisplayText(instruments[0]?.added) ||
+    asDisplayText(cars[0]?.added) ||
+    asDisplayText(tracks[0]?.added) ||
+    null
+  );
+}
+
+function getDescription(item) {
+  const brItems = toArray(item?.brItems);
+  const instruments = toArray(item?.instruments);
+  const cars = toArray(item?.cars);
+  const tracks = toArray(item?.tracks);
+
+  return (
+    asDisplayText(brItems[0]?.description) ||
+    asDisplayText(instruments[0]?.description) ||
+    asDisplayText(cars[0]?.description) ||
+    asDisplayText(tracks[0]?.description) ||
+    asDisplayText(tracks[0]?.title) ||
+    ""
+  );
+}
+
+function getRarity(item) {
+  const brItems = toArray(item?.brItems);
+  const instruments = toArray(item?.instruments);
+  const cars = toArray(item?.cars);
+
+  return (
+    asDisplayText(brItems[0]?.rarity?.displayValue) ||
+    asDisplayText(brItems[0]?.rarity) ||
+    asDisplayText(brItems[0]?.series?.value) ||
+    asDisplayText(instruments[0]?.rarity?.displayValue) ||
+    asDisplayText(instruments[0]?.rarity) ||
+    asDisplayText(cars[0]?.rarity?.displayValue) ||
+    asDisplayText(cars[0]?.rarity) ||
+    ""
+  );
+}
+
+function getSetText(item) {
+  const brItems = toArray(item?.brItems);
+  const instruments = toArray(item?.instruments);
+  const cars = toArray(item?.cars);
+
+  return (
+    asDisplayText(brItems[0]?.set?.text) ||
+    asDisplayText(brItems[0]?.set) ||
+    asDisplayText(instruments[0]?.set?.text) ||
+    asDisplayText(instruments[0]?.set) ||
+    asDisplayText(cars[0]?.set?.text) ||
+    asDisplayText(cars[0]?.set) ||
+    ""
+  );
+}
+
+function collectGalleryImages(item) {
+  const images = [];
+
+  const push = (value) => {
+    const safeValue = asDisplayText(value);
+    if (safeValue) images.push(safeValue);
+  };
+
+  toArray(item?.newDisplayAsset?.renderImages).forEach((render) => {
+    push(render?.image);
+  });
+
+  toArray(item?.displayAssets).forEach((asset) => {
+    push(asset?.url);
+    push(asset?.background);
+    push(asset?.full_background);
+    push(asset?.image);
+  });
+
+  toArray(item?.brItems).forEach((brItem) => {
+    push(brItem?.images?.featured);
+    push(brItem?.images?.icon);
+    push(brItem?.images?.smallIcon);
+    push(brItem?.images?.large);
+    push(brItem?.images?.bean);
+  });
+
+  toArray(item?.instruments).forEach((instrument) => {
+    push(instrument?.images?.large);
+    push(instrument?.images?.small);
+  });
+
+  toArray(item?.cars).forEach((car) => {
+    push(car?.images?.large);
+    push(car?.images?.small);
+  });
+
+  toArray(item?.tracks).forEach((track) => {
+    push(track?.albumArt);
+  });
+
+  push(item?.bundle?.image);
+
+  return uniqueStrings(images);
+}
+
+function collectIncludedItems(item) {
+  const included = [];
+
+  const pushIncluded = (entry) => {
+    if (!entry) return;
+
+    const name =
+      asDisplayText(entry?.name) ||
+      asDisplayText(entry?.title);
+
+    if (!name) return;
+
+    const images = uniqueStrings([
+      asDisplayText(entry?.images?.featured),
+      asDisplayText(entry?.images?.icon),
+      asDisplayText(entry?.images?.smallIcon),
+      asDisplayText(entry?.images?.large),
+      asDisplayText(entry?.images?.small),
+      asDisplayText(entry?.images?.bean),
+      asDisplayText(entry?.albumArt),
+    ]);
+
+    included.push({
+      id:
+        asDisplayText(entry?.id) ||
+        asDisplayText(entry?.offerId) ||
+        name,
+      name,
+      type: asDisplayText(
+        entry?.type?.displayValue ||
+          entry?.type ||
+          (entry?.albumArt ? "Jam Track" : "Fortnite")
+      ),
+      images,
+      image: images[0] || "",
+      description: asDisplayText(entry?.description),
+      rarity: asDisplayText(
+        entry?.rarity?.displayValue ||
+          entry?.rarity ||
+          entry?.series?.value ||
+          ""
+      ),
+      setText: asDisplayText(entry?.set?.text || entry?.set || ""),
+      addedDate: asDisplayText(entry?.added) || null,
+    });
+  };
+
+  toArray(item?.brItems).forEach(pushIncluded);
+  toArray(item?.instruments).forEach(pushIncluded);
+  toArray(item?.cars).forEach(pushIncluded);
+  toArray(item?.tracks).forEach(pushIncluded);
+
+  return included;
 }
 
 export async function GET(request) {
@@ -57,17 +274,14 @@ export async function GET(request) {
     ]);
 
     if (!englishRes.ok || !localizedRes.ok) {
-      return Response.json(
-        { error: "No se pudo obtener la tienda de Fortnite" },
-        { status: 500 }
-      );
+      throw new Error("No se pudo obtener la tienda de Fortnite");
     }
 
     const englishJson = await englishRes.json();
     const localizedJson = await localizedRes.json();
 
-    const englishEntries = englishJson.data?.entries || [];
-    const localizedEntries = localizedJson.data?.entries || [];
+    const englishEntries = toArray(englishJson?.data?.entries);
+    const localizedEntries = toArray(localizedJson?.data?.entries);
 
     const localizedMap = new Map(
       localizedEntries.map((item, index) => [getKey(item, index), item])
@@ -82,14 +296,37 @@ export async function GET(request) {
         nameEnglish: getName(englishItem),
         nameLocalized: getName(localizedItem),
         image: getImage(localizedItem) || getImage(englishItem),
-        price: localizedItem.finalPrice ?? localizedItem.regularPrice ?? "N/D",
+        galleryImages: collectGalleryImages(localizedItem),
+        price:
+          localizedItem?.finalPrice ??
+          localizedItem?.regularPrice ??
+          englishItem?.finalPrice ??
+          englishItem?.regularPrice ??
+          "N/D",
         sectionEnglish: getSection(englishItem),
         sectionLocalized: getSection(localizedItem),
         typeEnglish: getType(englishItem),
         typeLocalized: getType(localizedItem),
-        devName: englishItem.devName || localizedItem.devName || "",
-        outDate: localizedItem.outDate || englishItem.outDate || null,
-        inDate: localizedItem.inDate || englishItem.inDate || null,
+        devName:
+          asDisplayText(englishItem?.devName) ||
+          asDisplayText(localizedItem?.devName) ||
+          "",
+        outDate:
+          asDisplayText(localizedItem?.outDate) ||
+          asDisplayText(englishItem?.outDate) ||
+          null,
+        inDate:
+          asDisplayText(localizedItem?.inDate) ||
+          asDisplayText(englishItem?.inDate) ||
+          null,
+        addedDate: getAddedDate(localizedItem) || getAddedDate(englishItem),
+        descriptionEnglish: getDescription(englishItem),
+        descriptionLocalized: getDescription(localizedItem),
+        rarityEnglish: getRarity(englishItem),
+        rarityLocalized: getRarity(localizedItem),
+        setTextEnglish: getSetText(englishItem),
+        setTextLocalized: getSetText(localizedItem),
+        includedItems: collectIncludedItems(localizedItem),
       };
     });
 
@@ -100,7 +337,12 @@ export async function GET(request) {
     });
   } catch (error) {
     return Response.json(
-      { error: "Error interno al consultar la tienda" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Error interno al consultar la tienda",
+      },
       { status: 500 }
     );
   }

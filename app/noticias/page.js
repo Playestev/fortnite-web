@@ -16,8 +16,8 @@ function formatDate(dateString, lang) {
   }).format(date);
 }
 
-function trimText(text, maxLength = 220) {
-  if (!text) return "Publicación sin texto.";
+function trimText(text, maxLength = 220, fallback = "") {
+  if (!text) return fallback;
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength).trim() + "…";
 }
@@ -80,6 +80,7 @@ export default function NoticiasPage() {
           nextUpgrade: "Siguiente mejora",
           nextUpgradeText:
             "Después puedes agregar categorías, búsqueda y tarjetas todavía más avanzadas.",
+          untitled: "Publicación sin texto.",
         }
       : {
           brand: "Ganker Games",
@@ -106,6 +107,7 @@ export default function NoticiasPage() {
           nextUpgrade: "Next upgrade",
           nextUpgradeText:
             "Later you can add categories, search and even more advanced cards.",
+          untitled: "Post without text.",
         };
 
   const featuredPost = useMemo(() => posts[0] || null, [posts]);
@@ -240,13 +242,13 @@ export default function NoticiasPage() {
                   {labels.featured}
                 </p>
                 <h3 className="mt-3 text-2xl font-black leading-tight text-white md:text-3xl">
-                  {trimText(featuredPost.message, 140)}
+                  {trimText(featuredPost.message, 140, labels.untitled)}
                 </h3>
                 <p className="mt-4 text-sm text-slate-400">
                   {formatDate(featuredPost.created_time, language)}
                 </p>
                 <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300">
-                  {trimText(featuredPost.message, 420)}
+                  {trimText(featuredPost.message, 420, labels.untitled)}
                 </p>
                 <a
                   href={featuredPost.permalink_url}
@@ -311,11 +313,11 @@ export default function NoticiasPage() {
                   </p>
 
                   <h3 className="text-lg font-extrabold leading-tight text-white">
-                    {trimText(post.message, 110)}
+                    {trimText(post.message, 110, labels.untitled)}
                   </h3>
 
                   <p className="mt-3 text-sm leading-6 text-slate-300">
-                    {trimText(post.message, 180)}
+                    {trimText(post.message, 180, labels.untitled)}
                   </p>
 
                   <div className="mt-4 flex items-center justify-between gap-3">

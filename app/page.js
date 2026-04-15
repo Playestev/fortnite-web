@@ -34,11 +34,30 @@ const NAME_TRANSLATIONS_ES_MX = {
 
 const VB_TO_MXN_RATE = 0.09;
 const LEAVING_SOON_HOURS = 24;
+const RECENT_HOURS = 24;
+const NEW_ADDED_DAYS = 14;
 const WHATSAPP_BASE_URL = "https://wa.me/5216568558434";
+
+function asDisplayText(value) {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+
+  if (typeof value === "object") {
+    return (
+      value.displayValue ||
+      value.value ||
+      value.backendValue ||
+      value.text ||
+      ""
+    );
+  }
+
+  return "";
+}
 
 function getTimeUntilNextShopUpdate(lang) {
   const now = new Date();
-
   const nextUtcMidnight = new Date(
     Date.UTC(
       now.getUTCFullYear(),
@@ -104,8 +123,36 @@ function isLeavingSoon(dateString) {
   return diff <= LEAVING_SOON_HOURS * 60 * 60 * 1000;
 }
 
+function isRecentShopArrival(dateString) {
+  if (!dateString) return false;
+
+  const now = new Date();
+  const target = new Date(dateString);
+  const diff = now - target;
+
+  if (!Number.isFinite(target.getTime()) || diff < 0) return false;
+
+  return diff <= RECENT_HOURS * 60 * 60 * 1000;
+}
+
+function isLikelyNewToShop(item) {
+  if (!isRecentShopArrival(item?.inDate)) return false;
+  if (!item?.addedDate) return false;
+
+  const now = new Date();
+  const addedDate = new Date(item.addedDate);
+
+  if (!Number.isFinite(addedDate.getTime())) return false;
+
+  const addedAgo = now - addedDate;
+
+  if (addedAgo < 0) return false;
+
+  return addedAgo <= NEW_ADDED_DAYS * 24 * 60 * 60 * 1000;
+}
+
 function translateType(type, lang) {
-  const english = type || "";
+  const english = asDisplayText(type);
 
   if (lang === "en") return english;
 
@@ -132,13 +179,14 @@ function translateType(type, lang) {
     Car: "Auto",
     Instrument: "Instrumento",
     Sidekick: "Accesorio",
+    Shoes: "Zapatos",
   };
 
   return map[english] || english;
 }
 
 function translateSection(section, lang) {
-  const english = section || "";
+  const english = asDisplayText(section);
 
   if (lang === "en") return english;
 
@@ -175,14 +223,15 @@ function translateSection(section, lang) {
     Shop: "Tienda",
     Arenas: "Arenas",
     Tienda: "Tienda",
+    "Fortnite Drops": "Fortnite Drops",
   };
 
   return map[english] || english;
 }
 
 function getDisplayName(item, lang) {
-  const englishName = item.nameEnglish || item.nameLocalized || "";
-  const localizedName = item.nameLocalized || englishName;
+  const englishName = item.nameEnglish || item.nameLocalized || item.name || "";
+  const localizedName = item.nameLocalized || item.name || englishName;
 
   if (lang === "en") return englishName;
 
@@ -191,18 +240,19 @@ function getDisplayName(item, lang) {
 
   if (
     localizedName &&
+    englishName &&
     localizedName.trim().toLowerCase() !== englishName.trim().toLowerCase()
   ) {
     return localizedName;
   }
 
-  return englishName;
+  return localizedName || englishName || "Item";
 }
 
 function getSecondaryEnglishName(item, lang) {
   if (lang !== "es-419") return "";
 
-  const englishName = item.nameEnglish || "";
+  const englishName = item.nameEnglish || item.name || "";
   const displayName = getDisplayName(item, lang);
 
   if (
@@ -217,24 +267,23 @@ function getSecondaryEnglishName(item, lang) {
 }
 
 function getDisplayType(item, lang) {
-  const englishType = item.typeEnglish || item.typeLocalized || "";
+  const englishType = asDisplayText(
+    item.typeEnglish || item.typeLocalized || item.type || ""
+  );
   return translateType(englishType, lang);
 }
 
 function getDisplaySection(item, lang) {
-  const englishSection = item.sectionEnglish || item.sectionLocalized || "";
+  const englishSection = asDisplayText(
+    item.sectionEnglish || item.sectionLocalized || item.section || ""
+  );
   return translateSection(englishSection, lang);
 }
 
 function formatMxPrice(vbucks) {
   const numericPrice = Number(vbucks);
-
-  if (!Number.isFinite(numericPrice)) {
-    return "MXN N/D";
-  }
-
-  const mxnPrice = numericPrice * VB_TO_MXN_RATE;
-  return `MX$${mxnPrice.toFixed(2)}`;
+  if (!Number.isFinite(numericPrice)) return "MXN N/D";
+  return `MX$${(numericPrice * VB_TO_MXN_RATE).toFixed(2)}`;
 }
 
 function encodeCart(cart) {
@@ -255,48 +304,71 @@ function decodeCart(value) {
       const qty = Number(rawQty);
 
       if (!id || !Number.isFinite(qty) || qty <= 0) return null;
-
       return { id, qty };
     })
     .filter(Boolean);
 }
 
-function ShopCard({ item, language, labels, onAddToCart }) {
+function resolveDetailImages(detail) {
+  const images = [
+    ...(detail.galleryImages || []),
+    ...(detail.images || []),
+    detail.image,
+  ].filter(Boolean);
+
+  return [...new Set(images)];
+}
+
+function ShopCard({ item, language, labels, onAddToCart, onOpenModal }) {
   const displayName = getDisplayName(item, language);
   const secondaryEnglishName = getSecondaryEnglishName(item, language);
   const displayType = getDisplayType(item, language);
   const displaySection = getDisplaySection(item, language);
   const mxnPrice = formatMxPrice(item.price);
   const leavingSoon = isLeavingSoon(item.outDate);
+  const likelyNew = isLikelyNewToShop(item);
   const leaveCountdown = getTimeUntilDate(item.outDate, language);
+
+  const cardClass =
+    leavingSoon && likelyNew
+      ? "border-2 border-red-500 ring-2 ring-yellow-400/60"
+      : leavingSoon
+      ? "border-2 border-red-500 ring-2 ring-red-500/30"
+      : likelyNew
+      ? "border-2 border-yellow-400 ring-2 ring-yellow-400/30"
+      : "border border-[#1f3a2b]";
 
   return (
     <article
-      className={`overflow-hidden rounded-[22px] bg-[#0d1210] shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition duration-200 hover:-translate-y-1 ${
-        leavingSoon
-          ? "border-2 border-red-500 ring-2 ring-red-500/30"
-          : "border border-[#1f3a2b]"
-      }`}
+      className={`overflow-hidden rounded-[22px] bg-[#0d1210] shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition duration-200 hover:-translate-y-1 ${cardClass}`}
     >
       <div className="relative">
-        {item.image ? (
-          <div className="flex h-56 w-full items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(0,255,87,0.18),_transparent_45%),linear-gradient(180deg,_#060706_0%,_#0b120d_100%)] p-3 sm:h-64 sm:p-4 md:h-72">
-            <img
-              src={item.image}
-              alt={displayName}
-              loading="lazy"
-              className="h-full w-full object-contain"
-            />
-          </div>
-        ) : (
-          <div className="grid h-56 w-full place-items-center bg-[#101812] text-slate-400 sm:h-64 md:h-72">
-            {labels.noImage}
-          </div>
-        )}
+        <button type="button" onClick={() => onOpenModal(item)} className="block w-full">
+          {item.image ? (
+            <div className="flex h-56 w-full items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(0,255,87,0.18),_transparent_45%),linear-gradient(180deg,_#060706_0%,_#0b120d_100%)] p-3 sm:h-64 sm:p-4 md:h-72">
+              <img
+                src={item.image}
+                alt={displayName}
+                loading="lazy"
+                className="h-full w-full object-contain"
+              />
+            </div>
+          ) : (
+            <div className="grid h-56 w-full place-items-center bg-[#101812] text-slate-400 sm:h-64 md:h-72">
+              {labels.noImage}
+            </div>
+          )}
+        </button>
 
         {leavingSoon && (
           <div className="absolute left-3 top-3 rounded-full border border-red-300 bg-red-500 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-lg sm:text-xs">
             {labels.leavingSoon}
+          </div>
+        )}
+
+        {likelyNew && (
+          <div className="absolute right-3 top-3 rounded-full border border-yellow-200 bg-yellow-400 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#231700] shadow-lg sm:text-xs">
+            {labels.newItem}
           </div>
         )}
       </div>
@@ -376,6 +448,9 @@ export default function Home() {
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState("");
+  const [modalEntry, setModalEntry] = useState(null);
+  const [selectedDetailId, setSelectedDetailId] = useState(null);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   async function loadShop(showRefreshState = false, selectedLanguage = language) {
     try {
@@ -411,34 +486,34 @@ export default function Home() {
 
   useEffect(() => {
     setTimeLeft(getTimeUntilNextShopUpdate(language));
-
     const interval = setInterval(() => {
       setTimeLeft(getTimeUntilNextShopUpdate(language));
     }, 1000);
-
     return () => clearInterval(interval);
   }, [language]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const cartFromUrl = new URLSearchParams(window.location.search).get("cart");
+    const params = new URLSearchParams(window.location.search);
+    const cartFromUrl = params.get("cart");
+    const itemFromUrl = params.get("item");
     const savedCart = window.localStorage.getItem("gkg-cart");
 
     if (cartFromUrl) {
       setCart(decodeCart(cartFromUrl));
-      return;
-    }
-
-    if (savedCart) {
+    } else if (savedCart) {
       try {
         const parsed = JSON.parse(savedCart);
-        if (Array.isArray(parsed)) {
-          setCart(parsed);
-        }
+        if (Array.isArray(parsed)) setCart(parsed);
       } catch {}
     }
-  }, []);
+
+    if (itemFromUrl && allItems.length) {
+      const found = allItems.find((item) => item.id === itemFromUrl);
+      if (found) openModal(found);
+    }
+  }, [allItems.length]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -456,6 +531,7 @@ export default function Home() {
           refresh: loadingRefresh ? "Actualizando..." : "Actualizar tienda",
           search: "Buscar skin, bundle, track, sección...",
           all: "Todas",
+          recent: "Reciente",
           filters: "Filtros",
           closeFilters: "Cerrar filtros",
           loading: "Cargando tienda...",
@@ -472,19 +548,23 @@ export default function Home() {
           cart: "Carrito",
           yourCart: "Tu carrito",
           emptyCart: "Tu carrito está vacío",
-          quantity: "Cantidad",
           clearCart: "Vaciar carrito",
           shareCart: "Copiar enlace",
           sendWhatsApp: "Enviar por WhatsApp",
           close: "Cerrar",
           copied: "Enlace copiado",
-          itemsLabel: "artículos",
           totalVbucks: "Total V-Bucks",
           totalMxn: "Total MXN",
           remove: "Quitar",
           orderText: "Hola, quiero cotizar este carrito de Ganker Games Fortnite:",
           sharedLink: "Link del carrito",
           openCart: "Abrir carrito",
+          newItem: "Nuevo",
+          includes: "Incluye",
+          shareItem: "Compartir",
+          aboutItem: "Detalles",
+          setLabel: "Set",
+          rarityLabel: "Rareza",
         }
       : {
           brand: "Ganker Games",
@@ -495,6 +575,7 @@ export default function Home() {
           refresh: loadingRefresh ? "Refreshing..." : "Refresh shop",
           search: "Search skin, bundle, track, section...",
           all: "All",
+          recent: "Recent",
           filters: "Filters",
           closeFilters: "Close filters",
           loading: "Loading shop...",
@@ -511,22 +592,27 @@ export default function Home() {
           cart: "Cart",
           yourCart: "Your cart",
           emptyCart: "Your cart is empty",
-          quantity: "Quantity",
           clearCart: "Clear cart",
           shareCart: "Copy link",
           sendWhatsApp: "Send on WhatsApp",
           close: "Close",
           copied: "Link copied",
-          itemsLabel: "items",
           totalVbucks: "Total V-Bucks",
           totalMxn: "Total MXN",
           remove: "Remove",
           orderText: "Hi, I want a quote for this Ganker Games Fortnite cart:",
           sharedLink: "Cart link",
           openCart: "Open cart",
+          newItem: "New",
+          includes: "Includes",
+          shareItem: "Share",
+          aboutItem: "Details",
+          setLabel: "Set",
+          rarityLabel: "Rarity",
         };
 
   const translatedAllLabel = language === "es-419" ? "Todas" : "All";
+  const recentLabel = language === "es-419" ? "Reciente" : "Recent";
 
   const sections = useMemo(() => {
     const uniqueSections = [
@@ -535,16 +621,19 @@ export default function Home() {
 
     return [
       translatedAllLabel,
+      recentLabel,
       ...uniqueSections.sort((a, b) =>
         a.localeCompare(b, language === "es-419" ? "es" : "en")
       ),
     ];
-  }, [allItems, language, translatedAllLabel]);
+  }, [allItems, language, translatedAllLabel, recentLabel]);
 
   useEffect(() => {
     let filtered = [...allItems];
 
-    if (section !== translatedAllLabel) {
+    if (section === recentLabel) {
+      filtered = filtered.filter((item) => isRecentShopArrival(item.inDate));
+    } else if (section !== translatedAllLabel) {
       filtered = filtered.filter(
         (item) => getDisplaySection(item, language) === section
       );
@@ -555,7 +644,7 @@ export default function Home() {
     if (text) {
       filtered = filtered.filter((item) => {
         const displayName = getDisplayName(item, language).toLowerCase();
-        const englishName = (item.nameEnglish || "").toLowerCase();
+        const englishName = (item.nameEnglish || item.name || "").toLowerCase();
         const displayType = getDisplayType(item, language).toLowerCase();
         const displaySection = getDisplaySection(item, language).toLowerCase();
         const devName = (item.devName || "").toLowerCase();
@@ -571,18 +660,14 @@ export default function Home() {
     }
 
     setItems(filtered);
-  }, [search, section, allItems, language, translatedAllLabel]);
+  }, [search, section, allItems, language, translatedAllLabel, recentLabel]);
 
   const groupedItems = useMemo(() => {
     const groups = {};
 
     for (const item of items) {
       const groupName = getDisplaySection(item, language) || translatedAllLabel;
-
-      if (!groups[groupName]) {
-        groups[groupName] = [];
-      }
-
+      if (!groups[groupName]) groups[groupName] = [];
       groups[groupName].push(item);
     }
 
@@ -595,7 +680,6 @@ export default function Home() {
     return cart
       .map((cartItem) => {
         const item = allItems.find((shopItem) => shopItem.id === cartItem.id);
-
         if (!item) return null;
 
         const priceVbucks = Number(item.price) || 0;
@@ -627,7 +711,11 @@ export default function Home() {
   );
 
   const selectedSectionTitle =
-    section === translatedAllLabel ? labels.heroTitle : section;
+    section === translatedAllLabel
+      ? labels.heroTitle
+      : section === recentLabel
+      ? recentLabel
+      : section;
 
   function handleSectionChange(sectionName) {
     setSection(sectionName);
@@ -637,7 +725,6 @@ export default function Home() {
   function addToCart(item) {
     setCart((prev) => {
       const existing = prev.find((cartItem) => cartItem.id === item.id);
-
       if (existing) {
         return prev.map((cartItem) =>
           cartItem.id === item.id
@@ -645,7 +732,6 @@ export default function Home() {
             : cartItem
         );
       }
-
       return [...prev, { id: item.id, qty: 1 }];
     });
 
@@ -654,9 +740,7 @@ export default function Home() {
 
   function updateCartQty(itemId, nextQty) {
     setCart((prev) => {
-      if (nextQty <= 0) {
-        return prev.filter((item) => item.id !== itemId);
-      }
+      if (nextQty <= 0) return prev.filter((item) => item.id !== itemId);
 
       return prev.map((item) =>
         item.id === itemId ? { ...item, qty: nextQty } : item
@@ -678,16 +762,13 @@ export default function Home() {
     const encoded = encodeCart(cart);
     const url = new URL(window.location.origin + window.location.pathname);
 
-    if (encoded) {
-      url.searchParams.set("cart", encoded);
-    }
+    if (encoded) url.searchParams.set("cart", encoded);
 
     return url.toString();
   }
 
   async function copyCartLink() {
     const link = buildShareLink();
-
     if (!link) return;
 
     try {
@@ -724,6 +805,164 @@ export default function Home() {
 
     window.open(`${WHATSAPP_BASE_URL}?text=${encodeURIComponent(message)}`, "_blank");
   }
+
+  function openModal(entry, detailId = null) {
+    setModalEntry(entry);
+    setSelectedDetailId(detailId);
+    setActiveImageIndex(0);
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("item", entry.id);
+      window.history.replaceState({}, "", url.toString());
+    }
+  }
+
+  function closeModal() {
+    setModalEntry(null);
+    setSelectedDetailId(null);
+    setActiveImageIndex(0);
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("item");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }
+
+  const modalDetail = useMemo(() => {
+    if (!modalEntry) return null;
+
+    if (!selectedDetailId) {
+      return {
+        id: modalEntry.id,
+        nameEnglish: modalEntry.nameEnglish,
+        nameLocalized: modalEntry.nameLocalized,
+        typeEnglish: modalEntry.typeEnglish,
+        typeLocalized: modalEntry.typeLocalized,
+        sectionEnglish: modalEntry.sectionEnglish,
+        sectionLocalized: modalEntry.sectionLocalized,
+        image: modalEntry.image,
+        galleryImages: modalEntry.galleryImages || [],
+        descriptionEnglish: modalEntry.descriptionEnglish || "",
+        descriptionLocalized: modalEntry.descriptionLocalized || "",
+        rarityEnglish: modalEntry.rarityEnglish || "",
+        rarityLocalized: modalEntry.rarityLocalized || "",
+        setTextEnglish: modalEntry.setTextEnglish || "",
+        setTextLocalized: modalEntry.setTextLocalized || "",
+        outDate: modalEntry.outDate,
+        inDate: modalEntry.inDate,
+        addedDate: modalEntry.addedDate,
+        price: modalEntry.price,
+      };
+    }
+
+    const included = (modalEntry.includedItems || []).find(
+      (item) => item.id === selectedDetailId
+    );
+
+    if (!included) {
+      return {
+        id: modalEntry.id,
+        nameEnglish: modalEntry.nameEnglish,
+        nameLocalized: modalEntry.nameLocalized,
+        typeEnglish: modalEntry.typeEnglish,
+        typeLocalized: modalEntry.typeLocalized,
+        sectionEnglish: modalEntry.sectionEnglish,
+        sectionLocalized: modalEntry.sectionLocalized,
+        image: modalEntry.image,
+        galleryImages: modalEntry.galleryImages || [],
+        descriptionEnglish: modalEntry.descriptionEnglish || "",
+        descriptionLocalized: modalEntry.descriptionLocalized || "",
+        rarityEnglish: modalEntry.rarityEnglish || "",
+        rarityLocalized: modalEntry.rarityLocalized || "",
+        setTextEnglish: modalEntry.setTextEnglish || "",
+        setTextLocalized: modalEntry.setTextLocalized || "",
+        outDate: modalEntry.outDate,
+        inDate: modalEntry.inDate,
+        addedDate: modalEntry.addedDate,
+        price: modalEntry.price,
+      };
+    }
+
+    return {
+      id: included.id,
+      nameEnglish: included.name,
+      nameLocalized: included.name,
+      typeEnglish: included.type,
+      typeLocalized: included.type,
+      sectionEnglish: modalEntry.sectionEnglish,
+      sectionLocalized: modalEntry.sectionLocalized,
+      image: included.image,
+      images: included.images || [],
+      descriptionEnglish: included.description || "",
+      descriptionLocalized: included.description || "",
+      rarityEnglish: included.rarity || "",
+      rarityLocalized: included.rarity || "",
+      setTextEnglish: included.setText || "",
+      setTextLocalized: included.setText || "",
+      outDate: modalEntry.outDate,
+      inDate: modalEntry.inDate,
+      addedDate: included.addedDate || modalEntry.addedDate,
+      price: modalEntry.price,
+    };
+  }, [modalEntry, selectedDetailId]);
+
+  const modalImages = useMemo(() => {
+    if (!modalDetail) return [];
+    return resolveDetailImages(modalDetail);
+  }, [modalDetail]);
+
+  useEffect(() => {
+    if (activeImageIndex > modalImages.length - 1) {
+      setActiveImageIndex(0);
+    }
+  }, [modalImages.length, activeImageIndex]);
+
+  function prevModalImage() {
+    if (!modalImages.length) return;
+    setActiveImageIndex((prev) =>
+      prev === 0 ? modalImages.length - 1 : prev - 1
+    );
+  }
+
+  function nextModalImage() {
+    if (!modalImages.length) return;
+    setActiveImageIndex((prev) =>
+      prev === modalImages.length - 1 ? 0 : prev + 1
+    );
+  }
+
+  async function shareCurrentItem() {
+    if (!modalEntry || typeof window === "undefined") return;
+
+    const url = new URL(window.location.origin + window.location.pathname);
+    url.searchParams.set("item", modalEntry.id);
+
+    const title = modalDetail
+      ? getDisplayName(modalDetail, language)
+      : getDisplayName(modalEntry, language);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title,
+          text: title,
+          url: url.toString(),
+        });
+        return;
+      } catch {}
+    }
+
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      setCopyStatus(labels.copied);
+      setTimeout(() => setCopyStatus(""), 2500);
+    } catch {}
+  }
+
+  const showGroupedSection =
+    section === translatedAllLabel || section === recentLabel;
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_20%),linear-gradient(180deg,_#000000_0%,_#021106_45%,_#000000_100%)] text-white">
@@ -978,51 +1217,47 @@ export default function Home() {
               </div>
             )}
 
-            {!loading &&
-              !error &&
-              items.length > 0 &&
-              section !== translatedAllLabel && (
-                <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {items.map((item) => (
-                    <ShopCard
-                      key={item.id}
-                      item={item}
-                      language={language}
-                      labels={labels}
-                      onAddToCart={addToCart}
-                    />
-                  ))}
-                </section>
-              )}
+            {!loading && !error && items.length > 0 && !showGroupedSection && (
+              <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {items.map((item) => (
+                  <ShopCard
+                    key={item.id}
+                    item={item}
+                    language={language}
+                    labels={labels}
+                    onAddToCart={addToCart}
+                    onOpenModal={openModal}
+                  />
+                ))}
+              </section>
+            )}
 
-            {!loading &&
-              !error &&
-              items.length > 0 &&
-              section === translatedAllLabel && (
-                <div className="space-y-8 md:space-y-10">
-                  {groupedItems.map(([groupName, groupItems]) => (
-                    <section key={groupName}>
-                      <div className="mb-4 flex items-center justify-between gap-3">
-                        <h3 className="text-xl font-black uppercase italic text-[#67ff9a] sm:text-2xl">
-                          {groupName}
-                        </h3>
-                      </div>
+            {!loading && !error && items.length > 0 && showGroupedSection && (
+              <div className="space-y-8 md:space-y-10">
+                {groupedItems.map(([groupName, groupItems]) => (
+                  <section key={groupName}>
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <h3 className="text-xl font-black uppercase italic text-[#67ff9a] sm:text-2xl">
+                        {groupName}
+                      </h3>
+                    </div>
 
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                        {groupItems.map((item) => (
-                          <ShopCard
-                            key={item.id}
-                            item={item}
-                            language={language}
-                            labels={labels}
-                            onAddToCart={addToCart}
-                          />
-                        ))}
-                      </div>
-                    </section>
-                  ))}
-                </div>
-              )}
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {groupItems.map((item) => (
+                        <ShopCard
+                          key={item.id}
+                          item={item}
+                          language={language}
+                          labels={labels}
+                          onAddToCart={addToCart}
+                          onOpenModal={openModal}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </div>
@@ -1191,6 +1426,234 @@ export default function Home() {
               </div>
             </div>
           </aside>
+        </div>
+      )}
+
+      {modalEntry && modalDetail && (
+        <div className="fixed inset-0 z-[80]">
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={closeModal}
+          />
+
+          <div className="absolute inset-0 overflow-y-auto">
+            <div className="mx-auto min-h-full max-w-5xl px-3 py-4 sm:px-4 sm:py-6">
+              <div
+                className={`relative overflow-hidden rounded-[28px] bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.10),_transparent_25%),linear-gradient(180deg,_#050905_0%,_#07120a_100%)] shadow-[0_25px_80px_rgba(0,0,0,0.55)] ${
+                  isLeavingSoon(modalEntry.outDate) && isLikelyNewToShop(modalEntry)
+                    ? "border-2 border-red-500 ring-2 ring-yellow-400/60"
+                    : isLeavingSoon(modalEntry.outDate)
+                    ? "border-2 border-red-500 ring-2 ring-red-500/30"
+                    : isLikelyNewToShop(modalEntry)
+                    ? "border-2 border-yellow-400 ring-2 ring-yellow-400/30"
+                    : "border border-[#1f3a2b]"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4 border-b border-[#1f3a2b] px-4 py-4 sm:px-6">
+                  <div className="min-w-0">
+                    <p className="text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">
+                      {getDisplaySection(modalEntry, language)}
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black uppercase italic text-white sm:text-4xl">
+                      {getDisplayName(modalDetail, language)}
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-400">
+                      {getDisplayType(modalDetail, language)}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={closeModal}
+                    className="rounded-2xl border border-[#284635] bg-[#0d1210] px-4 py-3 text-sm font-bold text-white"
+                  >
+                    {labels.close}
+                  </button>
+                </div>
+
+                <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[1.1fr_0.9fr]">
+                  <div className="space-y-4">
+                    <div className="relative overflow-hidden rounded-[24px] border border-[#1f3a2b] bg-[linear-gradient(180deg,_#101312_0%,_#1e2321_100%)]">
+                      <div className="flex min-h-[320px] items-center justify-center p-4 sm:min-h-[420px]">
+                        {modalImages.length > 0 ? (
+                          <img
+                            src={modalImages[activeImageIndex]}
+                            alt={getDisplayName(modalDetail, language)}
+                            className="h-full max-h-[540px] w-full object-contain"
+                          />
+                        ) : (
+                          <div className="text-slate-500">{labels.noImage}</div>
+                        )}
+                      </div>
+
+                      {modalImages.length > 1 && (
+                        <>
+                          <button
+                            onClick={prevModalImage}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/45 px-4 py-3 text-2xl font-black text-white backdrop-blur"
+                          >
+                            ‹
+                          </button>
+                          <button
+                            onClick={nextModalImage}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-[#7c3aed] px-4 py-3 text-2xl font-black text-white backdrop-blur"
+                          >
+                            ›
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    {modalImages.length > 1 && (
+                      <div className="flex gap-3 overflow-x-auto pb-1">
+                        {modalImages.map((image, index) => (
+                          <button
+                            key={`${image}-${index}`}
+                            onClick={() => setActiveImageIndex(index)}
+                            className={`h-20 min-w-[80px] overflow-hidden rounded-xl border ${
+                              index === activeImageIndex
+                                ? "border-[#67ff9a]"
+                                : "border-[#1f3a2b]"
+                            }`}
+                          >
+                            <img
+                              src={image}
+                              alt={`preview-${index}`}
+                              className="h-full w-full object-contain bg-[#0d1210]"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="rounded-[24px] border border-[#184734] bg-[#09120b] p-4">
+                      <div className="flex items-center justify-between gap-4 rounded-[20px] border border-[#0d4b2e] bg-[linear-gradient(90deg,_#052133_0%,_#0b1e1c_100%)] px-4 py-4">
+                        <div className="text-3xl font-black text-[#24c8ff]">
+                          {modalEntry.price} {labels.vbucks}
+                        </div>
+                        <div className="text-3xl font-black text-[#ffd23c]">
+                          {formatMxPrice(modalEntry.price).replace("MX$", "$")}
+                        </div>
+                      </div>
+
+                      <p className="mt-4 text-center text-sm text-slate-400">
+                        {modalEntry.price} {labels.vbucks} / 100 × MX$9.00 ={" "}
+                        {formatMxPrice(modalEntry.price)}
+                      </p>
+                    </div>
+
+                    <div
+                      className={`rounded-[20px] p-4 ${
+                        isLeavingSoon(modalEntry.outDate)
+                          ? "border border-red-500/50 bg-red-500/10"
+                          : "border border-[#3d3323] bg-[#2b2014]/70"
+                      }`}
+                    >
+                      <p className="text-sm font-bold text-[#ffd38a]">
+                        {labels.leavesIn}
+                      </p>
+                      <p className="mt-2 text-lg font-black text-white">
+                        {getTimeUntilDate(modalEntry.outDate, language)}
+                      </p>
+                    </div>
+
+                    {(modalDetail.descriptionLocalized ||
+                      modalDetail.rarityLocalized ||
+                      modalDetail.setTextLocalized) && (
+                      <div className="rounded-[20px] border border-[#1f3a2b] bg-[#0c1016]/70 p-4">
+                        {modalDetail.descriptionLocalized && (
+                          <p className="text-base italic text-slate-200">
+                            “{modalDetail.descriptionLocalized}”
+                          </p>
+                        )}
+
+                        {modalDetail.setTextLocalized && (
+                          <p className="mt-4 text-sm text-[#67ff9a]">
+                            {labels.setLabel}: {asDisplayText(modalDetail.setTextLocalized)}
+                          </p>
+                        )}
+
+                        {modalDetail.rarityLocalized && (
+                          <p className="mt-2 text-sm text-slate-300">
+                            {labels.rarityLabel}: {asDisplayText(modalDetail.rarityLocalized)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="grid gap-3">
+                      <button
+                        onClick={() => addToCart(modalEntry)}
+                        className="rounded-[22px] bg-[linear-gradient(90deg,_#15d863_0%,_#2cff7a_100%)] px-4 py-4 text-lg font-black uppercase tracking-[0.18em] text-[#06110a] shadow-[0_0_35px_rgba(44,255,122,0.22)]"
+                      >
+                        {labels.addToCart}
+                      </button>
+
+                      <button
+                        onClick={shareCurrentItem}
+                        className="rounded-[18px] border border-[#67ff9a] bg-transparent px-4 py-3 text-sm font-extrabold text-[#67ff9a] transition hover:bg-[#15d863] hover:text-[#06110a]"
+                      >
+                        {labels.shareItem}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {modalEntry.includedItems?.length > 0 && (
+                  <div className="px-4 pb-6 sm:px-6">
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-xl font-black uppercase tracking-[0.22em] text-[#24c8ff]">
+                        {labels.includes} {modalEntry.includedItems.length}
+                      </h3>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+                      {modalEntry.includedItems.map((included) => {
+                        const active = selectedDetailId === included.id;
+
+                        return (
+                          <button
+                            key={included.id}
+                            onClick={() => {
+                              setSelectedDetailId(included.id);
+                              setActiveImageIndex(0);
+                            }}
+                            className={`rounded-[20px] border p-3 text-left transition ${
+                              active
+                                ? "border-[#67ff9a] bg-[#0d1410]"
+                                : "border-[#1f3a2b] bg-[#090e0b]"
+                            }`}
+                          >
+                            <div className="mb-3 flex h-28 items-center justify-center overflow-hidden rounded-xl bg-[#101812]">
+                              {included.image ? (
+                                <img
+                                  src={included.image}
+                                  alt={included.name}
+                                  className="h-full w-full object-contain"
+                                />
+                              ) : (
+                                <div className="text-xs text-slate-500">
+                                  {labels.noImage}
+                                </div>
+                              )}
+                            </div>
+
+                            <p className="line-clamp-2 text-sm font-black uppercase text-white">
+                              {getDisplayName(included, language)}
+                            </p>
+                            <p className="mt-1 text-xs uppercase text-slate-400">
+                              {getDisplayType(included, language)}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </main>
