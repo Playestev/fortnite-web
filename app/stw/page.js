@@ -5,37 +5,56 @@ import { useEffect, useMemo, useState } from "react";
 
 const LANG_STORAGE_KEY = "gkg-lang";
 
-function getTimeUntil(dateString) {
-  if (!dateString) return "00:00:00";
-
-  const now = new Date();
-  const target = new Date(dateString);
-  const diff = target - now;
-
-  if (!Number.isFinite(target.getTime()) || diff <= 0) {
-    return "00:00:00";
-  }
-
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-    2,
-    "0"
-  )}:${String(seconds).padStart(2, "0")}`;
-}
-
-function groupByZone(items) {
-  const groups = {};
-
-  for (const item of items) {
-    if (!groups[item.zone]) groups[item.zone] = [];
-    groups[item.zone].push(item);
-  }
-
-  return Object.entries(groups);
-}
+const LABELS = {
+  "es-419": {
+    brand: "Ganker Games",
+    brandSub: "STW",
+    navShop: "Tienda",
+    navNews: "Noticias",
+    navSTW: "STW",
+    heroKicker: "GANKER GAMES",
+    heroTitle: "STW",
+    heroDesc: "Pavos y misiones de Save the World con actualización diaria.",
+    nextReset: "Próximo reset",
+    dailyRotation: "Rotación diaria",
+    vbucksTab: "Pavos",
+    missionsTab: "Misiones",
+    allZones: "Todas las zonas",
+    allTypes: "Todos los tipos",
+    loading: "Cargando STW...",
+    noData: "No se pudo cargar STW",
+    vbucksToday: "Pavos hoy",
+    missionsWithVbucks: "Misiones con pavos",
+    dailyReset: "Reset diario",
+    noVbucksToday: "Hoy no hay misiones con pavos.",
+    noMissionsForFilter: "No hay misiones para este filtro.",
+    rewards: "Recompensas",
+  },
+  en: {
+    brand: "Ganker Games",
+    brandSub: "STW",
+    navShop: "Shop",
+    navNews: "News",
+    navSTW: "STW",
+    heroKicker: "GANKER GAMES",
+    heroTitle: "STW",
+    heroDesc: "Save the World missions and V-Bucks with daily updates.",
+    nextReset: "Next reset",
+    dailyRotation: "Daily rotation",
+    vbucksTab: "V-Bucks",
+    missionsTab: "Missions",
+    allZones: "All zones",
+    allTypes: "All types",
+    loading: "Loading STW...",
+    noData: "Could not load STW",
+    vbucksToday: "V-Bucks today",
+    missionsWithVbucks: "Missions with V-Bucks",
+    dailyReset: "Daily reset",
+    noVbucksToday: "There are no V-Bucks missions today.",
+    noMissionsForFilter: "There are no missions for this filter.",
+    rewards: "Rewards",
+  },
+};
 
 const ZONE_TRANSLATIONS = {
   Stonewood: "Stonewood",
@@ -53,7 +72,7 @@ const ALERT_TRANSLATIONS = {
   Misc: "Varios",
 };
 
-const MISSION_TRANSLATIONS = {
+const TEXT_TRANSLATIONS = {
   Resupply: "Reabastecimiento",
   "Ride the Lightning": "Ride the Lightning",
   "Retrieve the Data": "Recupera los datos",
@@ -71,18 +90,11 @@ const MISSION_TRANSLATIONS = {
   "Category 2 Fight the Storm": "Categoría 2: Lucha contra la tormenta",
   "Category 3 Fight the Storm": "Categoría 3: Lucha contra la tormenta",
   "Category 4 Fight the Storm": "Categoría 4: Lucha contra la tormenta",
-};
-
-const AREA_TRANSLATIONS = {
   Suburbs: "Suburbios",
   Forest: "Bosque",
   Grasslands: "Praderas",
   City: "Ciudad",
   "Industrial Park": "Parque industrial",
-  Lakeside: "Lago",
-};
-
-const REWARD_TRANSLATIONS = {
   common: "común",
   uncommon: "poco común",
   rare: "raro",
@@ -94,14 +106,38 @@ const REWARD_TRANSLATIONS = {
   hero: "héroe",
   people: "personas",
   gold: "oro",
-  reperk: "RE-PERK!",
-  "re-perk": "RE-PERK!",
   "pure drop of rain": "Gota pura de lluvia",
   "lightning in a bottle": "Rayo embotellado",
   "eye of the storm": "Ojo de la tormenta",
   "storm shard": "Fragmento de tormenta",
-  "mini boss": "miniboss",
 };
+
+function getTimeUntil(dateString) {
+  if (!dateString) return "00:00:00";
+
+  const diff = new Date(dateString).getTime() - Date.now();
+  if (!Number.isFinite(diff) || diff <= 0) return "00:00:00";
+
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(
+    seconds
+  ).padStart(2, "0")}`;
+}
+
+function translateText(text, language) {
+  if (language === "en" || !text) return text;
+
+  let result = String(text);
+  Object.entries(TEXT_TRANSLATIONS).forEach(([from, to]) => {
+    const regex = new RegExp(from, "gi");
+    result = result.replace(regex, to);
+  });
+
+  return result;
+}
 
 function translateZone(zone, language) {
   if (language === "en") return zone;
@@ -113,52 +149,34 @@ function translateAlertType(type, language) {
   return ALERT_TRANSLATIONS[type] || type;
 }
 
-function translateMissionTitle(title, language) {
-  if (language === "en") return title;
-  if (!title) return "";
-
-  let translated = title;
-
-  Object.entries(MISSION_TRANSLATIONS).forEach(([en, es]) => {
-    translated = translated.replace(en, es);
+function groupByZone(items) {
+  const groups = {};
+  items.forEach((item) => {
+    if (!groups[item.zone]) groups[item.zone] = [];
+    groups[item.zone].push(item);
   });
-
-  Object.entries(AREA_TRANSLATIONS).forEach(([en, es]) => {
-    translated = translated.replace(new RegExp(`\\b${en}\\b`, "g"), es);
-  });
-
-  return translated;
+  return Object.entries(groups);
 }
 
-function translateRewardText(text, language) {
-  if (language === "en") return text;
-  if (!text) return "";
+function MissionCard({ mission, labels, language, accent = "green" }) {
+  const accentClass =
+    accent === "cyan"
+      ? "border-cyan-500/30 bg-cyan-500/10"
+      : "border-[#1f3a2b] bg-[#0d1210]";
 
-  let translated = text;
-
-  Object.entries(REWARD_TRANSLATIONS).forEach(([en, es]) => {
-    const regex = new RegExp(`\\b${en}\\b`, "gi");
-    translated = translated.replace(regex, es);
-  });
-
-  Object.entries(AREA_TRANSLATIONS).forEach(([en, es]) => {
-    const regex = new RegExp(`\\b${en}\\b`, "gi");
-    translated = translated.replace(regex, es);
-  });
-
-  return translated;
-}
-
-function MissionHoverCard({ mission, language, labels }) {
   return (
-    <div className="pointer-events-none absolute left-0 top-full z-30 mt-3 hidden w-[320px] rounded-[22px] border border-[#2b4f3a] bg-[linear-gradient(180deg,_rgba(7,14,12,0.98)_0%,_rgba(4,8,6,0.98)_100%)] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.45)] md:block">
+    <article className={`rounded-[24px] border p-4 shadow-[0_10px_30px_rgba(0,0,0,0.28)] ${accentClass}`}>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-[#15d863] px-3 py-1 text-xs font-extrabold text-[#06110a]">
           {translateZone(mission.zone, language)}
         </span>
-        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-slate-200">
-          {translateAlertType(mission.alertType, language)}
-        </span>
+
+        {mission.alertType && (
+          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-slate-200">
+            {translateAlertType(mission.alertType, language)}
+          </span>
+        )}
+
         {mission.powerLevel ? (
           <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-slate-300">
             PL {mission.powerLevel}
@@ -166,81 +184,18 @@ function MissionHoverCard({ mission, language, labels }) {
         ) : null}
       </div>
 
-      <h4 className="text-lg font-black leading-tight text-white">
-        {translateMissionTitle(mission.title, language)}
-      </h4>
+      <h3 className={`text-lg font-black leading-tight ${accent === "cyan" ? "text-cyan-300" : "text-white"}`}>
+        {translateText(mission.title, language)}
+      </h3>
 
-      <div className="mt-4 rounded-2xl border border-[#1f3a2b] bg-[#0c120f] p-3">
+      <div className="mt-4 rounded-2xl border border-[#1f3a2b] bg-[#08110d] p-3">
         <p className="text-xs font-black uppercase tracking-[0.22em] text-[#67ff9a]">
           {labels.rewards}
         </p>
         <p className="mt-2 text-sm leading-6 text-slate-200">
-          {translateRewardText(mission.rewardText || labels.noRewardDetails, language)}
+          {translateText(mission.rewardText || "", language) || "—"}
         </p>
       </div>
-    </div>
-  );
-}
-
-function MissionCard({
-  mission,
-  mode = "normal",
-  labels,
-  language,
-  mobileOpenId,
-  setMobileOpenId,
-}) {
-  const isVbucks = mode === "vbucks";
-  const isOpenMobile = mobileOpenId === mission.id;
-
-  return (
-    <article className="group relative rounded-[24px] border border-[#1f3a2b] bg-[#0d1210] p-4 shadow-[0_10px_30px_rgba(0,0,0,0.28)]">
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-[#15d863] px-3 py-1 text-xs font-extrabold text-[#06110a]">
-          {translateZone(mission.zone, language)}
-        </span>
-
-        <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-slate-200">
-          {translateAlertType(mission.alertType, language)}
-        </span>
-
-        {mission.powerLevel ? (
-          <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-bold text-slate-300">
-            PL {mission.powerLevel}
-          </span>
-        ) : null}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setMobileOpenId(isOpenMobile ? null : mission.id)}
-        className="w-full text-left"
-      >
-        <h3
-          className={`text-lg font-black leading-tight ${
-            isVbucks ? "text-[#67ff9a]" : "text-white"
-          }`}
-        >
-          {translateMissionTitle(mission.title, language)}
-        </h3>
-
-        <p className="mt-3 text-sm leading-6 text-slate-300">
-          {translateRewardText(mission.rewardText || labels.noRewardDetails, language)}
-        </p>
-      </button>
-
-      <MissionHoverCard mission={mission} language={language} labels={labels} />
-
-      {isOpenMobile && (
-        <div className="mt-4 rounded-[20px] border border-[#2b4f3a] bg-[linear-gradient(180deg,_rgba(7,14,12,0.98)_0%,_rgba(4,8,6,0.98)_100%)] p-4 md:hidden">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-[#67ff9a]">
-            {labels.rewards}
-          </p>
-          <p className="mt-2 text-sm leading-6 text-slate-200">
-            {translateRewardText(mission.rewardText || labels.noRewardDetails, language)}
-          </p>
-        </div>
-      )}
     </article>
   );
 }
@@ -254,7 +209,8 @@ export default function STWPage() {
   const [alertType, setAlertType] = useState("all");
   const [timeLeft, setTimeLeft] = useState("00:00:00");
   const [language, setLanguage] = useState("es-419");
-  const [mobileOpenId, setMobileOpenId] = useState(null);
+
+  const labels = LABELS[language];
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -269,87 +225,35 @@ export default function STWPage() {
     window.localStorage.setItem(LANG_STORAGE_KEY, language);
   }, [language]);
 
-  const labels =
-    language === "en"
-      ? {
-          brandSub: "STW",
-          title: "STW",
-          subtitle:
-            "V-Bucks and Save the World missions with daily updates.",
-          nextReset: "Next reset",
-          dailyRotation: "Daily rotation",
-          vbucksTab: "V-Bucks",
-          missionsTab: "Missions",
-          shop: "Shop",
-          news: "News",
-          stw: "STW",
-          allZones: "All zones",
-          allTypes: "All types",
-          loading: "Loading STW...",
-          loadError: "Could not load STW",
-          vbucksToday: "V-Bucks today",
-          missionsWithVbucks: "Missions with V-Bucks",
-          dailyReset: "Daily reset",
-          noVbucksToday: "There are no V-Bucks missions today.",
-          noMissionsForFilter: "There are no missions for this filter.",
-          noRewardDetails: "No reward details.",
-          rewards: "Rewards",
+  useEffect(() => {
+    async function loadSTW() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await fetch("/api/stw", { cache: "no-store" });
+        const text = await response.text();
+        const json = text ? JSON.parse(text) : {};
+
+        if (!response.ok) {
+          throw new Error(json.error || labels.noData);
         }
-      : {
-          brandSub: "STW",
-          title: "STW",
-          subtitle:
-            "Pavos y misiones de Save the World con actualización diaria.",
-          nextReset: "Próximo reset",
-          dailyRotation: "Rotación diaria",
-          vbucksTab: "Pavos",
-          missionsTab: "Misiones",
-          shop: "Tienda",
-          news: "Noticias",
-          stw: "STW",
-          allZones: "Todas las zonas",
-          allTypes: "Todos los tipos",
-          loading: "Cargando STW...",
-          loadError: "No se pudo cargar STW",
-          vbucksToday: "Pavos hoy",
-          missionsWithVbucks: "Misiones con pavos",
-          dailyReset: "Reset diario",
-          noVbucksToday: "Hoy no hay misiones con pavos.",
-          noMissionsForFilter: "No hay misiones para este filtro.",
-          noRewardDetails: "Sin detalles de recompensa.",
-          rewards: "Recompensas",
-        };
 
-  async function loadSTW() {
-    try {
-      setLoading(true);
-      setError("");
-
-      const res = await fetch("/api/stw", { cache: "no-store" });
-      const text = await res.text();
-      const json = text ? JSON.parse(text) : {};
-
-      if (!res.ok) {
-        throw new Error(json.error || labels.loadError);
+        setData(json);
+      } catch (err) {
+        setError(err.message || labels.noData);
+      } finally {
+        setLoading(false);
       }
-
-      setData(json);
-    } catch (err) {
-      setError(err.message || labels.loadError);
-    } finally {
-      setLoading(false);
     }
-  }
 
-  useEffect(() => {
     loadSTW();
-  }, []);
+  }, [labels.noData]);
 
   useEffect(() => {
-    if (!data?.nextResetAt) return;
+    if (!data?.nextResetAt) return undefined;
 
     setTimeLeft(getTimeUntil(data.nextResetAt));
-
     const interval = setInterval(() => {
       setTimeLeft(getTimeUntil(data.nextResetAt));
     }, 1000);
@@ -357,27 +261,21 @@ export default function STWPage() {
     return () => clearInterval(interval);
   }, [data?.nextResetAt]);
 
-  useEffect(() => {
-    setMobileOpenId(null);
-  }, [tab, zone, alertType, language]);
-
   const filteredMissions = useMemo(() => {
-    if (!data?.missions) return [];
+    const missions = Array.isArray(data?.missions) ? data.missions : [];
 
-    return data.missions.filter((mission) => {
+    return missions.filter((mission) => {
       const zoneOk = zone === "all" || mission.zone === zone;
       const typeOk = alertType === "all" || mission.alertType === alertType;
       return zoneOk && typeOk;
     });
   }, [data?.missions, zone, alertType]);
 
-  const groupedVbucks = useMemo(() => {
-    return groupByZone(data?.vbucks?.missions || []);
-  }, [data?.vbucks?.missions]);
-
-  const groupedMissions = useMemo(() => {
-    return groupByZone(filteredMissions);
-  }, [filteredMissions]);
+  const groupedMissions = useMemo(() => groupByZone(filteredMissions), [filteredMissions]);
+  const groupedVbucks = useMemo(
+    () => groupByZone(Array.isArray(data?.vbucks?.missions) ? data.vbucks.missions : []),
+    [data?.vbucks?.missions]
+  );
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_20%),linear-gradient(180deg,_#000000_0%,_#021106_45%,_#000000_100%)] text-white">
@@ -391,7 +289,7 @@ export default function STWPage() {
             />
             <div className="min-w-0">
               <p className="truncate text-base font-extrabold leading-none sm:text-lg">
-                Ganker Games
+                {labels.brand}
               </p>
               <p className="text-[10px] uppercase tracking-[0.25em] text-[#67ff9a] sm:text-xs">
                 {labels.brandSub}
@@ -402,7 +300,7 @@ export default function STWPage() {
           <div className="ml-auto flex items-center gap-2">
             <select
               value={language}
-              onChange={(e) => setLanguage(e.target.value)}
+              onChange={(event) => setLanguage(event.target.value)}
               className="rounded-xl border border-[#284635] bg-[#0b120d] px-3 py-2 text-sm font-semibold text-white outline-none focus:border-[#67ff9a]"
             >
               <option value="es-419">ES</option>
@@ -410,23 +308,14 @@ export default function STWPage() {
             </select>
 
             <nav className="hidden items-center gap-2 md:flex">
-              <Link
-                href="/"
-                className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white"
-              >
-                {labels.shop}
+              <Link href="/" className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white">
+                {labels.navShop}
               </Link>
-              <Link
-                href="/noticias"
-                className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white"
-              >
-                {labels.news}
+              <Link href="/noticias" className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white">
+                {labels.navNews}
               </Link>
-              <Link
-                href="/stw"
-                className="rounded-xl bg-[#15d863] px-4 py-2 text-sm font-bold text-[#06110a]"
-              >
-                {labels.stw}
+              <Link href="/stw" className="rounded-xl bg-[#15d863] px-4 py-2 text-sm font-bold text-[#06110a]">
+                {labels.navSTW}
               </Link>
             </nav>
           </div>
@@ -435,23 +324,14 @@ export default function STWPage() {
 
       <div className="mx-auto max-w-7xl px-4 pt-4 md:hidden">
         <div className="grid grid-cols-3 gap-3">
-          <Link
-            href="/"
-            className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-3 text-center text-sm font-extrabold text-white"
-          >
-            {labels.shop}
+          <Link href="/" className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-3 text-center text-sm font-extrabold text-white">
+            {labels.navShop}
           </Link>
-          <Link
-            href="/noticias"
-            className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-3 text-center text-sm font-extrabold text-white"
-          >
-            {labels.news}
+          <Link href="/noticias" className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-3 text-center text-sm font-extrabold text-white">
+            {labels.navNews}
           </Link>
-          <Link
-            href="/stw"
-            className="rounded-xl bg-[#15d863] px-4 py-3 text-center text-sm font-extrabold text-[#06110a]"
-          >
-            {labels.stw}
+          <Link href="/stw" className="rounded-xl bg-[#15d863] px-4 py-3 text-center text-sm font-extrabold text-[#06110a]">
+            {labels.navSTW}
           </Link>
         </div>
       </div>
@@ -461,13 +341,13 @@ export default function STWPage() {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="mb-2 text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">
-                Ganker Games
+                {labels.heroKicker}
               </p>
               <h1 className="text-3xl font-black uppercase italic sm:text-4xl md:text-6xl">
-                {labels.title}
+                {labels.heroTitle}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200 sm:text-base md:text-lg">
-                {labels.subtitle}
+                {labels.heroDesc}
               </p>
             </div>
 
@@ -487,22 +367,20 @@ export default function STWPage() {
 
         <div className="mb-5 grid gap-3 sm:grid-cols-2">
           <button
+            type="button"
             onClick={() => setTab("vbucks")}
             className={`rounded-2xl px-4 py-4 text-sm font-extrabold ${
-              tab === "vbucks"
-                ? "bg-[#15d863] text-[#06110a]"
-                : "border border-[#284635] bg-[#0b120d] text-white"
+              tab === "vbucks" ? "bg-[#15d863] text-[#06110a]" : "border border-[#284635] bg-[#0b120d] text-white"
             }`}
           >
             {labels.vbucksTab}
           </button>
 
           <button
+            type="button"
             onClick={() => setTab("missions")}
             className={`rounded-2xl px-4 py-4 text-sm font-extrabold ${
-              tab === "missions"
-                ? "bg-[#15d863] text-[#06110a]"
-                : "border border-[#284635] bg-[#0b120d] text-white"
+              tab === "missions" ? "bg-[#15d863] text-[#06110a]" : "border border-[#284635] bg-[#0b120d] text-white"
             }`}
           >
             {labels.missionsTab}
@@ -513,26 +391,26 @@ export default function STWPage() {
           <div className="mb-6 grid gap-3 md:grid-cols-2">
             <select
               value={zone}
-              onChange={(e) => setZone(e.target.value)}
+              onChange={(event) => setZone(event.target.value)}
               className="rounded-2xl border border-[#284635] bg-[#0b120d] px-4 py-4 text-sm font-semibold text-white outline-none"
             >
               <option value="all">{labels.allZones}</option>
-              {(data?.filters?.zones || []).map((item) => (
-                <option key={item} value={item}>
-                  {translateZone(item, language)}
+              {(data?.filters?.zones || []).map((entry) => (
+                <option key={entry} value={entry}>
+                  {translateZone(entry, language)}
                 </option>
               ))}
             </select>
 
             <select
               value={alertType}
-              onChange={(e) => setAlertType(e.target.value)}
+              onChange={(event) => setAlertType(event.target.value)}
               className="rounded-2xl border border-[#284635] bg-[#0b120d] px-4 py-4 text-sm font-semibold text-white outline-none"
             >
               <option value="all">{labels.allTypes}</option>
-              {(data?.filters?.alertTypes || []).map((item) => (
-                <option key={item} value={item}>
-                  {translateAlertType(item, language)}
+              {(data?.filters?.alertTypes || []).map((entry) => (
+                <option key={entry} value={entry}>
+                  {translateAlertType(entry, language)}
                 </option>
               ))}
             </select>
@@ -588,23 +466,15 @@ export default function STWPage() {
               </div>
             ) : (
               <div className="space-y-8">
-                {groupedVbucks.map(([zoneName, missions]) => (
+                {groupedVbucks.map(([zoneName, entries]) => (
                   <section key={zoneName}>
                     <h2 className="mb-4 text-2xl font-black uppercase italic text-[#67ff9a]">
                       {translateZone(zoneName, language)}
                     </h2>
 
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      {missions.map((mission) => (
-                        <MissionCard
-                          key={mission.id}
-                          mission={mission}
-                          mode="vbucks"
-                          labels={labels}
-                          language={language}
-                          mobileOpenId={mobileOpenId}
-                          setMobileOpenId={setMobileOpenId}
-                        />
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                      {entries.map((mission) => (
+                        <MissionCard key={mission.id} mission={mission} labels={labels} language={language} accent="cyan" />
                       ))}
                     </div>
                   </section>
@@ -621,22 +491,15 @@ export default function STWPage() {
             </div>
           ) : (
             <div className="space-y-8">
-              {groupedMissions.map(([zoneName, missions]) => (
+              {groupedMissions.map(([zoneName, entries]) => (
                 <section key={zoneName}>
                   <h2 className="mb-4 text-2xl font-black uppercase italic text-[#67ff9a]">
                     {translateZone(zoneName, language)}
                   </h2>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {missions.map((mission) => (
-                      <MissionCard
-                        key={mission.id}
-                        mission={mission}
-                        labels={labels}
-                        language={language}
-                        mobileOpenId={mobileOpenId}
-                        setMobileOpenId={setMobileOpenId}
-                      />
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {entries.map((mission) => (
+                      <MissionCard key={mission.id} mission={mission} labels={labels} language={language} />
                     ))}
                   </div>
                 </section>

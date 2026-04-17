@@ -3,479 +3,651 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-const NAME_TRANSLATIONS_ES_MX = {
-  "Oathbound Lexa": "Lexa del Juramento",
-  "Metal Mouth": "Boca Metálica",
-  "Twisted Fate Blade": "Hoja del Destino Retorcido",
-  Oathbound: "Juramento",
-  "Toy Story Alien": "Alien de Toy Story",
-  "Destroy Buzz": "Destruye a Buzz",
-  "Buzz Lightyear Mic": "Micrófono de Buzz Lightyear",
-  "Pizza Planet Delivery Truck": "Camioneta de reparto de Pizza Planet",
-  "Kate's Quiver": "Carcaj de Kate",
-  "Airflow Vibes": "Vibras de Flujo",
-  "Cosmonautic Helmet": "Casco Cosmonáutico",
-  "Fluttering Notes": "Notas Revoloteando",
-  Renegade: "Renegada",
-  "Star Wand": "Varita Estelar",
-  Lyrik: "Lírik",
-  "Sandy Salute": "Saludo Arenoso",
-  "Motor Monster": "Monstruo Motorizado",
-  Hatcback: "Eclosión",
-  "Side To Side": "De Lado a Lado",
-  "Wild Blade": "Hoja Salvaje",
-  "Captain Hook's Flag": "Bandera del Capitán Garfio",
-  "Nike Air Kukini SE 'Leopard'": "Nike Air Kukini SE 'Leopard'",
-  "Silver Surfer's Surfboard": "Tabla de Silver Surfer",
-  Gabriela: "Gabriela",
-  Demolisher: "Demoledora",
-  "Tactical Crusher": "Trituradora Táctica",
+const LANG_STORAGE_KEY = "gkg-lang";
+const CART_STORAGE_KEY = "gkg-cart";
+const VB_TO_LOCAL_RATE = 0.09;
+const AUTO_ROTATE_MS = 5000;
+
+const LABELS = {
+  "es-419": {
+    brand: "Ganker Games",
+    brandSub: "FORTNITE SHOP",
+    navShop: "Tienda",
+    navNews: "Noticias",
+    navSTW: "STW",
+    cart: "Carrito",
+    heroKicker: "GANKER GAMES",
+    heroTitle: "TIENDA",
+    heroDesc:
+      "Explora la tienda diaria con precios en MXN, V-Bucks, filtros por sección y objetos que están por salir.",
+    nextUpdate: "Próxima actualización",
+    shopChangesAt: "La tienda cambia diario a las 00:00 UTC",
+    searchPlaceholder: "Buscar skin, bundle, track, sección...",
+    filterButton: "Filtro",
+    all: "Todas",
+    recent: "Reciente",
+    newOnly: "Nuevos",
+    close: "Cerrar",
+    addToCart: "Agregar al carrito",
+    remove: "Quitar",
+    emptyCart: "Tu carrito está vacío",
+    total: "Total",
+    totalVbucks: "Total V-Bucks",
+    sendWhatsApp: "Enviar por WhatsApp",
+    shareLink: "Copiar enlace",
+    copied: "Enlace copiado",
+    itemShare: "Compartir",
+    leavingSoon: "SE VA PRONTO",
+    newBadge: "NUEVO",
+    includes: "INCLUYE",
+    setLabel: "Set",
+    rarityLabel: "Rareza",
+    timeLeft: "Se va en",
+    loading: "Cargando tienda...",
+    noResults: "No se encontraron resultados con ese filtro.",
+    vbucks: "V-Bucks",
+    showAllSections: "Mostrar todas las secciones",
+    filterTitle: "FILTRO DE LA TIENDA",
+    typeLabels: {
+      bundle: "Lote",
+      outfit: "Skin",
+      pickaxe: "Pico",
+      backpack: "Mochila retro",
+      glider: "Ala delta",
+      emote: "Gesto",
+      wrap: "Envoltura",
+      jamtrack: "Pista Jam",
+      shoe: "Calzado",
+      contrail: "Estela",
+      loadingscreen: "Pantalla de carga",
+      spray: "Grafiti",
+      music: "Música",
+      toy: "Juguete",
+      pet: "Mascota",
+      emoji: "Emoji",
+      banner: "Banner",
+      vehicle: "Vehículo",
+      instrument: "Instrumento",
+      fallback: "Objeto",
+    },
+  },
+  en: {
+    brand: "Ganker Games",
+    brandSub: "FORTNITE SHOP",
+    navShop: "Shop",
+    navNews: "News",
+    navSTW: "STW",
+    cart: "Cart",
+    heroKicker: "GANKER GAMES",
+    heroTitle: "SHOP",
+    heroDesc:
+      "Browse the daily shop with local pricing, V-Bucks, section filters and items leaving soon.",
+    nextUpdate: "Next update",
+    shopChangesAt: "The shop refreshes daily at 00:00 UTC",
+    searchPlaceholder: "Search skin, bundle, track, section...",
+    filterButton: "Filter",
+    all: "All",
+    recent: "Recent",
+    newOnly: "New",
+    close: "Close",
+    addToCart: "Add to cart",
+    remove: "Remove",
+    emptyCart: "Your cart is empty",
+    total: "Total",
+    totalVbucks: "Total V-Bucks",
+    sendWhatsApp: "Send on WhatsApp",
+    shareLink: "Copy link",
+    copied: "Link copied",
+    itemShare: "Share",
+    leavingSoon: "LEAVING SOON",
+    newBadge: "NEW",
+    includes: "INCLUDES",
+    setLabel: "Set",
+    rarityLabel: "Rarity",
+    timeLeft: "Leaves in",
+    loading: "Loading shop...",
+    noResults: "No results found with that filter.",
+    vbucks: "V-Bucks",
+    showAllSections: "Show all sections",
+    filterTitle: "SHOP FILTER",
+    typeLabels: {
+      bundle: "Bundle",
+      outfit: "Outfit",
+      pickaxe: "Pickaxe",
+      backpack: "Back Bling",
+      glider: "Glider",
+      emote: "Emote",
+      wrap: "Wrap",
+      jamtrack: "Jam Track",
+      shoe: "Shoes",
+      contrail: "Contrail",
+      loadingscreen: "Loading Screen",
+      spray: "Spray",
+      music: "Music",
+      toy: "Toy",
+      pet: "Pet",
+      emoji: "Emoji",
+      banner: "Banner",
+      vehicle: "Vehicle",
+      instrument: "Instrument",
+      fallback: "Item",
+    },
+  },
 };
 
-const VB_TO_MXN_RATE = 0.09;
-const LEAVING_SOON_HOURS = 24;
-const RECENT_HOURS = 24;
-const NEW_ADDED_DAYS = 14;
-const WHATSAPP_BASE_URL = "https://wa.me/5216568558434";
-const LANG_STORAGE_KEY = "gkg-lang";
+const TYPE_ORDER = {
+  bundle: 0,
+  outfit: 1,
+  pickaxe: 2,
+  backpack: 3,
+  glider: 4,
+  emote: 5,
+  wrap: 6,
+  jamtrack: 7,
+  shoe: 8,
+  contrail: 9,
+  loadingscreen: 10,
+  spray: 11,
+  music: 12,
+  toy: 13,
+  pet: 14,
+  emoji: 15,
+  banner: 16,
+  vehicle: 17,
+  instrument: 18,
+  fallback: 99,
+};
 
-function asDisplayText(value) {
-  if (!value) return "";
+function asText(value) {
+  if (value == null) return "";
   if (typeof value === "string") return value;
   if (typeof value === "number") return String(value);
-
   if (typeof value === "object") {
     return (
       value.displayValue ||
-      value.value ||
       value.backendValue ||
+      value.value ||
       value.text ||
+      value.name ||
+      value.title ||
       ""
     );
   }
-
   return "";
 }
 
-function getTimeUntilNextShopUpdate(lang) {
-  const now = new Date();
-  const nextUtcMidnight = new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate() + 1,
-      0,
-      0,
-      0
-    )
-  );
+function normalizeUrl(url) {
+  return String(url || "")
+    .trim()
+    .replace(/^http:/i, "https:")
+    .replace(/\?.*$/, "");
+}
 
-  const diff = nextUtcMidnight - now;
+function dedupeStrings(values) {
+  const seen = new Set();
+  const result = [];
 
-  if (diff <= 0) {
-    return lang === "es-419" ? "Actualizando..." : "Updating...";
+  for (const raw of values) {
+    const value = normalizeUrl(raw);
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    result.push(value);
   }
 
+  return result;
+}
+
+function getTypeKey(rawType) {
+  const value = asText(rawType).toLowerCase();
+
+  if (!value) return "fallback";
+  if (value.includes("bundle") || value.includes("pack")) return "bundle";
+  if (value.includes("outfit") || value.includes("skin")) return "outfit";
+  if (value.includes("pickaxe") || value.includes("harvesting")) return "pickaxe";
+  if (value.includes("back") || value.includes("backpack")) return "backpack";
+  if (value.includes("glider")) return "glider";
+  if (value.includes("emote")) return "emote";
+  if (value.includes("wrap")) return "wrap";
+  if (value.includes("jam")) return "jamtrack";
+  if (value.includes("shoe")) return "shoe";
+  if (value.includes("contrail")) return "contrail";
+  if (value.includes("loading")) return "loadingscreen";
+  if (value.includes("spray")) return "spray";
+  if (value.includes("music")) return "music";
+  if (value.includes("toy")) return "toy";
+  if (value.includes("pet")) return "pet";
+  if (value.includes("emoji")) return "emoji";
+  if (value.includes("banner")) return "banner";
+  if (value.includes("vehicle") || value.includes("car")) return "vehicle";
+  if (value.includes("instrument")) return "instrument";
+  return "fallback";
+}
+
+function getCurrentPrice(item) {
+  return Number(
+    item?.price ??
+      item?.price?.finalPrice ??
+      item?.finalPrice ??
+      item?.vbucks ??
+      item?.priceVbucks ??
+      0
+  );
+}
+
+function getDisplayType(item, labels) {
+  const key = getTypeKey(item.typeEnglish || item.typeLocalized || item.type);
+  return labels.typeLabels[key] || labels.typeLabels.fallback;
+}
+
+function getDisplaySection(item) {
+  return (
+    asText(item.sectionLocalized) ||
+    asText(item.sectionEnglish) ||
+    asText(item.section?.name) ||
+    asText(item.section) ||
+    "Shop"
+  );
+}
+
+function getDisplayName(item) {
+  return (
+    asText(item.nameLocalized) ||
+    asText(item.nameEnglish) ||
+    asText(item.name) ||
+    "Item"
+  );
+}
+
+function getSecondaryEnglishName(item, language) {
+  if (language !== "es-419") return "";
+  const localized = asText(item.nameLocalized);
+  const english = asText(item.nameEnglish);
+  if (!localized || !english) return "";
+  if (localized.trim().toLowerCase() === english.trim().toLowerCase()) return "";
+  return english;
+}
+
+function localPrice(language, vbucks) {
+  const amount = Number(vbucks || 0);
+  const price = amount * VB_TO_LOCAL_RATE;
+  return language === "en" ? `$${price.toFixed(2)}` : `MX$${price.toFixed(2)}`;
+}
+
+function getCountdownToNextShopUpdate() {
+  const now = new Date();
+  const next = new Date(now);
+  next.setUTCHours(24, 0, 0, 0);
+
+  const diff = next.getTime() - now.getTime();
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
   const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-    2,
-    "0"
-  )}:${String(seconds).padStart(2, "0")}`;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(
+    seconds
+  ).padStart(2, "0")}`;
 }
 
-function getTimeUntilDate(dateString, lang) {
-  if (!dateString) {
-    return lang === "es-419" ? "Sin fecha" : "No date";
-  }
+function getTimeUntilDate(dateString, language) {
+  if (!dateString) return language === "en" ? "No date" : "Sin fecha";
 
-  const now = new Date();
-  const target = new Date(dateString);
-  const diff = target - now;
+  const diff = new Date(dateString).getTime() - Date.now();
+  if (!Number.isFinite(diff)) return language === "en" ? "No date" : "Sin fecha";
+  if (diff <= 0) return language === "en" ? "Gone" : "Ya salió";
 
-  if (!Number.isFinite(target.getTime())) {
-    return lang === "es-419" ? "Sin fecha" : "No date";
-  }
-
-  if (diff <= 0) {
-    return lang === "es-419" ? "Ya salió" : "Gone";
-  }
-
-  const totalSeconds = Math.floor(diff / 1000);
-  const days = Math.floor(totalSeconds / 86400);
-  const hours = Math.floor((totalSeconds % 86400) / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const totalMinutes = Math.floor(diff / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
 
   if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-  return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function extractHistory(rawHistory) {
+  if (!Array.isArray(rawHistory)) return [];
+  return rawHistory
+    .map((entry) => ({
+      inDate: entry?.inDate || entry?.date || entry?.added || "",
+      outDate: entry?.outDate || entry?.until || "",
+    }))
+    .filter((entry) => entry.inDate || entry.outDate);
+}
+
+function getLatestInDate(item) {
+  const history = extractHistory(item.shopHistory);
+  const historyDates = history
+    .map((entry) => entry.inDate)
+    .filter(Boolean)
+    .map((value) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value));
+
+  const directDates = [item.inDate, item.addedAt, item.updatedAt]
+    .filter(Boolean)
+    .map((value) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value));
+
+  const all = [...historyDates, ...directDates];
+  if (all.length === 0) return "";
+  return new Date(Math.max(...all)).toISOString();
+}
+
+function getLatestOutDate(item) {
+  const history = extractHistory(item.shopHistory);
+  const historyDates = history
+    .map((entry) => entry.outDate)
+    .filter(Boolean)
+    .map((value) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value));
+
+  const directDates = [item.outDate]
+    .filter(Boolean)
+    .map((value) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value));
+
+  const all = [...historyDates, ...directDates];
+  if (all.length === 0) return "";
+  return new Date(Math.max(...all)).toISOString();
+}
+
+function isWithin24Hours(dateString) {
+  if (!dateString) return false;
+  const diff = Math.abs(Date.now() - new Date(dateString).getTime());
+  return Number.isFinite(diff) && diff <= 24 * 60 * 60 * 1000;
 }
 
 function isLeavingSoon(dateString) {
   if (!dateString) return false;
-
-  const now = new Date();
-  const target = new Date(dateString);
-  const diff = target - now;
-
-  if (!Number.isFinite(target.getTime()) || diff <= 0) return false;
-  return diff <= LEAVING_SOON_HOURS * 60 * 60 * 1000;
+  const diff = new Date(dateString).getTime() - Date.now();
+  return diff > 0 && diff <= 24 * 60 * 60 * 1000;
 }
 
-function isRecentShopArrival(dateString) {
-  if (!dateString) return false;
-
-  const now = new Date();
-  const target = new Date(dateString);
-  const diff = now - target;
-
-  if (!Number.isFinite(target.getTime()) || diff < 0) return false;
-  return diff <= RECENT_HOURS * 60 * 60 * 1000;
+function isNewByHistory(item) {
+  if (item.isNew === true) return true;
+  const history = extractHistory(item.shopHistory);
+  if (history.length === 0) return false;
+  return history.length <= 1;
 }
 
-function isLikelyNewToShop(item) {
-  if (!isRecentShopArrival(item?.inDate)) return false;
-  if (!item?.addedDate) return false;
-
-  const now = new Date();
-  const addedDate = new Date(item.addedDate);
-
-  if (!Number.isFinite(addedDate.getTime())) return false;
-
-  const addedAgo = now - addedDate;
-  if (addedAgo < 0) return false;
-
-  return addedAgo <= NEW_ADDED_DAYS * 24 * 60 * 60 * 1000;
+function isFreshNewItem(item) {
+  return isNewByHistory(item) && isWithin24Hours(getLatestInDate(item));
 }
 
-function translateType(type, lang) {
-  const english = asDisplayText(type);
-
-  if (lang === "en") return english;
-
-  const map = {
-    Outfit: "Skin",
-    Pickaxe: "Pico",
-    Wrap: "Envoltura",
-    Emote: "Gesto",
-    "Back Bling": "Mochila retro",
-    Glider: "Ala delta",
-    "Loading Screen": "Pantalla de carga",
-    Music: "Música",
-    Bundle: "Lote",
-    Spray: "Grafiti",
-    Toy: "Juguete",
-    Emoji: "Emoji",
-    Emoticon: "Emoticono",
-    Contrail: "Estela",
-    Pet: "Mascota",
-    "Harvesting Tool": "Herramienta de recolección",
-    "Jam Track": "Pista Jam",
-    Backpack: "Mochila",
-    Vehicle: "Vehículo",
-    Car: "Auto",
-    Instrument: "Instrumento",
-    Sidekick: "Accesorio",
-    Shoes: "Calzado",
-  };
-
-  return map[english] || english;
+function isRecentItem(item) {
+  return isWithin24Hours(getLatestInDate(item));
 }
 
-function translateSection(section, lang) {
-  const english = asDisplayText(section);
+function sortItems(items) {
+  return [...items].sort((a, b) => {
+    const aType = getTypeKey(a.typeEnglish || a.typeLocalized || a.type);
+    const bType = getTypeKey(b.typeEnglish || b.typeLocalized || b.type);
 
-  if (lang === "en") return english;
+    const orderDiff = (TYPE_ORDER[aType] ?? 99) - (TYPE_ORDER[bType] ?? 99);
+    if (orderDiff !== 0) return orderDiff;
 
-  const map = {
-    Featured: "Destacado",
-    Daily: "Diario",
-    "Special Offers": "Ofertas especiales",
-    Bundles: "Lotes",
-    "Signature Style": "Estilo distintivo",
-    Marvel: "Marvel",
-    "Star Wars": "Star Wars",
-    "Icon Series": "Serie de ídolos",
-    FNCS: "FNCS",
-    "Turn The Music Up": "Sube la música",
-    "Jam Tracks": "Pistas Jam",
-    Coachella: "Coachella",
-    "Toy Story": "Toy Story",
-    Gear: "Accesorios",
-    Offers: "Ofertas",
-    Cars: "Autos",
-    Instruments: "Instrumentos",
-    Festival: "Festival",
-    "Battle Ready": "Listos para la batalla",
-    "Rick and Morty": "Rick and Morty",
-    "Teenage Mutant Ninja Turtles": "Tortugas Ninja",
-    DC: "DC",
-    GamingLegends: "Leyendas del gaming",
-    Summer: "Verano",
-    Winterfest: "Festival de Invierno",
-    Lava: "Lava",
-    "No Sweat": "No Sweat",
-    "Phineas and Ferb": "Phineas y Ferb",
-    Terminator: "Terminator",
-    Shop: "Tienda",
-    Arenas: "Arenas",
-    Tienda: "Tienda",
-    "Fortnite Drops": "Fortnite Drops",
-  };
-
-  return map[english] || english;
+    return getDisplayName(a).localeCompare(getDisplayName(b), "es", {
+      sensitivity: "base",
+    });
+  });
 }
 
-function getDisplayName(item, lang) {
-  const englishName = item.nameEnglish || item.nameLocalized || item.name || "";
-  const localizedName = item.nameLocalized || item.name || englishName;
+function getIncludedItems(item) {
+  const raw = Array.isArray(item.includedItems)
+    ? item.includedItems
+    : Array.isArray(item.grants)
+    ? item.grants
+    : [];
 
-  if (lang === "en") return englishName;
+  const seen = new Set();
 
-  const manualTranslation = NAME_TRANSLATIONS_ES_MX[englishName];
-  if (manualTranslation) return manualTranslation;
+  return raw.filter((entry) => {
+    const key = [
+      getDisplayName(entry),
+      getTypeKey(entry.typeEnglish || entry.typeLocalized || entry.type),
+      normalizeUrl(entry.image || entry?.images?.icon || entry?.images?.featured),
+    ].join("|");
 
-  if (
-    localizedName &&
-    englishName &&
-    localizedName.trim().toLowerCase() !== englishName.trim().toLowerCase()
-  ) {
-    return localizedName;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function getGalleryImages(item) {
+  const variantImages = Array.isArray(item.variants)
+    ? item.variants.flatMap((variant) =>
+        [
+          variant?.image,
+          variant?.icon,
+          variant?.featured,
+          variant?.preview,
+          ...(Array.isArray(variant?.images) ? variant.images : []),
+          ...(Array.isArray(variant?.options)
+            ? variant.options.flatMap((option) => [
+                option?.image,
+                option?.icon,
+                option?.featured,
+                option?.preview,
+                ...(Array.isArray(option?.images) ? option.images : []),
+              ])
+            : []),
+        ].filter(Boolean)
+      )
+    : [];
+
+  const styleImages = Array.isArray(item.styles)
+    ? item.styles.flatMap((style) => [
+        style?.image,
+        style?.icon,
+        style?.featured,
+        style?.preview,
+        ...(Array.isArray(style?.images) ? style.images : []),
+      ])
+    : [];
+
+  const displayAssets = Array.isArray(item.displayAssets)
+    ? item.displayAssets.flatMap((asset) => [
+        asset?.url,
+        asset?.image,
+        asset?.featured,
+        asset?.icon,
+        asset?.full_background,
+        asset?.background,
+      ])
+    : [];
+
+  const imageObjectValues =
+    item?.images && typeof item.images === "object" && !Array.isArray(item.images)
+      ? Object.values(item.images)
+      : [];
+
+  const includeImages = getIncludedItems(item).map(
+    (entry) =>
+      entry.image ||
+      entry?.images?.icon ||
+      entry?.images?.featured ||
+      entry?.images?.smallIcon
+  );
+
+  return dedupeStrings([
+    item.image,
+    item.featuredImage,
+    item.icon,
+    item.smallIcon,
+    item.background,
+    ...(Array.isArray(item.galleryImages) ? item.galleryImages : []),
+    ...(Array.isArray(item.images) ? item.images : []),
+    ...imageObjectValues,
+    ...displayAssets,
+    ...styleImages,
+    ...variantImages,
+    ...includeImages,
+  ]);
+}
+
+function normalizeShopItems(payload) {
+  const rawItems = Array.isArray(payload?.items)
+    ? payload.items
+    : Array.isArray(payload?.shop)
+    ? payload.shop
+    : Array.isArray(payload?.data?.items)
+    ? payload.data.items
+    : Array.isArray(payload?.data?.shop)
+    ? payload.data.shop
+    : Array.isArray(payload)
+    ? payload
+    : [];
+
+  return rawItems.map((item, index) => {
+    const id =
+      item?.id ||
+      item?.mainId ||
+      item?.offerId ||
+      `${getDisplayName(item)}-${index}`;
+
+    return {
+      ...item,
+      id,
+      price: getCurrentPrice(item),
+      _section: getDisplaySection(item),
+      _typeKey: getTypeKey(item.typeEnglish || item.typeLocalized || item.type),
+      _latestInDate: getLatestInDate(item),
+      _latestOutDate: getLatestOutDate(item),
+      _isRecent: isRecentItem(item),
+      _isFreshNew: isFreshNewItem(item),
+      _isLeavingSoon: isLeavingSoon(getLatestOutDate(item)),
+      _galleryImages: getGalleryImages(item),
+    };
+  });
+}
+
+function buildGroups(items, selectedSection, search, labels) {
+  let filtered = [...items];
+
+  if (selectedSection === "RECENT") {
+    filtered = filtered.filter((item) => item._isRecent);
+  } else if (selectedSection === "NEW") {
+    filtered = filtered.filter((item) => item._isFreshNew);
+  } else if (selectedSection !== "ALL") {
+    filtered = filtered.filter((item) => item._section === selectedSection);
   }
 
-  return localizedName || englishName || "Item";
-}
-
-function getSecondaryEnglishName(item, lang) {
-  if (lang !== "es-419") return "";
-
-  const englishName = item.nameEnglish || item.name || "";
-  const displayName = getDisplayName(item, lang);
-
-  if (
-    englishName &&
-    displayName &&
-    englishName.trim().toLowerCase() !== displayName.trim().toLowerCase()
-  ) {
-    return englishName;
+  if (search.trim()) {
+    const q = search.toLowerCase();
+    filtered = filtered.filter((item) =>
+      [
+        getDisplayName(item),
+        asText(item.nameEnglish),
+        item._section,
+        getDisplayType(item, labels),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
   }
 
-  return "";
+  if (selectedSection === "ALL") {
+    const groups = {};
+    filtered.forEach((item) => {
+      if (!groups[item._section]) groups[item._section] = [];
+      groups[item._section].push(item);
+    });
+
+    return Object.entries(groups)
+      .map(([sectionName, entries]) => ({
+        sectionName,
+        items: sortItems(entries),
+      }))
+      .sort((a, b) => a.sectionName.localeCompare(b.sectionName, "es", { sensitivity: "base" }));
+  }
+
+  const title =
+    selectedSection === "RECENT"
+      ? labels.recent
+      : selectedSection === "NEW"
+      ? labels.newOnly
+      : selectedSection;
+
+  return [{ sectionName: title, items: sortItems(filtered) }];
 }
 
-function getDisplayType(item, lang) {
-  const englishType = asDisplayText(
-    item.typeEnglish || item.typeLocalized || item.type || ""
-  );
-  return translateType(englishType, lang);
-}
+function RotatingImage({ images, alt, className, intervalMs = AUTO_ROTATE_MS }) {
+  const safeImages = Array.isArray(images) && images.length > 0 ? images : ["/ganker-logo.png"];
+  const [index, setIndex] = useState(0);
 
-function getDisplaySection(item, lang) {
-  const englishSection = asDisplayText(
-    item.sectionEnglish || item.sectionLocalized || item.section || ""
-  );
-  return translateSection(englishSection, lang);
-}
+  useEffect(() => {
+    setIndex(0);
+  }, [safeImages.join("|")]);
 
-function formatMxPrice(vbucks) {
-  const numericPrice = Number(vbucks);
-  if (!Number.isFinite(numericPrice)) return "MXN N/D";
-  return `MX$${(numericPrice * VB_TO_MXN_RATE).toFixed(2)}`;
-}
+  useEffect(() => {
+    if (safeImages.length <= 1) return undefined;
 
-function encodeCart(cart) {
-  return cart
-    .filter((item) => item.qty > 0)
-    .map((item) => `${encodeURIComponent(item.id)}:${item.qty}`)
-    .join(",");
-}
+    const interval = setInterval(() => {
+      setIndex((prev) => (prev + 1) % safeImages.length);
+    }, intervalMs);
 
-function decodeCart(value) {
-  if (!value) return [];
-
-  return value
-    .split(",")
-    .map((part) => {
-      const [rawId, rawQty] = part.split(":");
-      const id = decodeURIComponent(rawId || "");
-      const qty = Number(rawQty);
-
-      if (!id || !Number.isFinite(qty) || qty <= 0) return null;
-      return { id, qty };
-    })
-    .filter(Boolean);
-}
-
-function resolveDetailImages(detail) {
-  const images = [
-    ...(detail.galleryImages || []),
-    ...(detail.images || []),
-    detail.image,
-  ].filter(Boolean);
-
-  return [...new Set(images)].slice(0, 10);
-}
-
-function colorForSection(index) {
-  const palette = [
-    "border-[#15d863]/40 bg-[#15d863]/12 text-[#9cffbe]",
-    "border-cyan-500/40 bg-cyan-500/12 text-cyan-300",
-    "border-fuchsia-500/40 bg-fuchsia-500/12 text-fuchsia-300",
-    "border-yellow-400/40 bg-yellow-400/12 text-yellow-200",
-    "border-orange-500/40 bg-orange-500/12 text-orange-300",
-    "border-violet-500/40 bg-violet-500/12 text-violet-300",
-  ];
-  return palette[index % palette.length];
-}
-
-function ShopCard({ item, language, labels, onAddToCart, onOpenModal }) {
-  const displayName = getDisplayName(item, language);
-  const secondaryEnglishName = getSecondaryEnglishName(item, language);
-  const displayType = getDisplayType(item, language);
-  const displaySection = getDisplaySection(item, language);
-  const mxnPrice = formatMxPrice(item.price);
-  const leavingSoon = isLeavingSoon(item.outDate);
-  const likelyNew = isLikelyNewToShop(item);
-  const leaveCountdown = getTimeUntilDate(item.outDate, language);
-
-  const cardClass =
-    leavingSoon && likelyNew
-      ? "border-2 border-red-500 ring-2 ring-yellow-400/60"
-      : leavingSoon
-      ? "border-2 border-red-500 ring-2 ring-red-500/30"
-      : likelyNew
-      ? "border-2 border-yellow-400 ring-2 ring-yellow-400/30"
-      : "border border-[#1f3a2b]";
+    return () => clearInterval(interval);
+  }, [safeImages, intervalMs]);
 
   return (
-    <article
-      className={`overflow-hidden rounded-[22px] bg-[#0d1210] shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition duration-200 hover:-translate-y-1 ${cardClass}`}
-    >
-      <div className="relative">
-        <button type="button" onClick={() => onOpenModal(item)} className="block w-full">
-          {item.image ? (
-            <div className="flex h-56 w-full items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,87,0.18),_transparent_45%),linear-gradient(180deg,_#060706_0%,_#0b120d_100%)] p-4 sm:h-64 md:h-72">
-              <img
-                src={item.image}
-                alt={displayName}
-                loading="lazy"
-                className="max-h-full max-w-full object-contain object-center"
-              />
-            </div>
-          ) : (
-            <div className="grid h-56 w-full place-items-center bg-[#101812] text-slate-400 sm:h-64 md:h-72">
-              {labels.noImage}
-            </div>
-          )}
-        </button>
-
-        {leavingSoon && (
-          <div className="absolute left-3 top-3 rounded-full border border-red-300 bg-red-500 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-lg sm:text-xs">
-            {labels.leavingSoon}
-          </div>
-        )}
-
-        {likelyNew && (
-          <div className="absolute right-3 top-3 rounded-full border border-yellow-200 bg-yellow-400 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#231700] shadow-lg sm:text-xs">
-            {labels.newItem}
-          </div>
-        )}
-      </div>
-
-      <div className="p-4">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#67ff9a] sm:text-sm">
-          {displaySection}
-        </p>
-
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base font-extrabold leading-tight text-white sm:text-lg">
-              {displayName}
-            </h2>
-
-            {secondaryEnglishName && (
-              <p className="mt-1 text-[11px] italic text-slate-400 sm:text-xs">
-                {secondaryEnglishName}
-              </p>
-            )}
-          </div>
-
-          <div className="shrink-0 rounded-full border border-[#88ffae] bg-[#15d863] px-3 py-1 text-xs font-extrabold text-[#06110a] shadow-lg sm:text-sm">
-            {mxnPrice}
-          </div>
-        </div>
-
-        <p className="mt-2 text-xs text-slate-300 sm:text-sm">{displayType}</p>
-
-        <p className="mt-3 text-sm font-extrabold text-white sm:text-base">
-          {item.price} {labels.vbucks}
-        </p>
-
-        {item.outDate && (
-          <div
-            className={`mt-3 rounded-xl px-3 py-2 ${
-              leavingSoon
-                ? "border border-red-500/50 bg-red-500/10"
-                : "border border-[#28392f] bg-[#07100a]"
-            }`}
-          >
-            <p className="text-[11px] text-slate-400 sm:text-xs">
-              {labels.leavesIn}
-            </p>
-            <p
-              className={`text-sm font-bold ${
-                leavingSoon ? "text-red-300" : "text-[#8dffb3]"
-              }`}
-            >
-              {leaveCountdown}
-            </p>
-          </div>
-        )}
-
-        <button
-          onClick={() => onAddToCart(item)}
-          className="mt-4 w-full rounded-xl bg-[#15d863] px-4 py-3 text-sm font-extrabold text-[#06110a] transition hover:bg-[#2cff7a]"
-        >
-          {labels.addToCart}
-        </button>
-      </div>
-    </article>
+    <img
+      src={safeImages[index]}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      onError={(event) => {
+        event.currentTarget.src = "/ganker-logo.png";
+      }}
+    />
   );
 }
 
-function SectionFilterModal({
-  open,
-  sections,
-  currentSection,
-  onClose,
-  onSelect,
-  labels,
-}) {
+function FilterModal({ open, sections, labels, selectedSection, onSelect, onClose }) {
   if (!open) return null;
 
+  const options = [
+    { id: "RECENT", label: labels.recent },
+    { id: "NEW", label: labels.newOnly },
+    ...sections.map((name) => ({ id: name, label: name })),
+  ];
+
+  const palette = [
+    "border-[#15d863]/50 bg-[#15d863]/10 text-[#9cffbe]",
+    "border-cyan-500/50 bg-cyan-500/10 text-cyan-300",
+    "border-fuchsia-500/50 bg-fuchsia-500/10 text-fuchsia-300",
+    "border-yellow-400/50 bg-yellow-400/10 text-yellow-200",
+    "border-orange-500/50 bg-orange-500/10 text-orange-300",
+    "border-violet-500/50 bg-violet-500/10 text-violet-300",
+  ];
+
   return (
-    <div className="fixed inset-0 z-[90]">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="absolute left-1/2 top-1/2 w-[94vw] max-w-4xl -translate-x-1/2 -translate-y-1/2 rounded-[28px] border border-[#1f3a2b] bg-[linear-gradient(180deg,_rgba(12,17,13,0.98)_0%,_rgba(5,9,7,0.98)_100%)] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.55)] md:p-6">
-        <h3 className="text-center text-2xl font-black uppercase italic text-white md:text-4xl">
-          {labels.filterShop}
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 p-4">
+      <div className="w-full max-w-4xl rounded-[30px] border border-[#13412f] bg-[#04120d] p-5 shadow-[0_0_60px_rgba(0,255,120,0.08)] sm:p-6">
+        <h3 className="text-center text-3xl font-black italic text-white sm:text-5xl">
+          {labels.filterTitle}
         </h3>
 
-        <div className="mt-6 grid max-h-[50vh] grid-cols-2 gap-3 overflow-y-auto pr-1 md:grid-cols-3">
-          {sections.map((sectionName, index) => {
-            const active = currentSection === sectionName;
+        <div className="mt-6 grid max-h-[52vh] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
+          {options.map((option, index) => {
+            const active = selectedSection === option.id;
+            const colors = palette[index % palette.length];
+
             return (
               <button
-                key={sectionName}
-                onClick={() => onSelect(sectionName)}
+                key={option.id}
+                type="button"
+                onClick={() => {
+                  onSelect(option.id);
+                  onClose();
+                }}
                 className={`rounded-2xl border px-4 py-4 text-left text-sm font-black uppercase tracking-wide transition ${
-                  active
-                    ? "border-[#15d863] bg-[#15d863] text-[#06110a]"
-                    : `${colorForSection(index)}`
+                  active ? "border-[#15d863] bg-[#15d863] text-[#06110a]" : colors
                 }`}
               >
-                {sectionName}
+                {option.label}
               </button>
             );
           })}
@@ -483,14 +655,20 @@ function SectionFilterModal({
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           <button
-            onClick={() => onSelect(labels.all)}
-            className="rounded-2xl bg-yellow-300 px-4 py-4 text-sm font-black uppercase text-[#111]"
+            type="button"
+            onClick={() => {
+              onSelect("ALL");
+              onClose();
+            }}
+            className="rounded-2xl bg-[#15d863] px-4 py-4 text-sm font-black uppercase text-[#06110a]"
           >
             {labels.showAllSections}
           </button>
+
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-2xl border border-[#d1d5db] bg-[#e5e7eb] px-4 py-4 text-sm font-black uppercase text-[#111]"
+            className="rounded-2xl border border-[#1a4e3a] bg-[#08140f] px-4 py-4 text-sm font-black uppercase text-white"
           >
             {labels.close}
           </button>
@@ -500,556 +678,620 @@ function SectionFilterModal({
   );
 }
 
+function CartDrawer({
+  open,
+  labels,
+  language,
+  cart,
+  allItems,
+  onClose,
+  onUpdateQty,
+  onRemove,
+  onClear,
+}) {
+  if (!open) return null;
+
+  const details = cart
+    .map((cartItem) => {
+      const item = allItems.find((entry) => entry.id === cartItem.id);
+      if (!item) return null;
+      return { ...item, qty: cartItem.qty };
+    })
+    .filter(Boolean);
+
+  const totalVbucks = details.reduce((sum, item) => sum + Number(item.price || 0) * item.qty, 0);
+  const totalLocal = details.reduce((sum, item) => sum + Number(item.price || 0) * VB_TO_LOCAL_RATE * item.qty, 0);
+
+  const shareCart = async () => {
+    const ids = cart.map((item) => `${item.id}:${item.qty}`).join(",");
+    const url = new URL(window.location.href);
+    url.searchParams.set("cart", ids);
+    await navigator.clipboard.writeText(url.toString());
+    alert(labels.copied);
+  };
+
+  const sendWhatsApp = () => {
+    const lines = details.map((item) => `• ${getDisplayName(item)} x${item.qty} - ${item.price} ${labels.vbucks}`);
+    const text = lines.join("\n");
+    const url = `https://wa.me/5216568558434?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  };
+
+  return (
+    <div className="fixed inset-0 z-[130]">
+      <div className="absolute inset-0 bg-black/75" onClick={onClose} />
+      <div className="absolute right-0 top-0 h-full w-full max-w-md border-l border-[#124633] bg-[#04120d] p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-2xl font-black">{labels.cart}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-[#1a4e3a] bg-[#08140f] px-4 py-2 font-black text-white"
+          >
+            {labels.close}
+          </button>
+        </div>
+
+        <div className="max-h-[calc(100vh-240px)] space-y-3 overflow-y-auto pr-1">
+          {details.length === 0 && (
+            <div className="rounded-2xl border border-[#124633] bg-[#06110c] p-4 text-slate-300">
+              {labels.emptyCart}
+            </div>
+          )}
+
+          {details.map((item) => (
+            <div key={item.id} className="rounded-2xl border border-[#124633] bg-[#06110c] p-3">
+              <div className="flex gap-3">
+                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl bg-[#101812]">
+                  <img
+                    src={item._galleryImages?.[0] || "/ganker-logo.png"}
+                    alt={getDisplayName(item)}
+                    className="h-full w-full object-contain object-center p-2"
+                  />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="line-clamp-2 text-sm font-black text-white">
+                    {getDisplayName(item)}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-400">
+                    {item.price} {labels.vbucks} · {localPrice(language, item.price)}
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onUpdateQty(item.id, Math.max(0, item.qty - 1))}
+                      className="h-8 w-8 rounded-lg border border-[#1a4e3a] bg-[#08140f] font-black"
+                    >
+                      -
+                    </button>
+                    <div className="min-w-[28px] text-center font-black">{item.qty}</div>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateQty(item.id, item.qty + 1)}
+                      className="h-8 w-8 rounded-lg border border-[#1a4e3a] bg-[#08140f] font-black"
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRemove(item.id)}
+                      className="ml-auto text-xs font-black text-red-300"
+                    >
+                      {labels.remove}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-[#124633] bg-[#06110c] p-4">
+          <div className="flex items-center justify-between text-sm">
+            <span>{labels.totalVbucks}</span>
+            <span className="font-black">{totalVbucks} {labels.vbucks}</span>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-sm">
+            <span>{labels.total}</span>
+            <span className="font-black">{language === "en" ? `$${totalLocal.toFixed(2)}` : `MX$${totalLocal.toFixed(2)}`}</span>
+          </div>
+
+          <div className="mt-4 grid gap-3">
+            <button
+              type="button"
+              onClick={sendWhatsApp}
+              className="rounded-2xl bg-[#15d863] px-4 py-3 text-sm font-black text-[#06110a]"
+            >
+              {labels.sendWhatsApp}
+            </button>
+            <button
+              type="button"
+              onClick={shareCart}
+              className="rounded-2xl border border-[#1a4e3a] bg-[#08140f] px-4 py-3 text-sm font-black text-white"
+            >
+              {labels.shareLink}
+            </button>
+            <button
+              type="button"
+              onClick={onClear}
+              className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300"
+            >
+              {labels.remove}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ItemModal({ item, labels, language, onClose, onAddToCart }) {
+  const [selectedIncludedId, setSelectedIncludedId] = useState("");
+  const includedItems = getIncludedItems(item);
+
+  const currentDetail = useMemo(() => {
+    if (!selectedIncludedId) return item;
+    return includedItems.find((entry) => entry.id === selectedIncludedId) || item;
+  }, [item, includedItems, selectedIncludedId]);
+
+  const images = currentDetail._galleryImages || getGalleryImages(currentDetail);
+  const [imageIndex, setImageIndex] = useState(0);
+
+  useEffect(() => {
+    setImageIndex(0);
+  }, [currentDetail?.id]);
+
+  useEffect(() => {
+    if (!Array.isArray(images) || images.length <= 1) return undefined;
+    const interval = setInterval(() => {
+      setImageIndex((prev) => (prev + 1) % images.length);
+    }, AUTO_ROTATE_MS);
+    return () => clearInterval(interval);
+  }, [images]);
+
+  if (!item) return null;
+
+  const leavingSoon = item._isLeavingSoon;
+  const isFreshNew = item._isFreshNew;
+  const displayType = getDisplayType(currentDetail, labels);
+
+  return (
+    <div className="fixed inset-0 z-[125] overflow-y-auto bg-black/80 p-3 sm:p-6">
+      <div
+        className={`mx-auto w-full max-w-6xl rounded-[32px] bg-[#04120d] shadow-[0_0_60px_rgba(0,255,120,0.08)] ${
+          leavingSoon && isFreshNew
+            ? "border-2 border-red-500 ring-2 ring-yellow-400/60"
+            : leavingSoon
+            ? "border-2 border-red-500"
+            : isFreshNew
+            ? "border-2 border-yellow-400"
+            : "border border-[#124633]"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-[#103c2c] p-5 sm:p-6">
+          <div>
+            <div className="text-xs font-black uppercase tracking-[0.35em] text-[#59ffbd]">
+              {item._section}
+            </div>
+            <h2 className="mt-2 text-4xl font-black italic leading-none text-white sm:text-5xl">
+              {getDisplayName(currentDetail)}
+            </h2>
+            <div className="mt-2 text-lg text-slate-300">{displayType}</div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-[#1a4e3a] bg-[#08140f] px-5 py-3 text-xl font-black text-white"
+          >
+            {labels.close}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[1.05fr_0.95fr]">
+          <div>
+            <div className="relative overflow-hidden rounded-[28px] border border-[#124f39] bg-[linear-gradient(180deg,#11161a_0%,#141b1e_100%)]">
+              {images.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
+                    className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/80 px-4 py-4 text-xl font-black text-white"
+                  >
+                    ‹
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImageIndex((prev) => (prev + 1) % images.length)}
+                    className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-[#19df6c] px-4 py-4 text-xl font-black text-black"
+                  >
+                    ›
+                  </button>
+                </>
+              )}
+
+              <div className="aspect-[4/5] sm:aspect-[4/3] bg-[linear-gradient(180deg,#14181b_0%,#181d22_100%)]">
+                <RotatingImage
+                  images={images}
+                  alt={getDisplayName(currentDetail)}
+                  className="h-full w-full object-contain object-center p-4"
+                  intervalMs={AUTO_ROTATE_MS}
+                />
+              </div>
+            </div>
+
+            {images.length > 1 && (
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+                {images.map((img, idx) => (
+                  <button
+                    type="button"
+                    key={`${img}-${idx}`}
+                    onClick={() => setImageIndex(idx)}
+                    className={`h-20 w-20 shrink-0 overflow-hidden rounded-2xl border ${
+                      idx === imageIndex ? "border-[#59ffbd]" : "border-[#184231]"
+                    } bg-[#04120d]`}
+                  >
+                    <img
+                      src={img}
+                      alt={`thumb-${idx}`}
+                      className="h-full w-full object-contain object-center p-1"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-[28px] border border-[#154636] bg-[#07140f] p-5">
+              <div className="rounded-2xl bg-[linear-gradient(90deg,#073457,#0a3147)] px-5 py-4 text-[clamp(1.25rem,2.4vw,2.1rem)] font-black text-[#2ec0ff]">
+                {item.price || 0} {labels.vbucks}
+                <span className="ml-4 text-yellow-300">
+                  {localPrice(language, item.price)}
+                </span>
+              </div>
+
+              {(leavingSoon || isFreshNew) && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {leavingSoon && (
+                    <span className="rounded-full bg-red-500 px-3 py-1 text-xs font-black text-white">
+                      {labels.leavingSoon}
+                    </span>
+                  )}
+                  {isFreshNew && (
+                    <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-[#231700]">
+                      {labels.newBadge}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {item._latestOutDate && (
+                <div className="mt-4 rounded-2xl border border-[#3d3320] bg-[rgba(100,50,0,0.25)] px-4 py-4">
+                  <div className="text-sm font-bold text-[#ffd27f]">{labels.timeLeft}</div>
+                  <div className="mt-1 text-2xl font-black text-white">
+                    {getTimeUntilDate(item._latestOutDate, language)}
+                  </div>
+                </div>
+              )}
+
+              {(currentDetail.descriptionLocalized || currentDetail.descriptionEnglish || currentDetail.description) && (
+                <div className="mt-4 rounded-2xl border border-[#123e30] bg-[#081410] p-4 text-slate-300">
+                  “{currentDetail.descriptionLocalized || currentDetail.descriptionEnglish || currentDetail.description}”
+                </div>
+              )}
+
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => onAddToCart(item)}
+                  className="rounded-2xl bg-[#19df6c] px-4 py-4 text-base font-black text-black"
+                >
+                  {labels.addToCart}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const shareText = `${getDisplayName(item)} - ${window.location.href}`;
+                    if (navigator.share) {
+                      try {
+                        await navigator.share({
+                          title: getDisplayName(item),
+                          text: shareText,
+                          url: window.location.href,
+                        });
+                        return;
+                      } catch {}
+                    }
+                    await navigator.clipboard.writeText(shareText);
+                    alert(labels.copied);
+                  }}
+                  className="rounded-2xl border border-[#1c583f] bg-[#08140f] px-4 py-4 text-base font-black text-[#59ffbd]"
+                >
+                  {labels.itemShare}
+                </button>
+              </div>
+
+              {(currentDetail.setTextLocalized || currentDetail.setTextEnglish || currentDetail.set) && (
+                <div className="mt-4 text-sm text-slate-300">
+                  <span className="font-black text-[#59ffbd]">{labels.setLabel}: </span>
+                  {currentDetail.setTextLocalized || currentDetail.setTextEnglish || currentDetail.set}
+                </div>
+              )}
+
+              {(currentDetail.rarityLocalized || currentDetail.rarityEnglish || currentDetail.rarity) && (
+                <div className="mt-2 text-sm text-slate-300">
+                  <span className="font-black text-[#59ffbd]">{labels.rarityLabel}: </span>
+                  {currentDetail.rarityLocalized || currentDetail.rarityEnglish || currentDetail.rarity}
+                </div>
+              )}
+            </div>
+
+            {includedItems.length > 0 && (
+              <div className="rounded-[28px] border border-[#154636] bg-[#07140f] p-5">
+                <div className="mb-4 text-base font-black uppercase tracking-[0.35em] text-[#2ec0ff]">
+                  {labels.includes} {includedItems.length}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {includedItems.map((entry, index) => {
+                    const active = selectedIncludedId === entry.id;
+                    const entryImages = getGalleryImages(entry);
+                    const entryImage = entryImages[0] || "/ganker-logo.png";
+
+                    return (
+                      <button
+                        type="button"
+                        key={`${entry.id || entry.name || index}`}
+                        onClick={() => setSelectedIncludedId((prev) => (prev === entry.id ? "" : entry.id))}
+                        className={`rounded-2xl border p-3 text-left transition ${
+                          active ? "border-[#59ffbd] bg-[#0b1712]" : "border-[#154636] bg-[#08140f]"
+                        }`}
+                      >
+                        <div className="aspect-square overflow-hidden rounded-xl bg-[#10161a]">
+                          <img
+                            src={entryImage}
+                            alt={getDisplayName(entry)}
+                            className="h-full w-full object-contain object-center p-2"
+                          />
+                        </div>
+                        <div className="mt-3 line-clamp-2 text-sm font-black uppercase leading-tight text-white">
+                          {getDisplayName(entry)}
+                        </div>
+                        <div className="mt-1 text-xs uppercase tracking-wide text-slate-400">
+                          {getDisplayType(entry, labels)}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ShopCard({ item, labels, language, onOpen, onAddToCart }) {
+  return (
+    <article>
+      <div
+        className={`overflow-hidden rounded-[22px] bg-[#0d1210] shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition duration-200 hover:-translate-y-1 ${
+          item._isLeavingSoon && item._isFreshNew
+            ? "border-2 border-red-500 ring-2 ring-yellow-400/60"
+            : item._isLeavingSoon
+            ? "border-2 border-red-500 ring-2 ring-red-500/30"
+            : item._isFreshNew
+            ? "border-2 border-yellow-400 ring-2 ring-yellow-400/30"
+            : "border border-[#1f3a2b]"
+        }`}
+      >
+        <div className="relative">
+          <button type="button" onClick={() => onOpen(item)} className="block w-full">
+            <div className="relative flex h-48 w-full items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,87,0.18),_transparent_45%),linear-gradient(180deg,_#060706_0%,_#0b120d_100%)] p-3 sm:h-64">
+              <RotatingImage
+                images={item._galleryImages}
+                alt={getDisplayName(item)}
+                className="max-h-full max-w-full object-contain object-center"
+              />
+            </div>
+          </button>
+
+          {item._isLeavingSoon && (
+            <div className="absolute left-3 top-3 rounded-full border border-red-300 bg-red-500 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-lg sm:text-xs">
+              {labels.leavingSoon}
+            </div>
+          )}
+
+          {item._isFreshNew && (
+            <div className="absolute right-3 top-3 rounded-full border border-yellow-200 bg-yellow-400 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#231700] shadow-lg sm:text-xs">
+              {labels.newBadge}
+            </div>
+          )}
+        </div>
+
+        <div className="p-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#67ff9a] sm:text-sm">
+            {item._section}
+          </p>
+
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="line-clamp-2 text-base font-extrabold leading-tight text-white sm:text-lg">
+                {getDisplayName(item)}
+              </h2>
+              {getSecondaryEnglishName(item, language) && (
+                <p className="mt-1 text-[11px] italic text-slate-400 sm:text-xs">
+                  {getSecondaryEnglishName(item, language)}
+                </p>
+              )}
+            </div>
+
+            <div className="shrink-0 rounded-full border border-[#88ffae] bg-[#15d863] px-3 py-1 text-xs font-extrabold text-[#06110a] shadow-lg sm:text-sm">
+              {localPrice(language, item.price)}
+            </div>
+          </div>
+
+          <p className="mt-2 text-xs text-slate-300 sm:text-sm">
+            {getDisplayType(item, labels)}
+          </p>
+
+          <p className="mt-3 text-sm font-extrabold text-white sm:text-base">
+            {item.price} {labels.vbucks}
+          </p>
+
+          {item._latestOutDate && (
+            <div
+              className={`mt-3 rounded-xl px-3 py-2 ${
+                item._isLeavingSoon
+                  ? "border border-red-500/50 bg-red-500/10"
+                  : "border border-[#28392f] bg-[#07100a]"
+              }`}
+            >
+              <p className="text-[11px] text-slate-400 sm:text-xs">{labels.timeLeft}</p>
+              <p className={`text-sm font-bold ${item._isLeavingSoon ? "text-red-300" : "text-[#8dffb3]"}`}>
+                {getTimeUntilDate(item._latestOutDate, language)}
+              </p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onAddToCart(item)}
+            className="mt-4 w-full rounded-xl bg-[#15d863] px-4 py-3 text-sm font-extrabold text-[#06110a] transition hover:bg-[#2cff7a]"
+          >
+            {labels.addToCart}
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default function Home() {
-  const [items, setItems] = useState([]);
+  const [language, setLanguage] = useState("es-419");
+  const labels = LABELS[language];
+
   const [allItems, setAllItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [section, setSection] = useState("Todas");
-  const [language, setLanguage] = useState("es-419");
-  const [timeLeft, setTimeLeft] = useState("");
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [selectedSection, setSelectedSection] = useState("ALL");
+  const [timeLeft, setTimeLeft] = useState(getCountdownToNextShopUpdate());
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const [copyStatus, setCopyStatus] = useState("");
   const [modalEntry, setModalEntry] = useState(null);
-  const [selectedDetailId, setSelectedDetailId] = useState(null);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     const savedLang = window.localStorage.getItem(LANG_STORAGE_KEY);
     if (savedLang === "es-419" || savedLang === "en") {
       setLanguage(savedLang);
-      setSection(savedLang === "es-419" ? "Todas" : "All");
     }
-  }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(LANG_STORAGE_KEY, language);
-  }, [language]);
-
-  async function loadShop(selectedLanguage = language) {
-    try {
-      setLoading(true);
-      setError("");
-
-      const res = await fetch(`/api/shop?lang=${selectedLanguage}`);
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : {};
-
-      if (!res.ok) {
-        throw new Error(data.error || "No se pudo cargar la tienda");
-      }
-
-      setAllItems(data.items || []);
-      setItems(data.items || []);
-    } catch (err) {
-      setError(err.message || "Ocurrió un error");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadShop(language);
-  }, [language]);
-
-  useEffect(() => {
-    setTimeLeft(getTimeUntilNextShopUpdate(language));
-
-    const interval = setInterval(() => {
-      setTimeLeft(getTimeUntilNextShopUpdate(language));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [language]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const params = new URLSearchParams(window.location.search);
-    const cartFromUrl = params.get("cart");
-    const itemFromUrl = params.get("item");
-    const savedCart = window.localStorage.getItem("gkg-cart");
-
-    if (cartFromUrl) {
-      setCart(decodeCart(cartFromUrl));
-    } else if (savedCart) {
+    const savedCart = window.localStorage.getItem(CART_STORAGE_KEY);
+    if (savedCart) {
       try {
         const parsed = JSON.parse(savedCart);
         if (Array.isArray(parsed)) setCart(parsed);
       } catch {}
     }
-
-    if (itemFromUrl && allItems.length) {
-      const found = allItems.find((item) => item.id === itemFromUrl);
-      if (found) openModal(found);
-    }
-  }, [allItems.length]);
+  }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem("gkg-cart", JSON.stringify(cart));
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(LANG_STORAGE_KEY, language);
+    }
+  }, [language]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    }
   }, [cart]);
 
-  const labels =
-    language === "es-419"
-      ? {
-          brand: "Ganker Games",
-          title: "TIENDA",
-          heroTitle: "Lo más destacado de hoy",
-          heroText:
-            "Explora la tienda diaria con precios en MXN, V-Bucks, filtros por sección y objetos que están por salir.",
-          search: "Buscar skin, bundle, track, sección...",
-          all: "Todas",
-          recent: "Reciente",
-          filters: "Filtros",
-          extraFilters: "Filtro",
-          closeFilters: "Cerrar filtros",
-          filterShop: "Filtro de la tienda",
-          showAllSections: "Mostrar todas las secciones",
-          loading: "Cargando tienda...",
-          noResults: "No se encontraron resultados con ese filtro.",
-          noImage: "Sin imagen",
-          vbucks: "V-Bucks",
-          countdownTitle: "Próxima actualización",
-          countdownNote: "La tienda cambia diario a las 00:00 UTC",
-          leavingSoon: "Se va pronto",
-          leavesIn: "Se va en",
-          navShop: "Tienda",
-          navNews: "Noticias",
-          addToCart: "Agregar al carrito",
-          cart: "Carrito",
-          yourCart: "Tu carrito",
-          emptyCart: "Tu carrito está vacío",
-          clearCart: "Vaciar carrito",
-          shareCart: "Copiar enlace",
-          sendWhatsApp: "Enviar por WhatsApp",
-          close: "Cerrar",
-          copied: "Enlace copiado",
-          totalVbucks: "Total V-Bucks",
-          totalMxn: "Total MXN",
-          remove: "Quitar",
-          orderText: "Hola, quiero cotizar este carrito de Ganker Games Fortnite:",
-          sharedLink: "Link del carrito",
-          openCart: "Abrir carrito",
-          newItem: "Nuevo",
-          includes: "Incluye",
-          shareItem: "Compartir",
-          setLabel: "Set",
-          rarityLabel: "Rareza",
-        }
-      : {
-          brand: "Ganker Games",
-          title: "SHOP",
-          heroTitle: "Top picks for today",
-          heroText:
-            "Browse the daily shop with MXN pricing, V-Bucks, section filters and items that are leaving soon.",
-          search: "Search skin, bundle, track, section...",
-          all: "All",
-          recent: "Recent",
-          filters: "Filters",
-          extraFilters: "Filter",
-          closeFilters: "Close filters",
-          filterShop: "Shop filter",
-          showAllSections: "Show all sections",
-          loading: "Loading shop...",
-          noResults: "No results found for that filter.",
-          noImage: "No image",
-          vbucks: "V-Bucks",
-          countdownTitle: "Next update",
-          countdownNote: "The shop refreshes daily at 00:00 UTC",
-          leavingSoon: "Leaving soon",
-          leavesIn: "Leaves in",
-          navShop: "Shop",
-          navNews: "News",
-          addToCart: "Add to cart",
-          cart: "Cart",
-          yourCart: "Your cart",
-          emptyCart: "Your cart is empty",
-          clearCart: "Clear cart",
-          shareCart: "Copy link",
-          sendWhatsApp: "Send on WhatsApp",
-          close: "Close",
-          copied: "Link copied",
-          totalVbucks: "Total V-Bucks",
-          totalMxn: "Total MXN",
-          remove: "Remove",
-          orderText: "Hi, I want a quote for this Ganker Games Fortnite cart:",
-          sharedLink: "Cart link",
-          openCart: "Open cart",
-          newItem: "New",
-          includes: "Includes",
-          shareItem: "Share",
-          setLabel: "Set",
-          rarityLabel: "Rarity",
-        };
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeLeft(getCountdownToNextShopUpdate());
+    }, 1000);
 
-  const translatedAllLabel = language === "es-419" ? "Todas" : "All";
-  const recentLabel = language === "es-419" ? "Reciente" : "Recent";
-
-  const sections = useMemo(() => {
-    const uniqueSections = [
-      ...new Set(allItems.map((item) => getDisplaySection(item, language))),
-    ].filter(Boolean);
-
-    return [
-      translatedAllLabel,
-      recentLabel,
-      ...uniqueSections.sort((a, b) =>
-        a.localeCompare(b, language === "es-419" ? "es" : "en")
-      ),
-    ];
-  }, [allItems, language, translatedAllLabel, recentLabel]);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
-    let filtered = [...allItems];
+    async function loadShop() {
+      try {
+        setLoading(true);
+        setError("");
 
-    if (section === recentLabel) {
-      filtered = filtered.filter((item) => isRecentShopArrival(item.inDate));
-    } else if (section !== translatedAllLabel) {
-      filtered = filtered.filter(
-        (item) => getDisplaySection(item, language) === section
-      );
+        const response = await fetch(`/api/shop?lang=${language}`);
+        const text = await response.text();
+        const payload = text ? JSON.parse(text) : {};
+
+        if (!response.ok) {
+          throw new Error(payload.error || "No se pudo cargar la tienda");
+        }
+
+        setAllItems(normalizeShopItems(payload));
+      } catch (err) {
+        setError(err.message || "No se pudo cargar la tienda");
+      } finally {
+        setLoading(false);
+      }
     }
 
-    const text = search.trim().toLowerCase();
+    loadShop();
+  }, [language]);
 
-    if (text) {
-      filtered = filtered.filter((item) => {
-        const displayName = getDisplayName(item, language).toLowerCase();
-        const englishName = (item.nameEnglish || item.name || "").toLowerCase();
-        const displayType = getDisplayType(item, language).toLowerCase();
-        const displaySection = getDisplaySection(item, language).toLowerCase();
-        const devName = (item.devName || "").toLowerCase();
-
-        return (
-          displayName.includes(text) ||
-          englishName.includes(text) ||
-          displayType.includes(text) ||
-          displaySection.includes(text) ||
-          devName.includes(text)
-        );
-      });
-    }
-
-    setItems(filtered);
-  }, [search, section, allItems, language, translatedAllLabel, recentLabel]);
+  const sections = useMemo(() => {
+    return [...new Set(allItems.map((item) => item._section).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b, language === "en" ? "en" : "es", { sensitivity: "base" })
+    );
+  }, [allItems, language]);
 
   const groupedItems = useMemo(() => {
-    const groups = {};
-
-    for (const item of items) {
-      const groupName = getDisplaySection(item, language) || translatedAllLabel;
-      if (!groups[groupName]) groups[groupName] = [];
-      groups[groupName].push(item);
-    }
-
-    return Object.entries(groups).sort((a, b) =>
-      a[0].localeCompare(b[0], language === "es-419" ? "es" : "en")
-    );
-  }, [items, language, translatedAllLabel]);
-
-  const cartDetailed = useMemo(() => {
-    return cart
-      .map((cartItem) => {
-        const item = allItems.find((shopItem) => shopItem.id === cartItem.id);
-        if (!item) return null;
-
-        const priceVbucks = Number(item.price) || 0;
-        const priceMxn = priceVbucks * VB_TO_MXN_RATE;
-
-        return {
-          ...item,
-          qty: cartItem.qty,
-          totalVbucks: priceVbucks * cartItem.qty,
-          totalMxn: priceMxn * cartItem.qty,
-        };
-      })
-      .filter(Boolean);
-  }, [cart, allItems]);
+    return buildGroups(allItems, selectedSection, search, labels);
+  }, [allItems, labels, search, selectedSection]);
 
   const cartCount = useMemo(
-    () => cart.reduce((total, item) => total + item.qty, 0),
+    () => cart.reduce((sum, item) => sum + Number(item.qty || 0), 0),
     [cart]
   );
 
-  const cartTotalVbucks = useMemo(
-    () => cartDetailed.reduce((total, item) => total + item.totalVbucks, 0),
-    [cartDetailed]
-  );
-
-  const cartTotalMxn = useMemo(
-    () => cartDetailed.reduce((total, item) => total + item.totalMxn, 0),
-    [cartDetailed]
-  );
-
-  const selectedSectionTitle =
-    section === translatedAllLabel
-      ? labels.heroTitle
-      : section === recentLabel
-      ? recentLabel
-      : section;
-
-  function handleSectionChange(sectionName) {
-    setSection(sectionName);
-    setShowMobileFilters(false);
-    setFilterModalOpen(false);
-  }
-
   function addToCart(item) {
     setCart((prev) => {
-      const existing = prev.find((cartItem) => cartItem.id === item.id);
+      const existing = prev.find((entry) => entry.id === item.id);
       if (existing) {
-        return prev.map((cartItem) =>
-          cartItem.id === item.id
-            ? { ...cartItem, qty: cartItem.qty + 1 }
-            : cartItem
+        return prev.map((entry) =>
+          entry.id === item.id ? { ...entry, qty: entry.qty + 1 } : entry
         );
       }
       return [...prev, { id: item.id, qty: 1 }];
     });
-
     setCartOpen(true);
   }
 
-  function updateCartQty(itemId, nextQty) {
-    setCart((prev) => {
-      if (nextQty <= 0) return prev.filter((item) => item.id !== itemId);
-
-      return prev.map((item) =>
-        item.id === itemId ? { ...item, qty: nextQty } : item
-      );
-    });
-  }
-
-  function removeFromCart(itemId) {
-    setCart((prev) => prev.filter((item) => item.id !== itemId));
-  }
-
-  function clearCart() {
-    setCart([]);
-  }
-
-  function buildShareLink() {
-    if (typeof window === "undefined") return "";
-
-    const encoded = encodeCart(cart);
-    const url = new URL(window.location.origin + window.location.pathname);
-
-    if (encoded) url.searchParams.set("cart", encoded);
-
-    return url.toString();
-  }
-
-  async function copyCartLink() {
-    const link = buildShareLink();
-    if (!link) return;
-
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopyStatus(labels.copied);
-      setTimeout(() => setCopyStatus(""), 2500);
-    } catch {
-      setCopyStatus("Error");
-      setTimeout(() => setCopyStatus(""), 2500);
-    }
-  }
-
-  function sendCartToWhatsApp() {
-    const shareLink = buildShareLink();
-
-    const lines = cartDetailed.map((item) => {
-      const name = getDisplayName(item, language);
-      return `• ${name} x${item.qty} - ${item.totalVbucks} ${labels.vbucks} - MX$${item.totalMxn.toFixed(
-        2
-      )}`;
-    });
-
-    const message = [
-      labels.orderText,
-      "",
-      ...lines,
-      "",
-      `${labels.totalVbucks}: ${cartTotalVbucks} ${labels.vbucks}`,
-      `${labels.totalMxn}: MX$${cartTotalMxn.toFixed(2)}`,
-      "",
-      `${labels.sharedLink}:`,
-      shareLink,
-    ].join("\n");
-
-    window.open(`${WHATSAPP_BASE_URL}?text=${encodeURIComponent(message)}`, "_blank");
-  }
-
-  function openModal(entry, detailId = null) {
-    setModalEntry(entry);
-    setSelectedDetailId(detailId);
-    setActiveImageIndex(0);
-
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("item", entry.id);
-      window.history.replaceState({}, "", url.toString());
-    }
-  }
-
-  function closeModal() {
-    setModalEntry(null);
-    setSelectedDetailId(null);
-    setActiveImageIndex(0);
-
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("item");
-      window.history.replaceState({}, "", url.toString());
-    }
-  }
-
-  const modalDetail = useMemo(() => {
-    if (!modalEntry) return null;
-
-    if (!selectedDetailId) {
-      return {
-        id: modalEntry.id,
-        nameEnglish: modalEntry.nameEnglish,
-        nameLocalized: modalEntry.nameLocalized,
-        typeEnglish: modalEntry.typeEnglish,
-        typeLocalized: modalEntry.typeLocalized,
-        sectionEnglish: modalEntry.sectionEnglish,
-        sectionLocalized: modalEntry.sectionLocalized,
-        image: modalEntry.image,
-        galleryImages: modalEntry.galleryImages || [],
-        descriptionEnglish: modalEntry.descriptionEnglish || "",
-        descriptionLocalized: modalEntry.descriptionLocalized || "",
-        rarityEnglish: modalEntry.rarityEnglish || "",
-        rarityLocalized: modalEntry.rarityLocalized || "",
-        setTextEnglish: modalEntry.setTextEnglish || "",
-        setTextLocalized: modalEntry.setTextLocalized || "",
-        outDate: modalEntry.outDate,
-        inDate: modalEntry.inDate,
-        addedDate: modalEntry.addedDate,
-        price: modalEntry.price,
-      };
+  function updateCartQty(id, qty) {
+    if (qty <= 0) {
+      setCart((prev) => prev.filter((entry) => entry.id !== id));
+      return;
     }
 
-    const included = (modalEntry.includedItems || []).find(
-      (item) => item.id === selectedDetailId
-    );
-
-    if (!included) {
-      return {
-        id: modalEntry.id,
-        nameEnglish: modalEntry.nameEnglish,
-        nameLocalized: modalEntry.nameLocalized,
-        typeEnglish: modalEntry.typeEnglish,
-        typeLocalized: modalEntry.typeLocalized,
-        sectionEnglish: modalEntry.sectionEnglish,
-        sectionLocalized: modalEntry.sectionLocalized,
-        image: modalEntry.image,
-        galleryImages: modalEntry.galleryImages || [],
-        descriptionEnglish: modalEntry.descriptionEnglish || "",
-        descriptionLocalized: modalEntry.descriptionLocalized || "",
-        rarityEnglish: modalEntry.rarityEnglish || "",
-        rarityLocalized: modalEntry.rarityLocalized || "",
-        setTextEnglish: modalEntry.setTextEnglish || "",
-        setTextLocalized: modalEntry.setTextLocalized || "",
-        outDate: modalEntry.outDate,
-        inDate: modalEntry.inDate,
-        addedDate: modalEntry.addedDate,
-        price: modalEntry.price,
-      };
-    }
-
-    return {
-      id: included.id,
-      nameEnglish: included.name,
-      nameLocalized: included.name,
-      typeEnglish: included.type,
-      typeLocalized: included.type,
-      sectionEnglish: modalEntry.sectionEnglish,
-      sectionLocalized: modalEntry.sectionLocalized,
-      image: included.image,
-      images: included.images || [],
-      descriptionEnglish: included.description || "",
-      descriptionLocalized: included.description || "",
-      rarityEnglish: included.rarity || "",
-      rarityLocalized: included.rarity || "",
-      setTextEnglish: included.setText || "",
-      setTextLocalized: included.setText || "",
-      outDate: modalEntry.outDate,
-      inDate: modalEntry.inDate,
-      addedDate: included.addedDate || modalEntry.addedDate,
-      price: modalEntry.price,
-    };
-  }, [modalEntry, selectedDetailId]);
-
-  const modalImages = useMemo(() => {
-    if (!modalDetail) return [];
-    return resolveDetailImages(modalDetail);
-  }, [modalDetail]);
-
-  useEffect(() => {
-    if (activeImageIndex > modalImages.length - 1) {
-      setActiveImageIndex(0);
-    }
-  }, [modalImages.length, activeImageIndex]);
-
-  function prevModalImage() {
-    if (!modalImages.length) return;
-    setActiveImageIndex((prev) =>
-      prev === 0 ? modalImages.length - 1 : prev - 1
+    setCart((prev) =>
+      prev.map((entry) => (entry.id === id ? { ...entry, qty } : entry))
     );
   }
-
-  function nextModalImage() {
-    if (!modalImages.length) return;
-    setActiveImageIndex((prev) =>
-      prev === modalImages.length - 1 ? 0 : prev + 1
-    );
-  }
-
-  async function shareCurrentItem() {
-    if (!modalEntry || typeof window === "undefined") return;
-
-    const url = new URL(window.location.origin + window.location.pathname);
-    url.searchParams.set("item", modalEntry.id);
-
-    const title = modalDetail
-      ? getDisplayName(modalDetail, language)
-      : getDisplayName(modalEntry, language);
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title,
-          text: title,
-          url: url.toString(),
-        });
-        return;
-      } catch {}
-    }
-
-    try {
-      await navigator.clipboard.writeText(url.toString());
-      setCopyStatus(labels.copied);
-      setTimeout(() => setCopyStatus(""), 2500);
-    } catch {}
-  }
-
-  const showGroupedSection =
-    section === translatedAllLabel || section === recentLabel;
-
-  const mobileNavButton =
-    "rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-3 text-center text-sm font-extrabold text-white";
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_20%),linear-gradient(180deg,_#000000_0%,_#021106_45%,_#000000_100%)] text-white">
       <header className="sticky top-0 z-50 border-b border-[#153321] bg-[#030603]/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 md:px-6">
+        <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 md:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <img
               src="/ganker-logo.png"
@@ -1061,7 +1303,7 @@ export default function Home() {
                 {labels.brand}
               </p>
               <p className="text-[10px] uppercase tracking-[0.25em] text-[#67ff9a] sm:text-xs">
-                Fortnite Shop
+                {labels.brandSub}
               </p>
             </div>
           </div>
@@ -1069,38 +1311,33 @@ export default function Home() {
           <div className="ml-auto flex items-center gap-2">
             <select
               value={language}
-              onChange={(e) => {
-                const nextLang = e.target.value;
-                setLanguage(nextLang);
-                setSection(nextLang === "es-419" ? "Todas" : "All");
-                setSearch("");
-              }}
+              onChange={(event) => setLanguage(event.target.value)}
               className="rounded-xl border border-[#284635] bg-[#0b120d] px-3 py-2 text-sm font-semibold text-white outline-none focus:border-[#67ff9a]"
             >
               <option value="es-419">ES</option>
               <option value="en">EN</option>
             </select>
 
+            <button
+              type="button"
+              onClick={() => setCartOpen(true)}
+              className="rounded-xl border border-[#67ff9a] bg-[#0b120d] px-3 py-2 text-sm font-bold text-[#67ff9a] md:hidden"
+            >
+              {labels.cart} ({cartCount})
+            </button>
+
             <nav className="hidden items-center gap-2 md:flex">
-              <Link
-                href="/"
-                className="rounded-xl bg-[#15d863] px-4 py-2 text-sm font-bold text-[#06110a]"
-              >
+              <Link href="/" className="rounded-xl bg-[#15d863] px-4 py-2 text-sm font-bold text-[#06110a]">
                 {labels.navShop}
               </Link>
-              <Link
-                href="/noticias"
-                className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white transition hover:border-[#67ff9a]"
-              >
+              <Link href="/noticias" className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white transition hover:border-[#67ff9a]">
                 {labels.navNews}
               </Link>
-              <Link
-                href="/stw"
-                className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white transition hover:border-[#67ff9a]"
-              >
-                STW
+              <Link href="/stw" className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white transition hover:border-[#67ff9a]">
+                {labels.navSTW}
               </Link>
               <button
+                type="button"
                 onClick={() => setCartOpen(true)}
                 className="rounded-xl border border-[#67ff9a] bg-[#0b120d] px-4 py-2 text-sm font-bold text-[#67ff9a]"
               >
@@ -1111,629 +1348,163 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 py-4 md:px-6 md:py-6">
+      <div className="mx-auto max-w-[1600px] px-4 py-4 md:px-6 md:py-6">
         <div className="mb-5 grid grid-cols-3 gap-3 md:hidden">
-  <Link href="/" className="rounded-xl bg-[#15d863] px-4 py-3 text-center text-sm font-extrabold text-[#06110a]">
-    {labels.navShop}
-  </Link>
-  <Link href="/noticias" className={mobileNavButton}>
-    {labels.navNews}
-  </Link>
-  <Link href="/stw" className={mobileNavButton}>
-    STW
-  </Link>
-</div>
+          <Link href="/" className="rounded-xl bg-[#15d863] px-4 py-3 text-center text-sm font-extrabold text-[#06110a]">
+            {labels.navShop}
+          </Link>
+          <Link href="/noticias" className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-3 text-center text-sm font-extrabold text-white">
+            {labels.navNews}
+          </Link>
+          <Link href="/stw" className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-3 text-center text-sm font-extrabold text-white">
+            {labels.navSTW}
+          </Link>
+        </div>
 
-        <section className="mb-5 overflow-hidden rounded-[24px] border border-[#1d4a2d] bg-[linear-gradient(120deg,_rgba(0,255,102,0.10)_0%,_rgba(5,14,8,0.96)_35%,_rgba(2,7,3,0.96)_100%)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.35)] md:mb-6 md:rounded-[28px] md:p-6">
+        <section className="mb-6 overflow-hidden rounded-[24px] border border-[#1d4a2d] bg-[linear-gradient(120deg,_rgba(0,255,102,0.10)_0%,_rgba(5,14,8,0.96)_35%,_rgba(2,7,3,0.96)_100%)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.35)] md:rounded-[28px] md:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <p className="mb-2 text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a] sm:text-sm md:tracking-[0.3em]">
-                {labels.brand}
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">
+                {labels.heroKicker}
               </p>
               <h1 className="text-3xl font-black uppercase italic sm:text-4xl md:text-6xl">
-                {labels.title}
+                {labels.heroTitle}
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200 sm:text-base md:text-lg">
-                {labels.heroText}
+                {labels.heroDesc}
               </p>
             </div>
 
             <div className="rounded-2xl border border-[#255239] bg-[#040804]/80 p-4 backdrop-blur md:p-5">
               <p className="text-sm font-semibold text-[#67ff9a]">
-                {labels.countdownTitle}
+                {labels.nextUpdate}
               </p>
               <p className="mt-2 text-2xl font-black tracking-wider sm:text-3xl md:text-4xl">
                 {timeLeft}
               </p>
               <p className="mt-2 text-xs text-slate-300 sm:text-sm">
-                {labels.countdownNote}
+                {labels.shopChangesAt}
               </p>
             </div>
           </div>
         </section>
 
-        <div className="mb-5 grid gap-3 md:hidden">
-          <input
-            type="text"
-            placeholder={labels.search}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-2xl border border-[#284635] bg-[#0c110d] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-[#67ff9a]"
-          />
-
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => setShowMobileFilters((prev) => !prev)}
-              className="rounded-xl border border-[#284635] bg-[#0d1210] px-4 py-3 text-sm font-extrabold text-white"
-            >
-              {showMobileFilters ? labels.closeFilters : labels.filters}
-            </button>
-
-            <button
-              onClick={() => setFilterModalOpen(true)}
-              className="rounded-xl border border-[#284635] bg-[#0d1210] px-4 py-3 text-sm font-extrabold text-white"
-            >
-              {labels.extraFilters}
-            </button>
-          </div>
-
-          {showMobileFilters && (
-            <div className="rounded-2xl border border-[#1f3a2b] bg-[#060b07]/95 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.28)]">
-              <div className="max-h-[45vh] space-y-2 overflow-y-auto pr-1">
-                {sections.map((sectionName) => {
-                  const active = section === sectionName;
-
-                  return (
-                    <button
-                      key={sectionName}
-                      onClick={() => handleSectionChange(sectionName)}
-                      className={`w-full rounded-2xl px-4 py-3 text-left text-sm font-extrabold uppercase tracking-wide transition ${
-                        active
-                          ? "bg-[#15d863] text-[#06110a] shadow-lg"
-                          : "bg-[#0d1210] text-white hover:bg-[#131b15]"
-                      }`}
-                    >
-                      {sectionName}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
-          <aside className="hidden h-fit rounded-[28px] border border-[#1f3a2b] bg-[#060b07]/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.28)] lg:sticky lg:top-24 lg:block">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-black uppercase tracking-wide text-white">
-                {labels.filters}
+        <div className="mb-6 rounded-[24px] border border-[#1a2c21] bg-[#060b07]/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.25)] md:rounded-[28px] md:p-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">
+                {labels.heroKicker}
+              </p>
+              <h2 className="mt-2 text-2xl font-black uppercase italic sm:text-3xl md:text-5xl">
+                {selectedSection === "ALL"
+                  ? language === "en"
+                    ? "TOP PICKS FOR TODAY"
+                    : "LO MÁS DESTACADO DE HOY"
+                  : selectedSection === "RECENT"
+                  ? labels.recent
+                  : selectedSection === "NEW"
+                  ? labels.newOnly
+                  : selectedSection}
               </h2>
-              <button
-                onClick={() => setFilterModalOpen(true)}
-                className="rounded-xl border border-[#284635] bg-[#0d1210] px-3 py-2 text-xs font-black uppercase text-white"
-              >
-                {labels.extraFilters}
-              </button>
             </div>
 
-            <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
-              {sections.map((sectionName) => {
-                const active = section === sectionName;
-
-                return (
-                  <button
-                    key={sectionName}
-                    onClick={() => setSection(sectionName)}
-                    className={`w-full rounded-2xl px-4 py-3 text-left text-sm font-extrabold uppercase tracking-wide transition ${
-                      active
-                        ? "bg-[#15d863] text-[#06110a] shadow-lg"
-                        : "bg-[#0d1210] text-white hover:bg-[#131b15]"
-                    }`}
-                  >
-                    {sectionName}
-                  </button>
-                );
-              })}
-            </div>
-          </aside>
-
-          <section>
-            <div className="mb-5 rounded-[24px] border border-[#1a2c21] bg-[#060b07]/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.25)] md:mb-6 md:rounded-[28px] md:p-5">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a] sm:text-sm md:tracking-[0.3em]">
-                    {labels.brand}
-                  </p>
-                  <h2 className="mt-2 text-2xl font-black uppercase italic sm:text-3xl md:text-5xl">
-                    {selectedSectionTitle}
-                  </h2>
-                </div>
-
-                <div className="hidden w-full max-w-3xl flex-col gap-3 md:flex xl:items-end">
-                  <div className="flex w-full flex-wrap items-center gap-3 xl:justify-end">
-                    <div className="min-w-[280px] flex-1 xl:max-w-xl">
-                      <input
-                        type="text"
-                        placeholder={labels.search}
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full rounded-full border border-[#284635] bg-[#0c110d] px-5 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-[#67ff9a]"
-                      />
-                    </div>
-
-                    <button
-                      onClick={() => setFilterModalOpen(true)}
-                      className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-3 text-sm font-extrabold text-white transition hover:border-[#67ff9a]"
-                    >
-                      {labels.extraFilters}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {loading && (
-              <div className="rounded-2xl border border-[#1a2c21] bg-[#060b07] p-6">
-                {labels.loading}
-              </div>
-            )}
-
-            {error && (
-              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-red-300">
-                {error}
-              </div>
-            )}
-
-            {!loading && !error && items.length === 0 && (
-              <div className="rounded-2xl border border-[#1a2c21] bg-[#060b07] p-6 text-slate-300">
-                {labels.noResults}
-              </div>
-            )}
-
-            {!loading && !error && items.length > 0 && !showGroupedSection && (
-              <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {items.map((item) => (
-                  <ShopCard
-                    key={item.id}
-                    item={item}
-                    language={language}
-                    labels={labels}
-                    onAddToCart={addToCart}
-                    onOpenModal={openModal}
+            <div className="flex w-full max-w-3xl flex-col gap-3 xl:items-end">
+              <div className="flex w-full flex-wrap items-center gap-3 xl:justify-end">
+                <div className="min-w-[260px] flex-1 xl:max-w-xl">
+                  <input
+                    type="text"
+                    placeholder={labels.searchPlaceholder}
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    className="w-full rounded-full border border-[#284635] bg-[#0c110d] px-5 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-[#67ff9a]"
                   />
-                ))}
-              </section>
-            )}
+                </div>
 
-            {!loading && !error && items.length > 0 && showGroupedSection && (
-              <div className="space-y-8 md:space-y-10">
-                {groupedItems.map(([groupName, groupItems]) => (
-                  <section key={groupName}>
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <h3 className="text-xl font-black uppercase italic text-[#67ff9a] sm:text-2xl">
-                        {groupName}
-                      </h3>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      {groupItems.map((item) => (
-                        <ShopCard
-                          key={item.id}
-                          item={item}
-                          language={language}
-                          labels={labels}
-                          onAddToCart={addToCart}
-                          onOpenModal={openModal}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => setFilterModalOpen(true)}
+                  className="rounded-xl border border-[#284635] bg-[#0d1210] px-5 py-3 text-sm font-extrabold text-white"
+                >
+                  {labels.filterButton}
+                </button>
               </div>
-            )}
-          </section>
+            </div>
+          </div>
         </div>
+
+        {loading && (
+          <div className="rounded-2xl border border-[#1a2c21] bg-[#060b07] p-6">
+            {labels.loading}
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-red-300">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && groupedItems.length === 0 && (
+          <div className="rounded-2xl border border-[#1a2c21] bg-[#060b07] p-6 text-slate-300">
+            {labels.noResults}
+          </div>
+        )}
+
+        {!loading && !error && groupedItems.length > 0 && (
+          <div className="space-y-8">
+            {groupedItems.map((group) => (
+              <section key={group.sectionName}>
+                <h3 className="mb-4 text-xl font-black uppercase italic text-[#67ff9a] sm:text-2xl">
+                  {group.sectionName}
+                </h3>
+
+                <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
+                  {group.items.map((item) => (
+                    <ShopCard
+                      key={item.id}
+                      item={item}
+                      labels={labels}
+                      language={language}
+                      onOpen={setModalEntry}
+                      onAddToCart={addToCart}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
       </div>
 
-      <SectionFilterModal
+      <FilterModal
         open={filterModalOpen}
-        sections={sections.filter((s) => s !== labels.all)}
-        currentSection={section}
-        onClose={() => setFilterModalOpen(false)}
-        onSelect={(sectionName) =>
-          handleSectionChange(sectionName === labels.all ? translatedAllLabel : sectionName)
-        }
+        sections={sections}
         labels={labels}
+        selectedSection={selectedSection}
+        onSelect={setSelectedSection}
+        onClose={() => setFilterModalOpen(false)}
       />
 
-      {cartCount > 0 && !cartOpen && (
-        <button
-          onClick={() => setCartOpen(true)}
-          className="fixed bottom-4 right-4 z-40 rounded-full border border-[#88ffae] bg-[#15d863] px-5 py-3 text-sm font-extrabold text-[#06110a] shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
-        >
-          {labels.openCart} ({cartCount})
-        </button>
-      )}
+      <CartDrawer
+        open={cartOpen}
+        labels={labels}
+        language={language}
+        cart={cart}
+        allItems={allItems}
+        onClose={() => setCartOpen(false)}
+        onUpdateQty={updateCartQty}
+        onRemove={(id) => setCart((prev) => prev.filter((entry) => entry.id !== id))}
+        onClear={() => setCart([])}
+      />
 
-      {cartOpen && (
-        <div className="fixed inset-0 z-[70]">
-          <div
-            className="absolute inset-0 bg-black/65"
-            onClick={() => setCartOpen(false)}
-          />
-
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-[#1f3a2b] bg-[#050905] shadow-[0_0_40px_rgba(0,0,0,0.45)]">
-            <div className="flex items-center justify-between border-b border-[#1f3a2b] px-4 py-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">
-                  {labels.brand}
-                </p>
-                <h2 className="mt-1 text-2xl font-black uppercase italic">
-                  {labels.yourCart}
-                </h2>
-              </div>
-
-              <button
-                onClick={() => setCartOpen(false)}
-                className="rounded-xl border border-[#284635] bg-[#0d1210] px-3 py-2 text-sm font-bold text-white"
-              >
-                {labels.close}
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4">
-              {cartDetailed.length === 0 ? (
-                <div className="rounded-2xl border border-[#1f3a2b] bg-[#0d1210] p-4 text-slate-300">
-                  {labels.emptyCart}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {cartDetailed.map((item) => {
-                    const displayName = getDisplayName(item, language);
-                    const unitMxn = Number(item.price || 0) * VB_TO_MXN_RATE;
-
-                    return (
-                      <div
-                        key={item.id}
-                        className="rounded-2xl border border-[#1f3a2b] bg-[#0d1210] p-3"
-                      >
-                        <div className="flex gap-3">
-                          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#101812] p-2">
-                            {item.image ? (
-                              <img
-                                src={item.image}
-                                alt={displayName}
-                                className="max-h-full max-w-full object-contain object-center"
-                              />
-                            ) : null}
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <p className="line-clamp-2 text-sm font-extrabold text-white">
-                              {displayName}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-400">
-                              {item.price} {labels.vbucks}
-                            </p>
-                            <p className="mt-1 text-xs text-[#67ff9a]">
-                              MX${unitMxn.toFixed(2)} c/u
-                            </p>
-
-                            <div className="mt-3 flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() =>
-                                    updateCartQty(item.id, item.qty - 1)
-                                  }
-                                  className="grid h-8 w-8 place-items-center rounded-lg border border-[#284635] bg-[#060b07] text-white"
-                                >
-                                  -
-                                </button>
-
-                                <span className="min-w-[24px] text-center text-sm font-bold text-white">
-                                  {item.qty}
-                                </span>
-
-                                <button
-                                  onClick={() =>
-                                    updateCartQty(item.id, item.qty + 1)
-                                  }
-                                  className="grid h-8 w-8 place-items-center rounded-lg border border-[#284635] bg-[#060b07] text-white"
-                                >
-                                  +
-                                </button>
-                              </div>
-
-                              <button
-                                onClick={() => removeFromCart(item.id)}
-                                className="text-xs font-bold text-red-300"
-                              >
-                                {labels.remove}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-[#1f3a2b] bg-[#040804] p-4">
-              <div className="mb-4 space-y-2 rounded-2xl border border-[#1f3a2b] bg-[#0d1210] p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-slate-300">{labels.totalVbucks}</span>
-                  <span className="text-sm font-extrabold text-white">
-                    {cartTotalVbucks} {labels.vbucks}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-slate-300">{labels.totalMxn}</span>
-                  <span className="text-sm font-extrabold text-[#67ff9a]">
-                    MX${cartTotalMxn.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-
-              {copyStatus && (
-                <p className="mb-3 text-sm font-bold text-[#67ff9a]">
-                  {copyStatus}
-                </p>
-              )}
-
-              <div className="grid gap-3">
-                <button
-                  onClick={copyCartLink}
-                  disabled={cartDetailed.length === 0}
-                  className="rounded-xl border border-[#67ff9a] bg-transparent px-4 py-3 text-sm font-extrabold text-[#67ff9a] transition hover:bg-[#15d863] hover:text-[#06110a] disabled:opacity-50"
-                >
-                  {labels.shareCart}
-                </button>
-
-                <button
-                  onClick={sendCartToWhatsApp}
-                  disabled={cartDetailed.length === 0}
-                  className="rounded-xl bg-[#15d863] px-4 py-3 text-sm font-extrabold text-[#06110a] transition hover:bg-[#2cff7a] disabled:opacity-50"
-                >
-                  {labels.sendWhatsApp}
-                </button>
-
-                <button
-                  onClick={clearCart}
-                  disabled={cartDetailed.length === 0}
-                  className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm font-extrabold text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
-                >
-                  {labels.clearCart}
-                </button>
-              </div>
-            </div>
-          </aside>
-        </div>
-      )}
-
-      {modalEntry && modalDetail && (
-        <div className="fixed inset-0 z-[80]">
-          <div
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            onClick={closeModal}
-          />
-
-          <div className="absolute inset-0 overflow-y-auto">
-            <div className="mx-auto min-h-full max-w-5xl px-3 py-4 sm:px-4 sm:py-6">
-              <div
-                className={`relative overflow-hidden rounded-[28px] bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.10),_transparent_25%),linear-gradient(180deg,_#050905_0%,_#07120a_100%)] shadow-[0_25px_80px_rgba(0,0,0,0.55)] ${
-                  isLeavingSoon(modalEntry.outDate) && isLikelyNewToShop(modalEntry)
-                    ? "border-2 border-red-500 ring-2 ring-yellow-400/60"
-                    : isLeavingSoon(modalEntry.outDate)
-                    ? "border-2 border-red-500 ring-2 ring-red-500/30"
-                    : isLikelyNewToShop(modalEntry)
-                    ? "border-2 border-yellow-400 ring-2 ring-yellow-400/30"
-                    : "border border-[#1f3a2b]"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-4 border-b border-[#1f3a2b] px-4 py-4 sm:px-6">
-                  <div className="min-w-0">
-                    <p className="text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">
-                      {getDisplaySection(modalEntry, language)}
-                    </p>
-                    <h2 className="mt-2 text-2xl font-black uppercase italic text-white sm:text-4xl">
-                      {getDisplayName(modalDetail, language)}
-                    </h2>
-                    <p className="mt-2 text-sm text-slate-400">
-                      {getDisplayType(modalDetail, language)}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={closeModal}
-                    className="rounded-2xl border border-[#284635] bg-[#0d1210] px-4 py-3 text-sm font-bold text-white"
-                  >
-                    {labels.close}
-                  </button>
-                </div>
-
-                <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[1.08fr_0.92fr]">
-                  <div className="space-y-4">
-                    <div className="relative overflow-hidden rounded-[24px] border border-[#1f3a2b] bg-[linear-gradient(180deg,_#101312_0%,_#1e2321_100%)]">
-                      <div className="flex aspect-[4/5] min-h-[340px] max-h-[65vh] items-center justify-center overflow-hidden p-4 sm:min-h-[420px]">
-                        {modalImages.length > 0 ? (
-                          <img
-                            src={modalImages[activeImageIndex]}
-                            alt={getDisplayName(modalDetail, language)}
-                            className="max-h-full max-w-full object-contain object-center"
-                          />
-                        ) : (
-                          <div className="text-slate-500">{labels.noImage}</div>
-                        )}
-                      </div>
-
-                      {modalImages.length > 1 && (
-                        <>
-                          <button
-                            onClick={prevModalImage}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/45 px-4 py-3 text-2xl font-black text-white backdrop-blur"
-                          >
-                            ‹
-                          </button>
-                          <button
-                            onClick={nextModalImage}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-[#15d863] px-4 py-3 text-2xl font-black text-[#06110a] backdrop-blur"
-                          >
-                            ›
-                          </button>
-                        </>
-                      )}
-                    </div>
-
-                    {modalImages.length > 1 && (
-                      <div className="flex gap-3 overflow-x-auto pb-1">
-                        {modalImages.map((image, index) => (
-                          <button
-                            key={`${image}-${index}`}
-                            onClick={() => setActiveImageIndex(index)}
-                            className={`flex h-20 min-w-[80px] items-center justify-center overflow-hidden rounded-xl border p-2 ${
-                              index === activeImageIndex
-                                ? "border-[#67ff9a]"
-                                : "border-[#1f3a2b]"
-                            }`}
-                          >
-                            <img
-                              src={image}
-                              alt={`preview-${index}`}
-                              className="max-h-full max-w-full object-contain object-center"
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="rounded-[24px] border border-[#184734] bg-[#09120b] p-4">
-                      <div className="flex items-center justify-between gap-4 rounded-[20px] border border-[#0d4b2e] bg-[linear-gradient(90deg,_#052133_0%,_#0b1e1c_100%)] px-4 py-4">
-                        <div className="text-3xl font-black text-[#67ff9a]">
-                          {modalEntry.price} {labels.vbucks}
-                        </div>
-                        <div className="text-3xl font-black text-[#ffd23c]">
-                          {formatMxPrice(modalEntry.price)}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div
-                      className={`rounded-[20px] p-4 ${
-                        isLeavingSoon(modalEntry.outDate)
-                          ? "border border-red-500/50 bg-red-500/10"
-                          : "border border-[#3d3323] bg-[#2b2014]/70"
-                      }`}
-                    >
-                      <p className="text-sm font-bold text-[#ffd38a]">
-                        {labels.leavesIn}
-                      </p>
-                      <p className="mt-2 text-lg font-black text-white">
-                        {getTimeUntilDate(modalEntry.outDate, language)}
-                      </p>
-                    </div>
-
-                    {(modalDetail.descriptionLocalized ||
-                      modalDetail.rarityLocalized ||
-                      modalDetail.setTextLocalized) && (
-                      <div className="rounded-[20px] border border-[#1f3a2b] bg-[#0c1016]/70 p-4">
-                        {modalDetail.descriptionLocalized && (
-                          <p className="text-base italic text-slate-200">
-                            “{modalDetail.descriptionLocalized}”
-                          </p>
-                        )}
-
-                        {modalDetail.setTextLocalized && (
-                          <p className="mt-4 text-sm text-[#67ff9a]">
-                            {labels.setLabel}: {asDisplayText(modalDetail.setTextLocalized)}
-                          </p>
-                        )}
-
-                        {modalDetail.rarityLocalized && (
-                          <p className="mt-2 text-sm text-slate-300">
-                            {labels.rarityLabel}: {asDisplayText(modalDetail.rarityLocalized)}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="grid gap-3">
-                      <button
-                        onClick={() => addToCart(modalEntry)}
-                        className="rounded-[22px] bg-[linear-gradient(90deg,_#15d863_0%,_#2cff7a_100%)] px-4 py-4 text-lg font-black uppercase tracking-[0.12em] text-[#06110a] shadow-[0_0_35px_rgba(44,255,122,0.22)]"
-                      >
-                        {labels.addToCart}
-                      </button>
-
-                      <button
-                        onClick={shareCurrentItem}
-                        className="rounded-[18px] border border-[#67ff9a] bg-transparent px-4 py-3 text-sm font-extrabold text-[#67ff9a] transition hover:bg-[#15d863] hover:text-[#06110a]"
-                      >
-                        {labels.shareItem}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {modalEntry.includedItems?.length > 0 && (
-                  <div className="px-4 pb-6 sm:px-6">
-                    <div className="mb-4 flex items-center justify-between">
-                      <h3 className="text-xl font-black uppercase tracking-[0.22em] text-[#67ff9a]">
-                        {labels.includes} {modalEntry.includedItems.length}
-                      </h3>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-                      {modalEntry.includedItems.map((included) => {
-                        const active = selectedDetailId === included.id;
-
-                        return (
-                          <button
-                            key={included.id}
-                            onClick={() => {
-                              setSelectedDetailId(included.id);
-                              setActiveImageIndex(0);
-                            }}
-                            className={`rounded-[20px] border p-3 text-left transition ${
-                              active
-                                ? "border-[#67ff9a] bg-[#0d1410]"
-                                : "border-[#1f3a2b] bg-[#090e0b]"
-                            }`}
-                          >
-                            <div className="mb-3 flex h-28 items-center justify-center overflow-hidden rounded-xl bg-[#101812] p-2">
-                              {included.image ? (
-                                <img
-                                  src={included.image}
-                                  alt={included.name}
-                                  className="max-h-full max-w-full object-contain object-center"
-                                />
-                              ) : (
-                                <div className="text-xs text-slate-500">
-                                  {labels.noImage}
-                                </div>
-                              )}
-                            </div>
-
-                            <p className="line-clamp-2 text-sm font-black uppercase text-white">
-                              {getDisplayName(included, language)}
-                            </p>
-                            <p className="mt-1 text-xs uppercase text-slate-400">
-                              {getDisplayType(included, language)}
-                            </p>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+      {modalEntry && (
+        <ItemModal
+          item={modalEntry}
+          labels={labels}
+          language={language}
+          onClose={() => setModalEntry(null)}
+          onAddToCart={addToCart}
+        />
       )}
     </main>
   );
