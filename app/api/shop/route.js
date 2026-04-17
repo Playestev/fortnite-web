@@ -30,6 +30,18 @@ function getKey(item, index) {
   return item?.offerId || item?.devName || `item-${index}`;
 }
 
+function getFirstCosmeticArray(item) {
+  return (
+    toArray(item?.brItems).length
+      ? toArray(item?.brItems)
+      : toArray(item?.instruments).length
+        ? toArray(item?.instruments)
+        : toArray(item?.cars).length
+          ? toArray(item?.cars)
+          : toArray(item?.tracks)
+  );
+}
+
 function getName(item) {
   const brItems = toArray(item?.brItems);
   const instruments = toArray(item?.instruments);
@@ -47,11 +59,13 @@ function getName(item) {
   );
 }
 
-function getType(item) {
+function getType(item, forceBundle = false) {
   const brItems = toArray(item?.brItems);
   const instruments = toArray(item?.instruments);
   const cars = toArray(item?.cars);
   const tracks = toArray(item?.tracks);
+
+  if (forceBundle) return "Bundle";
 
   return (
     asDisplayText(brItems[0]?.type?.displayValue) ||
@@ -247,6 +261,7 @@ function collectIncludedItems(item) {
       ),
       setText: asDisplayText(entry?.set?.text || entry?.set || ""),
       addedDate: asDisplayText(entry?.added) || null,
+      shopHistory: Array.isArray(entry?.shopHistory) ? entry.shopHistory : [],
     });
   };
 
@@ -256,6 +271,14 @@ function collectIncludedItems(item) {
   toArray(item?.tracks).forEach(pushIncluded);
 
   return included;
+}
+
+function getShopHistory(item) {
+  const firstPool = getFirstCosmeticArray(item);
+  const first = firstPool?.[0];
+  if (Array.isArray(first?.shopHistory)) return first.shopHistory;
+  if (Array.isArray(item?.shopHistory)) return item.shopHistory;
+  return [];
 }
 
 export async function GET(request) {
@@ -284,13 +307,13 @@ export async function GET(request) {
     const englishEntries = toArray(englishJson?.data?.entries);
     const localizedEntries = toArray(localizedJson?.data?.entries);
 
-    const localizedMap = new Map(
-      localizedEntries.map((item, index) => [getKey(item, index), item])
-    );
+    const localizedMap = new Map(localizedEntries.map((item, index) => [getKey(item, index), item]));
 
     const items = englishEntries.map((englishItem, index) => {
       const key = getKey(englishItem, index);
       const localizedItem = localizedMap.get(key) || englishItem;
+      const includedItems = collectIncludedItems(localizedItem);
+      const forceBundle = Boolean(localizedItem?.bundle) || includedItems.length > 1;
 
       return {
         id: key,
@@ -306,8 +329,8 @@ export async function GET(request) {
           "N/D",
         sectionEnglish: getSection(englishItem),
         sectionLocalized: getSection(localizedItem),
-        typeEnglish: getType(englishItem),
-        typeLocalized: getType(localizedItem),
+        typeEnglish: getType(englishItem, forceBundle),
+        typeLocalized: getType(localizedItem, forceBundle),
         devName:
           asDisplayText(englishItem?.devName) ||
           asDisplayText(localizedItem?.devName) ||
@@ -327,7 +350,9 @@ export async function GET(request) {
         rarityLocalized: getRarity(localizedItem),
         setTextEnglish: getSetText(englishItem),
         setTextLocalized: getSetText(localizedItem),
-        includedItems: collectIncludedItems(localizedItem),
+        includedItems,
+        shopHistory: getShopHistory(localizedItem),
+        isBundle: forceBundle,
       };
     });
 
