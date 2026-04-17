@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const LANG_STORAGE_KEY = "gkg-lang";
+const FACEBOOK_URL =
+  process.env.NEXT_PUBLIC_FACEBOOK_PAGE_URL ||
+  "https://www.facebook.com/gankergames";
 
 function formatDate(dateString, language) {
   if (!dateString) return "";
@@ -18,6 +21,78 @@ function formatDate(dateString, language) {
   }
 }
 
+function extractTitle(message = "") {
+  if (!message) return "";
+
+  const clean = message
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!clean.length) return "";
+
+  const firstLine = clean[0];
+
+  if (firstLine === firstLine.toUpperCase() || firstLine.length <= 90) {
+    return firstLine;
+  }
+
+  const firstSentence = message.split(/[.!?\n]/)[0]?.trim() || "";
+  return firstSentence || "Publicación";
+}
+
+function stripTitleFromMessage(message = "", title = "") {
+  if (!message) return "";
+  if (!title) return message.trim();
+
+  const normalizedMessage = message.trim();
+
+  if (normalizedMessage.startsWith(title)) {
+    return normalizedMessage.slice(title.length).trim();
+  }
+
+  return normalizedMessage;
+}
+
+function extractImages(post) {
+  const images = [];
+
+  if (Array.isArray(post?.images)) {
+    images.push(...post.images.filter(Boolean));
+  }
+
+  const attachments = Array.isArray(post?.attachments?.data)
+    ? post.attachments.data
+    : Array.isArray(post?.attachments)
+      ? post.attachments
+      : [];
+
+  const firstAttachment = attachments[0] || {};
+  const subattachments = Array.isArray(firstAttachment?.subattachments?.data)
+    ? firstAttachment.subattachments.data
+    : [];
+
+  if (post?.full_picture) {
+    images.push(post.full_picture);
+  }
+
+  if (firstAttachment?.media?.image?.src) {
+    images.push(firstAttachment.media.image.src);
+  }
+
+  subattachments.forEach((item) => {
+    const img = item?.media?.image?.src;
+    if (img) images.push(img);
+  });
+
+  if (post?.image) {
+    images.push(post.image);
+  }
+
+  return [...new Set(images.filter(Boolean))];
+}
+
 function normalizePosts(payload) {
   const raw =
     payload?.posts ||
@@ -29,40 +104,24 @@ function normalizePosts(payload) {
   if (!Array.isArray(raw)) return [];
 
   return raw.map((post, index) => {
-    const attachments = Array.isArray(post?.attachments?.data)
-      ? post.attachments.data
-      : Array.isArray(post?.attachments)
-      ? post.attachments
-      : [];
-
-    const firstAttachment = attachments[0] || {};
-    const firstSubattachment = Array.isArray(firstAttachment?.subattachments?.data)
-      ? firstAttachment.subattachments.data[0]
-      : null;
-
-    const image =
-      post?.full_picture ||
-      firstAttachment?.media?.image?.src ||
-      firstSubattachment?.media?.image?.src ||
-      post?.image ||
-      "";
-
-    const message =
-      post?.message ||
-      post?.story ||
-      post?.text ||
-      "";
+    const images = extractImages(post);
+    const message = post?.message || post?.story || post?.text || "";
+    const title = extractTitle(message);
+    const body = stripTitleFromMessage(message, title);
 
     const link =
       post?.permalink_url ||
       post?.link ||
       post?.url ||
-      "https://www.facebook.com/gankergames";
+      FACEBOOK_URL;
 
     return {
       id: post?.id || `post-${index}`,
+      title: title || "Publicación",
+      body,
       message,
-      image,
+      images,
+      image: images[0] || "",
       createdTime:
         post?.created_time ||
         post?.createdAt ||
@@ -73,14 +132,178 @@ function normalizePosts(payload) {
   });
 }
 
+function PostCarousel({
+  images,
+  alt,
+  labels,
+  className = "",
+  imageClassName = "",
+  showDots = true,
+  compact = false,
+}) {
+  const [current, setCurrent] = useState(0);
+  const touchStartX = useRef(0);
+
+  const safeImages = Array.isArray(images) ? images.filter(Boolean) : [];
+  const hasMany = safeImages.length > 1;
+
+  useEffect(() => {
+    setCurrent(0);
+  }, [safeImages.length]);
+
+  if (!safeImages.length) {
+    return (
+      <div
+        className={`flex items-center justify-center bg-[#101812] text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a] ${className}`}
+      >
+        FB
+      </div>
+    );
+  }
+
+  const goPrev = () => {
+    setCurrent((prev) => (prev === 0 ? safeImages.length - 1 : prev - 1));
+  };
+
+  const goNext = () => {
+    setCurrent((prev) => (prev === safeImages.length - 1 ? 0 : prev + 1));
+  };
+
+  const onTouchStart = (e) => {
+    touchStartX.current = e.changedTouches[0].screenX;
+  };
+
+  const onTouchEnd = (e) => {
+    const endX = e.changedTouches[0].screenX;
+    const diff = touchStartX.current - endX;
+
+    if (Math.abs(diff) < 40 || !hasMany) return;
+
+    if (diff > 0) goNext();
+    else goPrev();
+  };
+
+  return (
+    <div
+      className={`relative overflow-hidden bg-[#111] ${className}`}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
+      <img
+        src={safeImages[current]}
+        alt={alt}
+        className={`h-full w-full ${imageClassName}`}
+      />
+
+      {hasMany && (
+        <>
+          <button
+            type="button"
+            onClick={goPrev}
+            aria-label={labels.previousImage}
+            className={`absolute left-3 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/55 text-white shadow-lg transition hover:bg-black/70 ${
+              compact ? "h-8 w-8 text-xl" : "h-10 w-10 text-2xl"
+            }`}
+          >
+            ‹
+          </button>
+
+          <button
+            type="button"
+            onClick={goNext}
+            aria-label={labels.nextImage}
+            className={`absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/55 text-white shadow-lg transition hover:bg-black/70 ${
+              compact ? "h-8 w-8 text-xl" : "h-10 w-10 text-2xl"
+            }`}
+          >
+            ›
+          </button>
+
+          {showDots && (
+            <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5">
+              {safeImages.map((_, index) => (
+                <span
+                  key={index}
+                  className={`h-2 w-2 rounded-full ${
+                    index === current ? "bg-[#67ff9a]" : "bg-white/45"
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function NewsCard({ post, labels, language }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <article className="flex h-full flex-col overflow-hidden rounded-[24px] border border-[#1f3a2b] bg-[#0d1210] shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
+      <PostCarousel
+        images={post.images}
+        alt={post.title}
+        labels={labels}
+        compact
+        className="aspect-[16/10] w-full bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.08),_rgba(0,0,0,0.98))]"
+        imageClassName="h-full w-full object-contain p-3"
+        showDots={post.images?.length > 1}
+      />
+
+      <div className="flex flex-1 flex-col p-4 md:p-5">
+        <p className="text-xs font-black uppercase tracking-[0.20em] text-[#67ff9a]">
+          {labels.published}
+        </p>
+
+        <p className="mt-2 text-sm text-slate-400">
+          {formatDate(post.createdTime, language)}
+        </p>
+
+        <h3 className="mt-4 text-lg font-black uppercase leading-snug text-white">
+          {post.title}
+        </h3>
+
+        {expanded && post.body ? (
+          <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-200">
+            {post.body}
+          </p>
+        ) : null}
+
+        <div className="mt-auto flex flex-wrap gap-3 pt-5">
+          {post.body ? (
+            <button
+              type="button"
+              onClick={() => setExpanded((prev) => !prev)}
+              className="inline-flex rounded-xl border border-[#2a5a3f] bg-[#0a130d] px-4 py-2.5 text-sm font-extrabold text-[#67ff9a] transition hover:opacity-90"
+            >
+              {expanded ? labels.readLess : labels.readMoreText}
+            </button>
+          ) : null}
+
+          <a
+            href={post.link}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex rounded-xl bg-[#15d863] px-4 py-2.5 text-sm font-extrabold text-[#06110a] transition hover:opacity-90"
+          >
+            {labels.readMore}
+          </a>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export default function NoticiasPage() {
   const [language, setLanguage] = useState("es-419");
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
     const savedLang = window.localStorage.getItem(LANG_STORAGE_KEY);
     if (savedLang === "es-419" || savedLang === "en") {
       setLanguage(savedLang);
@@ -88,7 +311,6 @@ export default function NoticiasPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
     window.localStorage.setItem(LANG_STORAGE_KEY, language);
   }, [language]);
 
@@ -108,12 +330,19 @@ export default function NoticiasPage() {
           loading: "Loading posts...",
           error: "Could not load posts.",
           empty: "No posts available right now.",
+          noResults: "No posts match your search.",
           readMore: "View post",
+          readMoreText: "Read more",
+          readLess: "Read less",
           shop: "Shop",
           news: "News",
           stw: "STW",
           published: "Published",
           nativeFeed: "Native feed",
+          previousImage: "Previous image",
+          nextImage: "Next image",
+          searchPlaceholder: "Search by keyword...",
+          searchLabel: "Search",
         }
       : {
           brand: "Ganker Games",
@@ -129,12 +358,19 @@ export default function NoticiasPage() {
           loading: "Cargando publicaciones...",
           error: "No se pudieron cargar las publicaciones.",
           empty: "No hay publicaciones disponibles en este momento.",
+          noResults: "No se encontraron publicaciones con esa búsqueda.",
           readMore: "Ver publicación",
+          readMoreText: "Ver más",
+          readLess: "Ver menos",
           shop: "Tienda",
           news: "Noticias",
           stw: "STW",
           published: "Publicado",
           nativeFeed: "Feed nativo",
+          previousImage: "Imagen anterior",
+          nextImage: "Imagen siguiente",
+          searchPlaceholder: "Buscar por palabra clave...",
+          searchLabel: "Buscar",
         };
 
   async function loadPosts() {
@@ -144,7 +380,13 @@ export default function NoticiasPage() {
 
       const res = await fetch("/api/facebook-posts", { cache: "no-store" });
       const text = await res.text();
-      const json = text ? JSON.parse(text) : {};
+
+      let json = {};
+      try {
+        json = text ? JSON.parse(text) : {};
+      } catch {
+        json = {};
+      }
 
       if (!res.ok) {
         throw new Error(json?.error || labels.error);
@@ -161,10 +403,27 @@ export default function NoticiasPage() {
 
   useEffect(() => {
     loadPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const featuredPost = useMemo(() => posts[0] || null, [posts]);
-  const restPosts = useMemo(() => posts.slice(1), [posts]);
+  const filteredPosts = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    if (!term) return posts;
+
+    return posts.filter((post) => {
+      const text = [
+        post.title,
+        post.body,
+        post.message,
+        formatDate(post.createdTime, language),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return text.includes(term);
+    });
+  }, [posts, search, language]);
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_20%),linear-gradient(180deg,_#000000_0%,_#021106_45%,_#000000_100%)] text-white">
@@ -266,10 +525,10 @@ export default function NoticiasPage() {
                 {labels.sourceText}
               </p>
               <a
-                href="https://www.facebook.com/gankergames"
+                href={FACEBOOK_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-4 inline-flex rounded-xl bg-[#15d863] px-4 py-2 text-sm font-extrabold text-[#06110a]"
+                className="mt-4 inline-flex rounded-xl bg-[#15d863] px-4 py-2 text-sm font-extrabold text-[#06110a] transition hover:opacity-90"
               >
                 {labels.openFacebook}
               </a>
@@ -277,22 +536,39 @@ export default function NoticiasPage() {
           </div>
         </section>
 
-        <section className="mb-6 flex flex-col gap-3 rounded-[24px] border border-[#1f3a2b] bg-[#060b07]/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.25)] md:flex-row md:items-center md:justify-between md:p-5">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">
-              {labels.nativeFeed}
-            </p>
-            <h2 className="mt-2 text-2xl font-black uppercase italic md:text-5xl">
-              {labels.latestPosts}
-            </h2>
-          </div>
+        <section className="mb-6 rounded-[24px] border border-[#1f3a2b] bg-[#060b07]/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.25)] md:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">
+                {labels.nativeFeed}
+              </p>
+              <h2 className="mt-2 text-2xl font-black uppercase italic md:text-5xl">
+                {labels.latestPosts}
+              </h2>
+            </div>
 
-          <button
-            onClick={loadPosts}
-            className="rounded-xl bg-[#15d863] px-5 py-3 text-sm font-extrabold text-[#06110a]"
-          >
-            {labels.refresh}
-          </button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="w-full sm:w-[320px]">
+                <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-[#67ff9a]">
+                  {labels.searchLabel}
+                </label>
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={labels.searchPlaceholder}
+                  className="w-full rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-[#67ff9a]"
+                />
+              </div>
+
+              <button
+                onClick={loadPosts}
+                className="rounded-xl bg-[#15d863] px-5 py-3 text-sm font-extrabold text-[#06110a] transition hover:opacity-90 sm:self-end"
+              >
+                {labels.refresh}
+              </button>
+            </div>
+          </div>
         </section>
 
         {loading && (
@@ -313,81 +589,22 @@ export default function NoticiasPage() {
           </div>
         )}
 
-        {!loading && !error && featuredPost && (
-          <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-            <article className="overflow-hidden rounded-[28px] border border-[#1f3a2b] bg-[#0d1210] shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
-              {featuredPost.image ? (
-                <div className="flex max-h-[520px] min-h-[280px] items-center justify-center overflow-hidden bg-[#111] md:min-h-[360px]">
-                  <img
-                    src={featuredPost.image}
-                    alt="featured-post"
-                    className="h-full w-full object-cover object-center"
-                  />
-                </div>
-              ) : null}
+        {!loading && !error && posts.length > 0 && filteredPosts.length === 0 && (
+          <div className="rounded-2xl border border-[#1a2c21] bg-[#060b07] p-6 text-slate-300">
+            {labels.noResults}
+          </div>
+        )}
 
-              <div className="p-5 md:p-6">
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-[#67ff9a]">
-                  {labels.published}
-                </p>
-                <p className="mt-2 text-sm text-slate-400">
-                  {formatDate(featuredPost.createdTime, language)}
-                </p>
-
-                <p className="mt-4 whitespace-pre-line text-sm leading-7 text-slate-100 md:text-base">
-                  {featuredPost.message || labels.empty}
-                </p>
-
-                <a
-                  href={featuredPost.link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-5 inline-flex rounded-xl bg-[#15d863] px-4 py-3 text-sm font-extrabold text-[#06110a]"
-                >
-                  {labels.readMore}
-                </a>
-              </div>
-            </article>
-
-            <aside className="space-y-4">
-              {restPosts.slice(0, 4).map((post) => (
-                <article
-                  key={post.id}
-                  className="overflow-hidden rounded-[22px] border border-[#1f3a2b] bg-[#0d1210]"
-                >
-                  <div className="flex gap-3 p-3">
-                    <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#101812]">
-                      {post.image ? (
-                        <img
-                          src={post.image}
-                          alt="post"
-                          className="h-full w-full object-cover object-center"
-                        />
-                      ) : (
-                        <div className="text-xs text-slate-500">FB</div>
-                      )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#67ff9a]">
-                        {formatDate(post.createdTime, language)}
-                      </p>
-                      <p className="mt-2 line-clamp-4 text-sm leading-6 text-slate-200">
-                        {post.message || labels.empty}
-                      </p>
-                      <a
-                        href={post.link}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-3 inline-flex text-xs font-extrabold text-[#67ff9a]"
-                      >
-                        {labels.readMore}
-                      </a>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </aside>
+        {!loading && !error && filteredPosts.length > 0 && (
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {filteredPosts.map((post) => (
+              <NewsCard
+                key={post.id}
+                post={post}
+                labels={labels}
+                language={language}
+              />
+            ))}
           </div>
         )}
       </div>

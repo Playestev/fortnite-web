@@ -1,7 +1,8 @@
 export async function GET() {
   try {
-    const pageId = process.env.FACEBOOK_PAGE_ID;
-    const accessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
+    const pageId = process.env.FACEBOOK_PAGE_ID?.trim();
+    const accessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN?.trim();
+    const pageUrl = process.env.FACEBOOK_PAGE_URL?.trim() || "";
 
     if (!pageId || !accessToken) {
       return Response.json(
@@ -16,7 +17,7 @@ export async function GET() {
       "created_time",
       "permalink_url",
       "full_picture",
-      "attachments{media_type,media,url,subattachments}",
+      "attachments{media_type,media,url,subattachments{media,url}}",
     ].join(",");
 
     const url = `https://graph.facebook.com/v25.0/${pageId}/posts?fields=${encodeURIComponent(
@@ -35,20 +36,31 @@ export async function GET() {
 
     const posts = (data.data || []).map((post) => {
       const attachment = post.attachments?.data?.[0];
-      const subattachment = attachment?.subattachments?.data?.[0];
+      const subattachments = attachment?.subattachments?.data || [];
 
-      const image =
-        post.full_picture ||
-        attachment?.media?.image?.src ||
-        subattachment?.media?.image?.src ||
-        null;
+      const images = [];
+
+      if (post.full_picture) {
+        images.push(post.full_picture);
+      }
+
+      if (attachment?.media?.image?.src) {
+        images.push(attachment.media.image.src);
+      }
+
+      subattachments.forEach((item) => {
+        const img = item?.media?.image?.src;
+        if (img) images.push(img);
+      });
+
+      const uniqueImages = [...new Set(images)];
 
       return {
         id: post.id,
         message: post.message || "",
         created_time: post.created_time || null,
-        permalink_url: post.permalink_url || FACEBOOK_PAGE_URL,
-        image,
+        permalink_url: post.permalink_url || pageUrl,
+        images: uniqueImages,
       };
     });
 

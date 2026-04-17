@@ -24,3 +24,345 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* =========================
+   PÁGINA NOTICIAS / FACEBOOK
+========================= */
+
+.noticias-page {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+  box-sizing: border-box;
+}
+
+.noticias-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 24px;
+  border: 1px solid rgba(17, 255, 150, 0.25);
+  border-radius: 28px;
+  padding: 26px 24px;
+  background: linear-gradient(90deg, rgba(0, 60, 25, 0.25), rgba(0, 0, 0, 0.3));
+  margin-bottom: 24px;
+}
+
+.noticias-hero-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.noticias-mini-title {
+  color: #2bff9a;
+  font-size: 0.95rem;
+  font-weight: 900;
+  letter-spacing: 4px;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+
+.noticias-title {
+  font-size: clamp(3rem, 8vw, 5.5rem);
+  line-height: 0.95;
+  font-weight: 900;
+  font-style: italic;
+  color: #fff;
+  margin: 0 0 18px;
+}
+
+.noticias-subtitle {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #fff;
+  max-width: 680px;
+}
+
+.noticias-hero-right {
+  width: 270px;
+  min-width: 270px;
+  border: 1px solid rgba(17, 255, 150, 0.25);
+  border-radius: 22px;
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-self: center;
+}
+
+.noticias-source-title {
+  color: #2bff9a;
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+.noticias-source-text {
+  color: #fff;
+  margin-bottom: 18px;
+  line-height: 1.4;
+}
+
+.noticias-facebook-btn {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  background: #16f26a;
+  color: #000;
+  font-weight: 800;
+  text-decoration: none;
+  padding: 12px 20px;
+  border-radius: 16px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.noticias-facebook-btn:hover {
+  transform: translateY(-1px);
+  opacity: 0.92;
+}
+
+.noticias-feed-box {
+  border: 1px solid rgba(17, 255, 150, 0.25);
+  border-radius: 28px;
+  padding: 22px 24px;
+  margin-bottom: 24px;
+}
+
+.noticias-feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.noticias-feed-title {
+  font-size: clamp(2.6rem, 7vw, 5rem);
+  line-height: 1;
+  font-style: italic;
+  font-weight: 900;
+  color: #fff;
+  margin: 0;
+}
+
+.noticias-refresh-btn {
+  background: #16f26a;
+  color: #000;
+  border: 2px solid #ffffff;
+  border-radius: 16px;
+  padding: 14px 28px;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.noticias-refresh-btn:hover {
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+.noticias-error-box {
+  border: 1px solid #a51d1d;
+  background: rgba(48, 10, 10, 0.85);
+  color: #ff9a9a;
+  border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 22px;
+  line-height: 1.5;
+}
+
+.noticias-empty-box {
+  border: 1px solid rgba(17, 255, 150, 0.18);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  border-radius: 20px;
+  padding: 24px;
+}
+
+.fb-posts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.fb-post-card {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid rgba(17, 255, 150, 0.2);
+  border-radius: 22px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.4);
+  min-height: 280px;
+}
+
+.fb-post-image-wrap {
+  position: relative;
+  width: 42%;
+  min-width: 42%;
+  background: #000;
+  overflow: hidden;
+}
+
+.fb-post-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.fb-post-content {
+  flex: 1;
+  padding: 18px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.fb-post-date {
+  color: #2bff9a;
+  font-size: 0.95rem;
+  font-weight: 900;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.fb-post-message {
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1.65;
+  white-space: pre-line;
+  margin: 0 0 18px;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.fb-post-link {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  color: #2bff9a;
+  font-weight: 900;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.fb-post-link:hover {
+  opacity: 0.85;
+}
+
+.fb-carousel-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 1.8rem;
+  cursor: pointer;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fb-carousel-prev {
+  left: 10px;
+}
+
+.fb-carousel-next {
+  right: 10px;
+}
+
+.fb-carousel-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.fb-carousel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.fb-carousel-dot.active {
+  background: #16f26a;
+}
+
+@media (max-width: 980px) {
+  .fb-posts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .noticias-hero {
+    flex-direction: column;
+  }
+
+  .noticias-hero-right {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .noticias-page {
+    padding: 18px 14px 28px;
+  }
+
+  .noticias-hero,
+  .noticias-feed-box {
+    border-radius: 22px;
+    padding: 18px 16px;
+  }
+
+  .noticias-feed-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .noticias-refresh-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .fb-post-card {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .fb-post-image-wrap {
+    width: 100%;
+    min-width: 100%;
+    aspect-ratio: 16 / 10;
+  }
+
+  .fb-post-content {
+    padding: 16px;
+  }
+
+  .fb-post-message {
+    -webkit-line-clamp: 7;
+  }
+
+  .fb-carousel-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 1.5rem;
+  }
+}
