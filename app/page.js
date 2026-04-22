@@ -64,34 +64,25 @@ const LABELS = {
     sortLowPrice: "Precio bajo",
     sortLeavingSoon: "Se van pronto",
     sortAZ: "A-Z",
-    typeGroupLabels: {
-      bundle: "LOTES",
-      outfit: "SKINS",
-      backpack: "MOCHILAS",
-      pickaxe: "PICOS",
-      emote: "EMOTES",
-      jamtrack: "CANCIONES",
-      other: "OTROS",
-    },
     typeLabels: {
       bundle: "Lote",
       outfit: "Skin",
       pickaxe: "Pico",
-      backpack: "Mochila retro",
+      backpack: "Mochila",
       glider: "Ala delta",
-      emote: "Gesto",
+      emote: "Emote",
       wrap: "Envoltura",
-      jamtrack: "Pista Jam",
+      jamtrack: "Canción",
       shoe: "Calzado",
       contrail: "Estela",
-      loadingscreen: "Pantalla de carga",
-      spray: "Grafiti",
+      loadingscreen: "Pantalla",
+      spray: "Spray",
       music: "Música",
       toy: "Juguete",
       pet: "Mascota",
       emoji: "Emoji",
       banner: "Banner",
-      vehicle: "Vehículo",
+      vehicle: "Carro",
       instrument: "Instrumento",
       fallback: "Objeto",
     },
@@ -149,15 +140,6 @@ const LABELS = {
     sortLowPrice: "Low price",
     sortLeavingSoon: "Leaving soon",
     sortAZ: "A-Z",
-    typeGroupLabels: {
-      bundle: "BUNDLES",
-      outfit: "OUTFITS",
-      backpack: "BACK BLINGS",
-      pickaxe: "PICKAXES",
-      emote: "EMOTES",
-      jamtrack: "SONGS",
-      other: "OTHERS",
-    },
     typeLabels: {
       bundle: "Bundle",
       outfit: "Outfit",
@@ -166,7 +148,7 @@ const LABELS = {
       glider: "Glider",
       emote: "Emote",
       wrap: "Wrap",
-      jamtrack: "Jam Track",
+      jamtrack: "Song",
       shoe: "Shoes",
       contrail: "Contrail",
       loadingscreen: "Loading Screen",
@@ -176,14 +158,23 @@ const LABELS = {
       pet: "Pet",
       emoji: "Emoji",
       banner: "Banner",
-      vehicle: "Vehicle",
+      vehicle: "Car",
       instrument: "Instrument",
       fallback: "Item",
     },
   },
 };
 
-const DISPLAY_TYPE_ORDER = ["bundle", "outfit", "backpack", "pickaxe", "emote", "jamtrack", "other"];
+const CARD_THEME_PALETTE = [
+  { top: "#efb08c", middle: "#db865f", bottom: "#05101c", fade: "#db865f" },
+  { top: "#9cc6ff", middle: "#5d95ff", bottom: "#05101c", fade: "#5d95ff" },
+  { top: "#87e2c2", middle: "#37b67d", bottom: "#05101c", fade: "#37b67d" },
+  { top: "#f3d37a", middle: "#d4a933", bottom: "#05101c", fade: "#d4a933" },
+  { top: "#d9a9ff", middle: "#944de6", bottom: "#05101c", fade: "#944de6" },
+  { top: "#90d6f7", middle: "#2fb8dd", bottom: "#05101c", fade: "#2fb8dd" },
+  { top: "#f4a1ca", middle: "#d54d9b", bottom: "#05101c", fade: "#d54d9b" },
+  { top: "#c2e48c", middle: "#7fb631", bottom: "#05101c", fade: "#7fb631" },
+];
 
 function asText(value) {
   if (value == null) return "";
@@ -220,20 +211,17 @@ function dedupeStrings(values) {
 }
 
 function getDisplaySection(item) {
-  return asText(item.sectionLocalized) || asText(item.sectionEnglish) || asText(item.section?.name) || asText(item.section) || "Shop";
+  return (
+    asText(item.sectionLocalized) ||
+    asText(item.sectionEnglish) ||
+    asText(item.section?.name) ||
+    asText(item.section) ||
+    "Shop"
+  );
 }
 
 function getDisplayName(item) {
   return asText(item.nameLocalized) || asText(item.nameEnglish) || asText(item.name) || "Item";
-}
-
-function getSecondaryEnglishName(item, language) {
-  if (language !== "es-419") return "";
-  const localized = asText(item.nameLocalized);
-  const english = asText(item.nameEnglish);
-  if (!localized || !english) return "";
-  if (localized.trim().toLowerCase() === english.trim().toLowerCase()) return "";
-  return english;
 }
 
 function localPrice(language, vbucks) {
@@ -344,16 +332,50 @@ function getCurrentPrice(item) {
   return Number(item?.price ?? item?.price?.finalPrice ?? item?.finalPrice ?? item?.vbucks ?? item?.priceVbucks ?? 0);
 }
 
-function getTypeKey(rawType, item = {}) {
+function getRawTypeKey(rawType) {
   const value = asText(rawType).toLowerCase();
-  const includedCount = Array.isArray(item?.includedItems) ? item.includedItems.length : 0;
-  if (item?.isBundle || includedCount > 1 || value.includes("bundle") || value.includes("pack") || value.includes("lot")) return "bundle";
+
   if (value.includes("outfit") || value.includes("skin")) return "outfit";
-  if (value.includes("back") || value.includes("backpack")) return "backpack";
-  if (value.includes("pickaxe") || value.includes("harvesting")) return "pickaxe";
-  if (value.includes("emote")) return "emote";
-  if (value.includes("jam") || value.includes("music") || value.includes("track") || value.includes("song")) return "jamtrack";
+  if (value.includes("back") || value.includes("backpack") || value.includes("mochila")) return "backpack";
+  if (value.includes("pickaxe") || value.includes("harvesting") || value.includes("pico")) return "pickaxe";
+  if (value.includes("glider") || value.includes("ala")) return "glider";
+  if (value.includes("emote") || value.includes("gesto") || value.includes("emote")) return "emote";
+  if (value.includes("jam") || value.includes("track") || value.includes("song") || value.includes("music")) return "jamtrack";
+  if (value.includes("wrap")) return "wrap";
+  if (value.includes("shoe") || value.includes("calzado")) return "shoe";
+  if (value.includes("contrail") || value.includes("estela")) return "contrail";
+  if (value.includes("loading")) return "loadingscreen";
+  if (value.includes("spray") || value.includes("grafiti")) return "spray";
+  if (value.includes("music")) return "music";
+  if (value.includes("toy") || value.includes("juguete")) return "toy";
+  if (value.includes("pet") || value.includes("mascota")) return "pet";
+  if (value.includes("emoji")) return "emoji";
+  if (value.includes("banner")) return "banner";
+  if (value.includes("vehicle") || value.includes("car") || value.includes("vehículo") || value.includes("carro")) return "vehicle";
+  if (value.includes("instrument") || value.includes("instrumento")) return "instrument";
+  if (value.includes("bundle") || value.includes("pack") || value.includes("lot") || value.includes("lote")) return "bundle";
+
   return "other";
+}
+
+function getTypeKey(rawType, item = {}) {
+  const includedItems = Array.isArray(item?.includedItems) ? item.includedItems : [];
+  const includedTypeKeys = [...new Set(includedItems.map((entry) => getRawTypeKey(entry.typeEnglish || entry.typeLocalized || entry.type)).filter(Boolean))];
+
+  if (item?.isBundle || includedItems.length >= 3) return "bundle";
+
+  if (includedTypeKeys.length > 0) {
+    const hasOutfit = includedTypeKeys.includes("outfit");
+    const onlySkinSupport =
+      hasOutfit &&
+      includedTypeKeys.every((key) => ["outfit", "backpack", "emote"].includes(key));
+
+    if (onlySkinSupport) return "outfit";
+    if (includedTypeKeys.length >= 3) return "bundle";
+    if (includedTypeKeys.length === 1) return includedTypeKeys[0];
+  }
+
+  return getRawTypeKey(rawType);
 }
 
 function getDisplayType(item, labels) {
@@ -363,23 +385,22 @@ function getDisplayType(item, labels) {
 
 function sortItems(items, sortMode) {
   const list = [...items];
-  list.sort((a, b) => {
-    const aType = getTypeKey(a.typeEnglish || a.typeLocalized || a.type, a);
-    const bType = getTypeKey(b.typeEnglish || b.typeLocalized || b.type, b);
 
+  list.sort((a, b) => {
     if (sortMode === "PRICE_HIGH") {
-      const priceDiff = Number(b.price || 0) - Number(a.price || 0);
-      if (priceDiff !== 0) return priceDiff;
+      const diff = Number(b.price || 0) - Number(a.price || 0);
+      if (diff !== 0) return diff;
     }
 
     if (sortMode === "PRICE_LOW") {
-      const priceDiff = Number(a.price || 0) - Number(b.price || 0);
-      if (priceDiff !== 0) return priceDiff;
+      const diff = Number(a.price || 0) - Number(b.price || 0);
+      if (diff !== 0) return diff;
     }
 
     if (sortMode === "RECENT") {
-      const recentDiff = new Date(b._latestInDate || 0).getTime() - new Date(a._latestInDate || 0).getTime();
-      if (recentDiff !== 0) return recentDiff;
+      const diff =
+        new Date(b._latestInDate || 0).getTime() - new Date(a._latestInDate || 0).getTime();
+      if (diff !== 0) return diff;
     }
 
     if (sortMode === "LEAVING_SOON") {
@@ -393,42 +414,19 @@ function sortItems(items, sortMode) {
       if (byName !== 0) return byName;
     }
 
-    const orderDiff = DISPLAY_TYPE_ORDER.indexOf(aType) - DISPLAY_TYPE_ORDER.indexOf(bType);
-    if (orderDiff !== 0) return orderDiff;
-
     if (sortMode === "FEATURED") {
-      const aFeatured = (a._isFreshNew ? 3 : 0) + (a._isLeavingSoon ? 2 : 0) + (a._isRecent ? 1 : 0);
-      const bFeatured = (b._isFreshNew ? 3 : 0) + (b._isLeavingSoon ? 2 : 0) + (b._isRecent ? 1 : 0);
-      if (bFeatured !== aFeatured) return bFeatured - aFeatured;
+      const aScore = (a._isFreshNew ? 3 : 0) + (a._isLeavingSoon ? 2 : 0) + (a._isRecent ? 1 : 0);
+      const bScore = (b._isFreshNew ? 3 : 0) + (b._isLeavingSoon ? 2 : 0) + (b._isRecent ? 1 : 0);
+      if (bScore !== aScore) return bScore - aScore;
     }
 
     return getDisplayName(a).localeCompare(getDisplayName(b), "es", { sensitivity: "base" });
   });
+
   return list;
 }
 
-function groupByType(items, labels, sortMode) {
-  return DISPLAY_TYPE_ORDER
-    .map((typeKey) => {
-      const entries = items.filter((item) => getTypeKey(item.typeEnglish || item.typeLocalized || item.type, item) === typeKey);
-      if (!entries.length) return null;
-      return {
-        typeKey,
-        title: labels.typeGroupLabels[typeKey],
-        items: sortItems(entries, sortMode),
-      };
-    })
-    .filter(Boolean);
-}
-
-function buildGroups({
-  items,
-  recentlyGone,
-  selectedSection,
-  search,
-  labels,
-  sortMode,
-}) {
+function buildVisibleItems({ items, recentlyGone, selectedSection, search, labels, sortMode }) {
   const searchText = search.trim().toLowerCase();
 
   const applySearch = (list) => {
@@ -449,66 +447,57 @@ function buildGroups({
   };
 
   if (selectedSection === "LEFT") {
-    const filtered = applySearch(recentlyGone);
-    return filtered.length
-      ? [
-          {
-            sectionName: labels.recentlyGone,
-            typeGroups: groupByType(filtered, labels, sortMode),
-          },
-        ]
-      : [];
+    return sortItems(applySearch(recentlyGone), sortMode);
   }
 
   let filtered = [...items];
+
   if (selectedSection === "RECENT") filtered = filtered.filter((item) => item._isRecent);
   else if (selectedSection === "NEW") filtered = filtered.filter((item) => item._isFreshNew);
   else if (selectedSection !== "ALL") filtered = filtered.filter((item) => item._section === selectedSection);
 
   filtered = applySearch(filtered);
+  return sortItems(filtered, sortMode);
+}
 
-  if (selectedSection === "ALL") {
-    const groups = {};
-    filtered.forEach((item) => {
-      if (!groups[item._section]) groups[item._section] = [];
-      groups[item._section].push(item);
-    });
+function groupItemsBySection(items) {
+  const groups = new Map();
 
-    return Object.entries(groups)
-      .map(([sectionName, entries]) => ({
-        sectionName,
-        typeGroups: groupByType(entries, labels, sortMode),
-      }))
-      .filter((group) => group.typeGroups.length > 0)
-      .sort((a, b) => a.sectionName.localeCompare(b.sectionName, "es", { sensitivity: "base" }));
-  }
+  items.forEach((item) => {
+    const sectionName = item._section || "Shop";
 
-  const title =
-    selectedSection === "RECENT"
-      ? labels.recent
-      : selectedSection === "NEW"
-        ? labels.newOnly
-        : selectedSection;
+    if (!groups.has(sectionName)) {
+      groups.set(sectionName, {
+        id: sectionName,
+        title: sectionName,
+        items: [],
+      });
+    }
 
-  return filtered.length
-    ? [
-        {
-          sectionName: title,
-          typeGroups: groupByType(filtered, labels, sortMode),
-        },
-      ]
-    : [];
+    groups.get(sectionName).items.push(item);
+  });
+
+  return [...groups.values()].sort((a, b) =>
+    a.title.localeCompare(b.title, "es", { sensitivity: "base" })
+  );
 }
 
 function getIncludedItems(item) {
-  const raw = Array.isArray(item.includedItems) ? item.includedItems : Array.isArray(item.grants) ? item.grants : [];
+  const raw = Array.isArray(item.includedItems)
+    ? item.includedItems
+    : Array.isArray(item.grants)
+      ? item.grants
+      : [];
+
   const seen = new Set();
+
   return raw.filter((entry) => {
     const key = [
       getDisplayName(entry),
       getTypeKey(entry.typeEnglish || entry.typeLocalized || entry.type, entry),
       normalizeUrl(entry.image || entry?.images?.icon || entry?.images?.featured),
     ].join("|");
+
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -548,11 +537,24 @@ function getGalleryImages(item) {
     : [];
 
   const displayAssets = Array.isArray(item.displayAssets)
-    ? item.displayAssets.flatMap((asset) => [asset?.url, asset?.image, asset?.featured, asset?.icon, asset?.full_background, asset?.background])
+    ? item.displayAssets.flatMap((asset) => [
+        asset?.url,
+        asset?.image,
+        asset?.featured,
+        asset?.icon,
+        asset?.full_background,
+        asset?.background,
+      ])
     : [];
 
-  const imageObjectValues = item?.images && typeof item.images === "object" && !Array.isArray(item.images) ? Object.values(item.images) : [];
-  const includeImages = getIncludedItems(item).map((entry) => entry.image || entry?.images?.icon || entry?.images?.featured || entry?.images?.smallIcon);
+  const imageObjectValues =
+    item?.images && typeof item.images === "object" && !Array.isArray(item.images)
+      ? Object.values(item.images)
+      : [];
+
+  const includeImages = getIncludedItems(item).map(
+    (entry) => entry.image || entry?.images?.icon || entry?.images?.featured || entry?.images?.smallIcon
+  );
 
   return dedupeStrings([
     item.image,
@@ -586,6 +588,7 @@ function normalizeShopItems(payload) {
   return rawItems.map((item, index) => {
     const id = item?.id || item?.mainId || item?.offerId || `${getDisplayName(item)}-${index}`;
     const includedItems = Array.isArray(item.includedItems) ? item.includedItems : [];
+
     const normalized = {
       ...item,
       id,
@@ -601,6 +604,7 @@ function normalizeShopItems(payload) {
       _galleryImages: getGalleryImages(item),
       isBundle: item?.isBundle || includedItems.length > 1,
     };
+
     normalized._typeKey = getTypeKey(item.typeEnglish || item.typeLocalized || item.type, normalized);
     return normalized;
   });
@@ -673,6 +677,35 @@ function mergeRecentlyGone(previousGone, goneNow) {
     result.push(item);
   }
   return result.slice(0, 48);
+}
+
+function hashString(value) {
+  const text = String(value || "");
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash << 5) - hash + text.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function hexToRgb(hex) {
+  const safeHex = String(hex || "").replace("#", "");
+  if (safeHex.length !== 6) return { r: 0, g: 0, b: 0 };
+  return {
+    r: parseInt(safeHex.slice(0, 2), 16),
+    g: parseInt(safeHex.slice(2, 4), 16),
+    b: parseInt(safeHex.slice(4, 6), 16),
+  };
+}
+
+function withAlpha(hex, alpha) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getCardTheme(key) {
+  return CARD_THEME_PALETTE[hashString(key) % CARD_THEME_PALETTE.length];
 }
 
 function RotatingImage({ images, alt, className, intervalMs = AUTO_ROTATE_MS }) {
@@ -788,6 +821,7 @@ function FilterModal({ open, sections, labels, selectedSection, onSelect, onClos
 
 function SortModal({ open, labels, sortMode, onSelect, onClose }) {
   if (!open) return null;
+
   const options = [
     { id: "FEATURED", label: labels.sortFeatured },
     { id: "RECENT", label: labels.sortRecent },
@@ -796,12 +830,14 @@ function SortModal({ open, labels, sortMode, onSelect, onClose }) {
     { id: "LEAVING_SOON", label: labels.sortLeavingSoon },
     { id: "AZ", label: labels.sortAZ },
   ];
+
   return (
     <div className="fixed inset-0 z-[121] flex items-center justify-center bg-black/80 p-4">
       <div className="w-full max-w-xl rounded-[30px] border border-[#13412f] bg-[#04120d] p-5 shadow-[0_0_60px_rgba(0,255,120,0.08)] sm:p-6">
         <h3 className="text-center text-3xl font-black italic text-white sm:text-4xl">
           {labels.sortTitle}
         </h3>
+
         <div className="mt-6 grid gap-3">
           {options.map((option) => (
             <button
@@ -821,6 +857,7 @@ function SortModal({ open, labels, sortMode, onSelect, onClose }) {
             </button>
           ))}
         </div>
+
         <button
           type="button"
           onClick={onClose}
@@ -835,6 +872,7 @@ function SortModal({ open, labels, sortMode, onSelect, onClose }) {
 
 function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQty, onRemove, onClear }) {
   if (!open) return null;
+
   const details = cart
     .map((cartItem) => {
       const item = allItems.find((entry) => entry.id === cartItem.id);
@@ -937,17 +975,31 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
           </div>
           <div className="mt-2 flex items-center justify-between text-sm">
             <span>{labels.total}</span>
-            <span className="font-black">{language === "en" ? `$${totalLocal.toFixed(2)}` : `MX$${totalLocal.toFixed(2)}`}</span>
+            <span className="font-black">
+              {language === "en" ? `$${totalLocal.toFixed(2)}` : `MX$${totalLocal.toFixed(2)}`}
+            </span>
           </div>
 
           <div className="mt-4 grid gap-3">
-            <button type="button" onClick={sendWhatsApp} className="rounded-2xl bg-[#15d863] px-4 py-3 text-sm font-black text-[#06110a]">
+            <button
+              type="button"
+              onClick={sendWhatsApp}
+              className="rounded-2xl bg-[#15d863] px-4 py-3 text-sm font-black text-[#06110a]"
+            >
               {labels.sendWhatsApp}
             </button>
-            <button type="button" onClick={shareCart} className="rounded-2xl border border-[#1a4e3a] bg-[#08140f] px-4 py-3 text-sm font-black text-white">
+            <button
+              type="button"
+              onClick={shareCart}
+              className="rounded-2xl border border-[#1a4e3a] bg-[#08140f] px-4 py-3 text-sm font-black text-white"
+            >
               {labels.shareLink}
             </button>
-            <button type="button" onClick={onClear} className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300">
+            <button
+              type="button"
+              onClick={onClear}
+              className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300"
+            >
               {labels.remove}
             </button>
           </div>
@@ -1003,11 +1055,17 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
         <div className="flex items-start justify-between gap-4 border-b border-[#103c2c] p-5 sm:p-6">
           <div>
             <div className="text-xs font-black uppercase tracking-[0.35em] text-[#59ffbd]">{item._section}</div>
-            <h2 className="mt-2 text-4xl font-black italic leading-none text-white sm:text-5xl">{getDisplayName(currentDetail)}</h2>
+            <h2 className="mt-2 text-4xl font-black italic leading-none text-white sm:text-5xl">
+              {getDisplayName(currentDetail)}
+            </h2>
             <div className="mt-2 text-lg text-slate-300">{displayType}</div>
           </div>
 
-          <button type="button" onClick={onClose} className="rounded-2xl border border-[#1a4e3a] bg-[#08140f] px-5 py-3 text-xl font-black text-white">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-[#1a4e3a] bg-[#08140f] px-5 py-3 text-xl font-black text-white"
+          >
             {labels.close}
           </button>
         </div>
@@ -1017,24 +1075,43 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
             <div className="relative overflow-hidden rounded-[28px] border border-[#124f39] bg-[linear-gradient(180deg,#11161a_0%,#141b1e_100%)]">
               {images.length > 1 && (
                 <>
-                  <button type="button" onClick={() => setImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))} className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/80 px-4 py-4 text-xl font-black text-white">
+                  <button
+                    type="button"
+                    onClick={() => setImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
+                    className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/80 px-4 py-4 text-xl font-black text-white"
+                  >
                     ‹
                   </button>
-                  <button type="button" onClick={() => setImageIndex((prev) => (prev + 1) % images.length)} className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-[#19df6c] px-4 py-4 text-xl font-black text-black">
+                  <button
+                    type="button"
+                    onClick={() => setImageIndex((prev) => (prev + 1) % images.length)}
+                    className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-[#19df6c] px-4 py-4 text-xl font-black text-black"
+                  >
                     ›
                   </button>
                 </>
               )}
 
               <div className="aspect-[4/5] sm:aspect-[4/3] bg-[linear-gradient(180deg,#14181b_0%,#181d22_100%)]">
-                <img src={images[imageIndex] || "/ganker-logo.png"} alt={getDisplayName(currentDetail)} className="h-full w-full object-contain object-center p-4 transition-all duration-500 ease-out" />
+                <img
+                  src={images[imageIndex] || "/ganker-logo.png"}
+                  alt={getDisplayName(currentDetail)}
+                  className="h-full w-full object-contain object-center p-4 transition-all duration-500 ease-out"
+                />
               </div>
             </div>
 
             {images.length > 1 && (
               <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
                 {images.map((img, idx) => (
-                  <button type="button" key={`${img}-${idx}`} onClick={() => setImageIndex(idx)} className={`h-20 w-20 shrink-0 overflow-hidden rounded-2xl border ${idx === imageIndex ? "border-[#59ffbd]" : "border-[#184231]"} bg-[#04120d]`}>
+                  <button
+                    type="button"
+                    key={`${img}-${idx}`}
+                    onClick={() => setImageIndex(idx)}
+                    className={`h-20 w-20 shrink-0 overflow-hidden rounded-2xl border ${
+                      idx === imageIndex ? "border-[#59ffbd]" : "border-[#184231]"
+                    } bg-[#04120d]`}
+                  >
                     <img src={img} alt={`thumb-${idx}`} className="h-full w-full object-contain object-center p-1" />
                   </button>
                 ))}
@@ -1051,24 +1128,40 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
 
               {(leavingSoon || isFreshNew) && (
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {leavingSoon && <span className="rounded-full bg-red-500 px-3 py-1 text-xs font-black text-white">{labels.leavingSoon}</span>}
-                  {isFreshNew && <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-[#231700]">{labels.newBadge}</span>}
+                  {leavingSoon && (
+                    <span className="rounded-full bg-red-500 px-3 py-1 text-xs font-black text-white">
+                      {labels.leavingSoon}
+                    </span>
+                  )}
+                  {isFreshNew && (
+                    <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-[#231700]">
+                      {labels.newBadge}
+                    </span>
+                  )}
                 </div>
               )}
 
               {item._latestOutDate && (
                 <div className="mt-4 rounded-2xl border border-[#3d3320] bg-[rgba(100,50,0,0.25)] px-4 py-4">
                   <div className="text-sm font-bold text-[#ffd27f]">{labels.timeLeft}</div>
-                  <div className="mt-1 text-2xl font-black text-white">{getTimeUntilDate(item._latestOutDate, language)}</div>
+                  <div className="mt-1 text-2xl font-black text-white">
+                    {getTimeUntilDate(item._latestOutDate, language)}
+                  </div>
                 </div>
               )}
 
               {(currentDetail.descriptionLocalized || currentDetail.descriptionEnglish || currentDetail.description) && (
-                <div className="mt-4 rounded-2xl border border-[#123e30] bg-[#081410] p-4 text-slate-300">“{currentDetail.descriptionLocalized || currentDetail.descriptionEnglish || currentDetail.description}”</div>
+                <div className="mt-4 rounded-2xl border border-[#123e30] bg-[#081410] p-4 text-slate-300">
+                  “{currentDetail.descriptionLocalized || currentDetail.descriptionEnglish || currentDetail.description}”
+                </div>
               )}
 
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <button type="button" onClick={() => onAddToCart(item)} className="rounded-2xl bg-[#19df6c] px-4 py-4 text-base font-black text-black">
+                <button
+                  type="button"
+                  onClick={() => onAddToCart(item)}
+                  className="rounded-2xl bg-[#19df6c] px-4 py-4 text-base font-black text-black"
+                >
                   {labels.addToCart}
                 </button>
                 <button
@@ -1077,7 +1170,11 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
                     const shareText = `${getDisplayName(item)} - ${window.location.href}`;
                     if (navigator.share) {
                       try {
-                        await navigator.share({ title: getDisplayName(item), text: shareText, url: window.location.href });
+                        await navigator.share({
+                          title: getDisplayName(item),
+                          text: shareText,
+                          url: window.location.href,
+                        });
                         return;
                       } catch {}
                     }
@@ -1091,27 +1188,49 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
               </div>
 
               {(currentDetail.setTextLocalized || currentDetail.setTextEnglish || currentDetail.set) && (
-                <div className="mt-4 text-sm text-slate-300"><span className="font-black text-[#59ffbd]">{labels.setLabel}: </span>{currentDetail.setTextLocalized || currentDetail.setTextEnglish || currentDetail.set}</div>
+                <div className="mt-4 text-sm text-slate-300">
+                  <span className="font-black text-[#59ffbd]">{labels.setLabel}: </span>
+                  {currentDetail.setTextLocalized || currentDetail.setTextEnglish || currentDetail.set}
+                </div>
               )}
 
               {(currentDetail.rarityLocalized || currentDetail.rarityEnglish || currentDetail.rarity) && (
-                <div className="mt-2 text-sm text-slate-300"><span className="font-black text-[#59ffbd]">{labels.rarityLabel}: </span>{currentDetail.rarityLocalized || currentDetail.rarityEnglish || currentDetail.rarity}</div>
+                <div className="mt-2 text-sm text-slate-300">
+                  <span className="font-black text-[#59ffbd]">{labels.rarityLabel}: </span>
+                  {currentDetail.rarityLocalized || currentDetail.rarityEnglish || currentDetail.rarity}
+                </div>
               )}
             </div>
 
             {includedItems.length > 0 && (
               <div className="rounded-[28px] border border-[#154636] bg-[#07140f] p-5">
-                <div className="mb-4 text-base font-black uppercase tracking-[0.35em] text-[#2ec0ff]">{labels.includes} {includedItems.length}</div>
+                <div className="mb-4 text-base font-black uppercase tracking-[0.35em] text-[#2ec0ff]">
+                  {labels.includes} {includedItems.length}
+                </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {includedItems.map((entry, index) => {
                     const active = selectedIncludedId === entry.id;
                     const entryImages = getGalleryImages(entry);
                     const entryImage = entryImages[0] || "/ganker-logo.png";
+
                     return (
-                      <button type="button" key={`${entry.id || entry.name || index}`} onClick={() => setSelectedIncludedId((prev) => (prev === entry.id ? "" : entry.id))} className={`rounded-2xl border p-3 text-left transition ${active ? "border-[#59ffbd] bg-[#0b1712]" : "border-[#154636] bg-[#08140f]"}`}>
-                        <div className="aspect-square overflow-hidden rounded-xl bg-[#10161a]"><img src={entryImage} alt={getDisplayName(entry)} className="h-full w-full object-contain object-center p-2" /></div>
-                        <div className="mt-3 line-clamp-2 text-sm font-black uppercase leading-tight text-white">{getDisplayName(entry)}</div>
-                        <div className="mt-1 text-xs uppercase tracking-wide text-slate-400">{getDisplayType(entry, labels)}</div>
+                      <button
+                        type="button"
+                        key={`${entry.id || entry.name || index}`}
+                        onClick={() => setSelectedIncludedId((prev) => (prev === entry.id ? "" : entry.id))}
+                        className={`rounded-2xl border p-3 text-left transition ${
+                          active ? "border-[#59ffbd] bg-[#0b1712]" : "border-[#154636] bg-[#08140f]"
+                        }`}
+                      >
+                        <div className="aspect-square overflow-hidden rounded-xl bg-[#10161a]">
+                          <img src={entryImage} alt={getDisplayName(entry)} className="h-full w-full object-contain object-center p-2" />
+                        </div>
+                        <div className="mt-3 line-clamp-2 text-sm font-black uppercase leading-tight text-white">
+                          {getDisplayName(entry)}
+                        </div>
+                        <div className="mt-1 text-xs uppercase tracking-wide text-slate-400">
+                          {getDisplayType(entry, labels)}
+                        </div>
                       </button>
                     );
                   })}
@@ -1125,78 +1244,105 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
   );
 }
 
-function ShopCard({ item, labels, language, onOpen, onAddToCart }) {
+function ShopCard({ item, labels, language, onOpen, groupKey }) {
+  const theme = getCardTheme(groupKey || item._section || item.id);
+  const displayType = getDisplayType(item, labels);
+
+  const borderClass =
+    item._isLeavingSoon && item._isFreshNew
+      ? "border-2 border-red-500 ring-2 ring-yellow-400/70"
+      : item._isLeavingSoon
+        ? "border-2 border-red-500"
+        : item._isFreshNew
+          ? "border-2 border-yellow-400"
+          : "border border-[#1d5c3f]";
+
   return (
-    <article>
-      <div
-        className={`overflow-hidden rounded-[22px] bg-[#0d1210] shadow-[0_10px_30px_rgba(0,0,0,0.28)] transition duration-200 hover:-translate-y-1 ${
-          item._isLeavingSoon && item._isFreshNew
-            ? "border-2 border-red-500 ring-2 ring-yellow-400/60"
-            : item._isLeavingSoon
-              ? "border-2 border-red-500 ring-2 ring-red-500/30"
-              : item._isFreshNew
-                ? "border-2 border-yellow-400 ring-2 ring-yellow-400/30"
-                : "border border-[#1f3a2b]"
-        }`}
+    <article className="h-full">
+      <button
+        type="button"
+        onClick={() => onOpen(item)}
+        className="group block h-full w-full text-left"
       >
-        <div className="relative">
-          <button type="button" onClick={() => onOpen(item)} className="block w-full">
-            <div className="relative flex h-48 w-full items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,87,0.18),_transparent_45%),linear-gradient(180deg,_#060706_0%,_#0b120d_100%)] p-3 sm:h-64">
-              <RotatingImage images={item._galleryImages} alt={getDisplayName(item)} className="max-h-full max-w-full object-contain object-center" />
-            </div>
-          </button>
+        <div
+          className={`flex h-full min-h-[540px] flex-col overflow-hidden rounded-[24px] bg-[#07111f] shadow-[0_12px_30px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 ${borderClass}`}
+        >
+          <div
+            className="relative aspect-[4/5] overflow-hidden"
+            style={{
+              background: `linear-gradient(180deg, ${theme.top} 0%, ${theme.middle} 58%, ${theme.bottom} 100%)`,
+            }}
+          >
+            <div
+              className="pointer-events-none absolute inset-x-10 bottom-10 z-0 h-24 rounded-full blur-3xl"
+              style={{
+                background: `radial-gradient(ellipse at center, ${withAlpha(theme.fade, 0.58)} 0%, ${withAlpha(theme.fade, 0.22)} 45%, rgba(0,0,0,0) 78%)`,
+              }}
+            />
 
-          {item._isLeavingSoon && (
-            <div className="absolute left-3 top-3 rounded-full border border-red-300 bg-red-500 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-lg sm:text-xs">
-              {labels.leavingSoon}
-            </div>
-          )}
+            <RotatingImage
+              images={item._galleryImages}
+              alt={getDisplayName(item)}
+              className="relative z-10 h-full w-full object-contain object-center px-5 pt-6 pb-24 transition-transform duration-300 group-hover:scale-[1.03]"
+            />
 
-          {item._isFreshNew && (
-            <div className="absolute right-3 top-3 rounded-full border border-yellow-200 bg-yellow-400 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#231700] shadow-lg sm:text-xs">
-              {labels.newBadge}
-            </div>
-          )}
-        </div>
+            <div
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[42%]"
+              style={{
+                background: `linear-gradient(to top, rgba(5,16,28,1) 0%, rgba(5,16,28,0.98) 18%, ${withAlpha(theme.fade, 0.38)} 46%, rgba(5,16,28,0.18) 78%, rgba(5,16,28,0) 100%)`,
+              }}
+            />
 
-        <div className="p-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#67ff9a] sm:text-sm">{item._section}</p>
+            <div
+              className="pointer-events-none absolute inset-x-0 bottom-[-12px] z-20 h-24 blur-2xl"
+              style={{
+                background: `linear-gradient(to top, ${withAlpha(theme.fade, 0.55)} 0%, rgba(5,16,28,0.82) 58%, rgba(5,16,28,0) 100%)`,
+              }}
+            />
 
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <h2 className="line-clamp-2 text-base font-extrabold leading-tight text-white sm:text-lg">{getDisplayName(item)}</h2>
-              {getSecondaryEnglishName(item, language) && (
-                <p className="mt-1 text-[11px] italic text-slate-400 sm:text-xs">{getSecondaryEnglishName(item, language)}</p>
-              )}
-            </div>
+            {item._isLeavingSoon && (
+              <div className="absolute left-3 top-3 z-30 rounded-full border border-white/20 bg-red-500 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-lg sm:text-xs">
+                {labels.leavingSoon}
+              </div>
+            )}
 
-            <div className="shrink-0 rounded-full border border-[#88ffae] bg-[#15d863] px-3 py-1 text-xs font-extrabold text-[#06110a] shadow-lg sm:text-sm">
-              {localPrice(language, item.price)}
-            </div>
+            {item._isFreshNew && !item._isLeavingSoon && (
+              <div className="absolute right-3 top-3 z-30 rounded-full border border-yellow-200 bg-yellow-400 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#231700] shadow-lg sm:text-xs">
+                {labels.newBadge}
+              </div>
+            )}
           </div>
 
-          <p className="mt-2 text-xs text-slate-300 sm:text-sm">{getDisplayType(item, labels)}</p>
+          <div className="flex min-h-[170px] flex-1 flex-col justify-between bg-[linear-gradient(180deg,#071426_0%,#05101c_100%)] p-4">
+            <div>
+              <h2 className="line-clamp-2 min-h-[56px] text-[1.06rem] font-extrabold leading-tight text-white sm:text-[1.18rem]">
+                {getDisplayName(item)}
+              </h2>
 
-          <p className="mt-3 text-sm font-extrabold text-white sm:text-base">{item.price} {labels.vbucks}</p>
-
-          {item._latestOutDate && (
-            <div className={`mt-3 rounded-xl px-3 py-2 ${item._isLeavingSoon ? "border border-red-500/50 bg-red-500/10" : "border border-[#28392f] bg-[#07100a]"}`}>
-              <p className="text-[11px] text-slate-400 sm:text-xs">{labels.timeLeft}</p>
-              <p className={`text-sm font-bold ${item._isLeavingSoon ? "text-red-300" : "text-[#8dffb3]"}`}>{getTimeUntilDate(item._latestOutDate, language)}</p>
+              <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-300 sm:text-xs">
+                {displayType}
+              </p>
             </div>
-          )}
 
-          <button type="button" onClick={() => onAddToCart(item)} className="mt-4 w-full rounded-xl bg-[#15d863] px-4 py-3 text-sm font-extrabold text-[#06110a] transition hover:bg-[#2cff7a]">
-            {labels.addToCart}
-          </button>
+            <div className="mt-5 flex items-end justify-between gap-3">
+              <p className="text-[1.18rem] font-extrabold text-white sm:text-[1.35rem]">
+                {item.price} {labels.vbucks}
+              </p>
+
+              <div className="shrink-0 rounded-full bg-[#1fe26d] px-4 py-2 text-[11px] font-extrabold text-[#06110a] shadow-lg sm:text-sm">
+                {localPrice(language, item.price)}
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </button>
     </article>
   );
 }
 
 function MobileMenuDrawer({ open, labels, cartCount, onClose }) {
   if (!open) return null;
+
   return (
     <div className="fixed inset-0 z-[140] md:hidden">
       <div className="absolute inset-0 bg-black/75" onClick={onClose} />
@@ -1206,10 +1352,15 @@ function MobileMenuDrawer({ open, labels, cartCount, onClose }) {
             <p className="text-lg font-black">{labels.brand}</p>
             <p className="text-[10px] uppercase tracking-[0.3em] text-[#67ff9a]">{labels.brandSub}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-xl border border-[#1a4e3a] bg-[#08140f] px-4 py-2 font-black text-white">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-[#1a4e3a] bg-[#08140f] px-4 py-2 font-black text-white"
+          >
             {labels.close}
           </button>
         </div>
+
         <div className="grid gap-3">
           <Link href="/" onClick={onClose} className="rounded-2xl bg-[#15d863] px-4 py-4 text-center text-base font-extrabold text-[#06110a]">
             {labels.navShop}
@@ -1252,8 +1403,10 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     const savedLang = window.localStorage.getItem(LANG_STORAGE_KEY);
     if (savedLang === "es-419" || savedLang === "en") setLanguage(savedLang);
+
     const savedCart = window.localStorage.getItem(CART_STORAGE_KEY);
     if (savedCart) {
       try {
@@ -1261,6 +1414,7 @@ export default function Home() {
         if (Array.isArray(parsed)) setCart(parsed);
       } catch {}
     }
+
     const gone = readRecentlyGone();
     setRecentlyGone(gone);
     setTimeLeft(getCountdownToNextShopUpdate());
@@ -1268,11 +1422,15 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== "undefined") window.localStorage.setItem(LANG_STORAGE_KEY, language);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(LANG_STORAGE_KEY, language);
+    }
   }, [language]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    }
   }, [cart]);
 
   useEffect(() => {
@@ -1284,6 +1442,7 @@ export default function Home() {
         return Math.max(120, Math.min(399, next));
       });
     }, 1000);
+
     return () => clearInterval(interval);
   }, []);
 
@@ -1292,22 +1451,26 @@ export default function Home() {
       try {
         setLoading(true);
         setError("");
+
         const response = await fetch(`/api/shop?lang=${language}`);
         const text = await response.text();
         const payload = text ? JSON.parse(text) : {};
+
         if (!response.ok) throw new Error(payload.error || "No se pudo cargar la tienda");
 
         const normalized = normalizeShopItems(payload);
+
         if (typeof window !== "undefined") {
           const previousSnapshot = readSnapshot();
-          const previousIds = new Set(previousSnapshot.map((item) => item.id));
           const currentIds = new Set(normalized.map((item) => item.id));
+
           const goneNow = previousSnapshot
             .filter((item) => !currentIds.has(item.id))
             .map((item) => ({
               ...item,
               outDate: item.outDate || new Date().toISOString(),
             }));
+
           const mergedGone = mergeRecentlyGone(readRecentlyGone(), goneNow);
           setRecentlyGone(mergedGone);
           saveRecentlyGone(mergedGone);
@@ -1321,12 +1484,54 @@ export default function Home() {
         setLoading(false);
       }
     }
+
     loadShop();
   }, [language]);
 
-  const sections = useMemo(() => [...new Set(allItems.map((item) => item._section).filter(Boolean))].sort((a, b) => a.localeCompare(b, language === "en" ? "en" : "es", { sensitivity: "base" })), [allItems, language]);
+  const sections = useMemo(
+    () =>
+      [...new Set(allItems.map((item) => item._section).filter(Boolean))].sort((a, b) =>
+        a.localeCompare(b, language === "en" ? "en" : "es", { sensitivity: "base" })
+      ),
+    [allItems, language]
+  );
 
-  const groupedItems = useMemo(() => buildGroups({ items: allItems, recentlyGone, selectedSection, search, labels, sortMode }), [allItems, recentlyGone, selectedSection, search, labels, sortMode]);
+  const visibleItems = useMemo(
+    () =>
+      buildVisibleItems({
+        items: allItems,
+        recentlyGone,
+        selectedSection,
+        search,
+        labels,
+        sortMode,
+      }),
+    [allItems, recentlyGone, selectedSection, search, labels, sortMode]
+  );
+
+  const visibleGroups = useMemo(() => {
+    if (selectedSection === "LEFT") {
+      return [
+        {
+          id: "LEFT",
+          title: labels.recentlyGone,
+          items: visibleItems,
+        },
+      ].filter((group) => group.items.length > 0);
+    }
+
+    if (selectedSection !== "ALL" && selectedSection !== "RECENT" && selectedSection !== "NEW") {
+      return [
+        {
+          id: selectedSection,
+          title: selectedSection,
+          items: visibleItems,
+        },
+      ].filter((group) => group.items.length > 0);
+    }
+
+    return groupItemsBySection(visibleItems);
+  }, [visibleItems, selectedSection, labels.recentlyGone]);
 
   useEffect(() => {
     if (!loading && groupsRef.current) {
@@ -1334,12 +1539,19 @@ export default function Home() {
     }
   }, [selectedSection, sortMode, search, loading]);
 
-  const cartCount = useMemo(() => cart.reduce((sum, item) => sum + Number(item.qty || 0), 0), [cart]);
+  const cartCount = useMemo(
+    () => cart.reduce((sum, item) => sum + Number(item.qty || 0), 0),
+    [cart]
+  );
 
   function addToCart(item) {
     setCart((prev) => {
       const existing = prev.find((entry) => entry.id === item.id);
-      if (existing) return prev.map((entry) => (entry.id === item.id ? { ...entry, qty: entry.qty + 1 } : entry));
+      if (existing) {
+        return prev.map((entry) =>
+          entry.id === item.id ? { ...entry, qty: entry.qty + 1 } : entry
+        );
+      }
       return [...prev, { id: item.id, qty: 1 }];
     });
     setCartOpen(true);
@@ -1350,7 +1562,9 @@ export default function Home() {
       setCart((prev) => prev.filter((entry) => entry.id !== id));
       return;
     }
-    setCart((prev) => prev.map((entry) => (entry.id === id ? { ...entry, qty } : entry)));
+    setCart((prev) =>
+      prev.map((entry) => (entry.id === id ? { ...entry, qty } : entry))
+    );
   }
 
   const titleText =
@@ -1369,10 +1583,16 @@ export default function Home() {
       <header className="sticky top-0 z-50 border-b border-[#153321] bg-[#030603]/90 backdrop-blur">
         <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 md:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <img src="/ganker-logo.png" alt="Ganker Games" className="h-12 w-12 shrink-0 rounded-full border border-[#19ff72]/40 object-cover shadow-[0_0_18px_rgba(25,255,114,0.25)]" />
+            <img
+              src="/ganker-logo.png"
+              alt="Ganker Games"
+              className="h-12 w-12 shrink-0 rounded-full border border-[#19ff72]/40 object-cover shadow-[0_0_18px_rgba(25,255,114,0.25)]"
+            />
             <div className="min-w-0">
               <p className="truncate text-base font-extrabold leading-none sm:text-lg">{labels.brand}</p>
-              <p className="text-[10px] uppercase tracking-[0.25em] text-[#67ff9a] sm:text-xs">{labels.brandSub}</p>
+              <p className="text-[10px] uppercase tracking-[0.25em] text-[#67ff9a] sm:text-xs">
+                {labels.brandSub}
+              </p>
               <div className="mt-1 inline-flex items-center gap-2 rounded-full border border-[#0fff8d]/35 bg-[#07140f] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#67ff9a] shadow-[0_0_18px_rgba(15,255,141,0.15)] sm:text-[11px]">
                 <span className="h-2 w-2 rounded-full bg-[#15ff7a] shadow-[0_0_10px_rgba(21,255,122,0.9)]" />
                 {labels.onlineNow}: {onlineCount} {labels.visitors}
@@ -1381,43 +1601,86 @@ export default function Home() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
-            <select value={language} onChange={(event) => setLanguage(event.target.value)} className="rounded-xl border border-[#284635] bg-[#0b120d] px-3 py-2 text-sm font-semibold text-white outline-none focus:border-[#67ff9a]">
+            <select
+              value={language}
+              onChange={(event) => setLanguage(event.target.value)}
+              className="rounded-xl border border-[#284635] bg-[#0b120d] px-3 py-2 text-sm font-semibold text-white outline-none focus:border-[#67ff9a]"
+            >
               <option value="es-419">ES</option>
               <option value="en">EN</option>
             </select>
 
-            <button type="button" onClick={() => setCartOpen(true)} className="rounded-xl border border-[#67ff9a] bg-[#0b120d] px-3 py-2 text-sm font-bold text-[#67ff9a] md:hidden">
+            <button
+              type="button"
+              onClick={() => setCartOpen(true)}
+              className="rounded-xl border border-[#67ff9a] bg-[#0b120d] px-3 py-2 text-sm font-bold text-[#67ff9a] md:hidden"
+            >
               {labels.cart} ({cartCount})
             </button>
 
-            <button type="button" onClick={() => setMobileMenuOpen(true)} className="rounded-xl border border-[#284635] bg-[#0b120d] px-3 py-2 text-sm font-bold text-white md:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              className="rounded-xl border border-[#284635] bg-[#0b120d] px-3 py-2 text-sm font-bold text-white md:hidden"
+            >
               {labels.menu}
             </button>
 
             <nav className="hidden items-center gap-2 md:flex">
-              <Link href="/" className="rounded-xl bg-[#15d863] px-4 py-2 text-sm font-bold text-[#06110a]">{labels.navShop}</Link>
-              <Link href="/noticias" className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white transition hover:border-[#67ff9a]">{labels.navNews}</Link>
-              <Link href="/stw" className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white transition hover:border-[#67ff9a]">{labels.navSTW}</Link>
-              <button type="button" onClick={() => setCartOpen(true)} className="rounded-xl border border-[#67ff9a] bg-[#0b120d] px-4 py-2 text-sm font-bold text-[#67ff9a]">{labels.cart} ({cartCount})</button>
+              <Link href="/" className="rounded-xl bg-[#15d863] px-4 py-2 text-sm font-bold text-[#06110a]">
+                {labels.navShop}
+              </Link>
+              <Link
+                href="/noticias"
+                className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white transition hover:border-[#67ff9a]"
+              >
+                {labels.navNews}
+              </Link>
+              <Link
+                href="/stw"
+                className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white transition hover:border-[#67ff9a]"
+              >
+                {labels.navSTW}
+              </Link>
+              <button
+                type="button"
+                onClick={() => setCartOpen(true)}
+                className="rounded-xl border border-[#67ff9a] bg-[#0b120d] px-4 py-2 text-sm font-bold text-[#67ff9a]"
+              >
+                {labels.cart} ({cartCount})
+              </button>
             </nav>
           </div>
         </div>
       </header>
 
-      <MobileMenuDrawer open={mobileMenuOpen} labels={labels} cartCount={cartCount} onClose={() => setMobileMenuOpen(false)} />
+      <MobileMenuDrawer
+        open={mobileMenuOpen}
+        labels={labels}
+        cartCount={cartCount}
+        onClose={() => setMobileMenuOpen(false)}
+      />
 
       <div className="mx-auto max-w-[1600px] px-4 py-4 md:px-6 md:py-6">
         <section className="mb-6 overflow-hidden rounded-[24px] border border-[#1d4a2d] bg-[linear-gradient(120deg,_rgba(0,255,102,0.10)_0%,_rgba(5,14,8,0.96)_35%,_rgba(2,7,3,0.96)_100%)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.35)] md:rounded-[28px] md:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
-              <p className="mb-2 text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">{labels.heroKicker}</p>
-              <h1 className="text-3xl font-black uppercase italic sm:text-4xl md:text-6xl">{labels.heroTitle}</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200 sm:text-base md:text-lg">{labels.heroDesc}</p>
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">
+                {labels.heroKicker}
+              </p>
+              <h1 className="text-3xl font-black uppercase italic sm:text-4xl md:text-6xl">
+                {labels.heroTitle}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200 sm:text-base md:text-lg">
+                {labels.heroDesc}
+              </p>
             </div>
 
             <div className="rounded-2xl border border-[#255239] bg-[#040804]/80 p-4 backdrop-blur md:p-5">
               <p className="text-sm font-semibold text-[#67ff9a]">{labels.nextUpdate}</p>
-              <p className="mt-2 text-2xl font-black tracking-wider sm:text-3xl md:text-4xl">{timeLeft}</p>
+              <p className="mt-2 text-2xl font-black tracking-wider sm:text-3xl md:text-4xl">
+                {timeLeft}
+              </p>
               <p className="mt-2 text-xs text-slate-300 sm:text-sm">{labels.shopChangesAt}</p>
             </div>
           </div>
@@ -1426,19 +1689,39 @@ export default function Home() {
         <div className="mb-6 rounded-[24px] border border-[#1a2c21] bg-[#060b07]/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.25)] md:rounded-[28px] md:p-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">{labels.heroKicker}</p>
-              <h2 className="mt-2 text-2xl font-black uppercase italic sm:text-3xl md:text-5xl">{titleText}</h2>
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">
+                {labels.heroKicker}
+              </p>
+              <h2 className="mt-2 text-2xl font-black uppercase italic sm:text-3xl md:text-5xl">
+                {titleText}
+              </h2>
             </div>
 
             <div className="flex w-full max-w-3xl flex-col gap-3 xl:items-end">
               <div className="flex w-full flex-wrap items-center gap-3 xl:justify-end">
                 <div className="min-w-[260px] flex-1 xl:max-w-xl">
-                  <input type="text" placeholder={labels.searchPlaceholder} value={search} onChange={(event) => setSearch(event.target.value)} className="w-full rounded-full border border-[#284635] bg-[#0c110d] px-5 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-[#67ff9a]" />
+                  <input
+                    type="text"
+                    placeholder={labels.searchPlaceholder}
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    className="w-full rounded-full border border-[#284635] bg-[#0c110d] px-5 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-[#67ff9a]"
+                  />
                 </div>
-                <button type="button" onClick={() => setSortModalOpen(true)} className="rounded-xl border border-[#284635] bg-[#0d1210] px-5 py-3 text-sm font-extrabold text-white">
+
+                <button
+                  type="button"
+                  onClick={() => setSortModalOpen(true)}
+                  className="rounded-xl border border-[#284635] bg-[#0d1210] px-5 py-3 text-sm font-extrabold text-white"
+                >
                   {labels.sortButton}
                 </button>
-                <button type="button" onClick={() => setFilterModalOpen(true)} className="rounded-xl border border-[#284635] bg-[#0d1210] px-5 py-3 text-sm font-extrabold text-white">
+
+                <button
+                  type="button"
+                  onClick={() => setFilterModalOpen(true)}
+                  className="rounded-xl border border-[#284635] bg-[#0d1210] px-5 py-3 text-sm font-extrabold text-white"
+                >
                   {labels.filterButton}
                 </button>
               </div>
@@ -1448,41 +1731,105 @@ export default function Home() {
 
         <div ref={groupsRef} />
 
-        {loading && <div className="rounded-2xl border border-[#1a2c21] bg-[#060b07] p-6">{labels.loading}</div>}
-        {error && <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-red-300">{error}</div>}
-        {!loading && !error && groupedItems.length === 0 && (
+        {loading && (
+          <div className="rounded-2xl border border-[#1a2c21] bg-[#060b07] p-6">
+            {labels.loading}
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6 text-red-300">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && visibleItems.length === 0 && (
           <div className="rounded-2xl border border-[#1a2c21] bg-[#060b07] p-6 text-slate-300">
             {selectedSection === "LEFT" ? labels.noRecentlyGone : labels.noResults}
           </div>
         )}
 
-        {!loading && !error && groupedItems.length > 0 && (
-          <div className="space-y-8">
-            {groupedItems.map((group) => (
-              <section key={group.sectionName}>
-                <h3 className="mb-4 text-xl font-black uppercase italic text-[#67ff9a] sm:text-2xl">{group.sectionName}</h3>
-                <div className="space-y-7">
-                  {group.typeGroups.map((typeGroup) => (
-                    <div key={`${group.sectionName}-${typeGroup.typeKey}`}>
-                      <h4 className="mb-3 text-sm font-black uppercase tracking-[0.28em] text-slate-200 sm:text-base">{typeGroup.title}</h4>
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {typeGroup.items.map((item) => (
-                          <ShopCard key={item.id} item={item} labels={labels} language={language} onOpen={setModalEntry} onAddToCart={addToCart} />
-                        ))}
-                      </div>
+        {!loading && !error && visibleGroups.length > 0 && (
+          <div className="space-y-10">
+            {visibleGroups.map((group) => {
+              const groupTheme = getCardTheme(group.id);
+
+              return (
+                <section key={group.id} className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="h-4 w-4 rounded-full"
+                      style={{
+                        background: `linear-gradient(135deg, ${groupTheme.top} 0%, ${groupTheme.middle} 100%)`,
+                      }}
+                    />
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.30em] text-[#67ff9a]">
+                        {labels.heroKicker}
+                      </p>
+                      <h3 className="text-2xl font-black uppercase italic text-white sm:text-3xl">
+                        {group.title}
+                      </h3>
                     </div>
-                  ))}
-                </div>
-              </section>
-            ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                    {group.items.map((item) => (
+                      <ShopCard
+                        key={item.id}
+                        item={item}
+                        labels={labels}
+                        language={language}
+                        onOpen={setModalEntry}
+                        groupKey={group.id}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
           </div>
         )}
       </div>
 
-      <FilterModal open={filterModalOpen} sections={sections} labels={labels} selectedSection={selectedSection} onSelect={setSelectedSection} onClose={() => setFilterModalOpen(false)} />
-      <SortModal open={sortModalOpen} labels={labels} sortMode={sortMode} onSelect={setSortMode} onClose={() => setSortModalOpen(false)} />
-      <CartDrawer open={cartOpen} labels={labels} language={language} cart={cart} allItems={allItems} onClose={() => setCartOpen(false)} onUpdateQty={updateCartQty} onRemove={(id) => setCart((prev) => prev.filter((entry) => entry.id !== id))} onClear={() => setCart([])} />
-      {modalEntry && <ItemModal item={modalEntry} labels={labels} language={language} onClose={() => setModalEntry(null)} onAddToCart={addToCart} />}
+      <FilterModal
+        open={filterModalOpen}
+        sections={sections}
+        labels={labels}
+        selectedSection={selectedSection}
+        onSelect={setSelectedSection}
+        onClose={() => setFilterModalOpen(false)}
+      />
+
+      <SortModal
+        open={sortModalOpen}
+        labels={labels}
+        sortMode={sortMode}
+        onSelect={setSortMode}
+        onClose={() => setSortModalOpen(false)}
+      />
+
+      <CartDrawer
+        open={cartOpen}
+        labels={labels}
+        language={language}
+        cart={cart}
+        allItems={allItems}
+        onClose={() => setCartOpen(false)}
+        onUpdateQty={updateCartQty}
+        onRemove={(id) => setCart((prev) => prev.filter((entry) => entry.id !== id))}
+        onClear={() => setCart([])}
+      />
+
+      {modalEntry && (
+        <ItemModal
+          item={modalEntry}
+          labels={labels}
+          language={language}
+          onClose={() => setModalEntry(null)}
+          onAddToCart={addToCart}
+        />
+      )}
     </main>
   );
 }

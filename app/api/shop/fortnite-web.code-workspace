@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "fortnite-web",
+			"path": "../../.."
+		},
+		{
+			"name": "esteb",
+			"path": "../../../.."
+		}
+	],
+	"settings": {}
+}
