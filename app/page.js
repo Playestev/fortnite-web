@@ -10,34 +10,56 @@ const SHOP_RECENT_GONE_KEY = "gkg-shop-recent-gone-v2";
 const VB_TO_LOCAL_RATE = 0.09;
 const AUTO_ROTATE_MS = 10000;
 
+const STAR_POINTS = [
+  { top: "6%", left: "8%", size: 2, delay: "0s", duration: "3.4s" },
+  { top: "12%", left: "76%", size: 3, delay: "0.7s", duration: "4.2s" },
+  { top: "18%", left: "28%", size: 2, delay: "1.1s", duration: "3.8s" },
+  { top: "22%", left: "58%", size: 4, delay: "0.2s", duration: "4.6s" },
+  { top: "29%", left: "88%", size: 2, delay: "1.6s", duration: "3.6s" },
+  { top: "34%", left: "14%", size: 3, delay: "0.9s", duration: "4.1s" },
+  { top: "41%", left: "47%", size: 2, delay: "1.8s", duration: "3.5s" },
+  { top: "48%", left: "71%", size: 3, delay: "0.5s", duration: "4.8s" },
+  { top: "55%", left: "21%", size: 2, delay: "1.4s", duration: "3.7s" },
+  { top: "61%", left: "63%", size: 4, delay: "0.3s", duration: "4.4s" },
+  { top: "68%", left: "39%", size: 2, delay: "1.0s", duration: "3.9s" },
+  { top: "73%", left: "83%", size: 3, delay: "1.7s", duration: "4.7s" },
+  { top: "79%", left: "11%", size: 2, delay: "0.4s", duration: "3.6s" },
+  { top: "84%", left: "53%", size: 3, delay: "1.3s", duration: "4.5s" },
+  { top: "89%", left: "91%", size: 2, delay: "0.8s", duration: "3.8s" },
+  { top: "93%", left: "32%", size: 4, delay: "1.9s", duration: "4.9s" },
+];
+
 const LABELS = {
   "es-419": {
-    brand: "Ganker Games",
-    brandSub: "FORTNITE SHOP",
+    brand: "GKG",
+    brandSub: "TIENDA FORTNITE",
+    objectsFortnite: "OBJETOS FORTNITE",
+    changingLanguage: "Cambiando idioma",
+    loadingLanguage: "Cargando...",
     navShop: "Tienda",
     navNews: "Noticias",
     navSTW: "STW",
     cart: "Carrito",
-    heroKicker: "GANKER GAMES",
-    heroTitle: "TIENDA",
-    heroDesc:
-      "Explora la tienda diaria con precios en MXN, V-Bucks, filtros por sección y objetos que están por salir.",
+    heroKicker: "",
+    heroTitle: "",
+    heroDesc: "",
     nextUpdate: "Próxima actualización",
-    shopChangesAt: "La tienda cambia diario a las 00:00 UTC",
+    shopChangesAt: "Cambio de tienda a las 18 horas en horario México",
     searchPlaceholder: "Buscar skin, bundle, track, sección...",
+    searchButton: "Buscar",
     filterButton: "Filtro",
     sortButton: "Ordenar",
     all: "Todas",
     recent: "Reciente",
-    newOnly: "Nuevos",
-    recentlyGone: "Recién salieron",
+    newOnly: "¡Nuevos!",
+    recentlyGone: "Dejaron la tienda",
     close: "Cerrar",
     addToCart: "Agregar al carrito",
     remove: "Quitar",
     emptyCart: "Tu carrito está vacío",
     total: "Total",
     totalVbucks: "Total V-Bucks",
-    sendWhatsApp: "Enviar por WhatsApp",
+    sendWhatsApp: "Pagar por WhatsApp",
     shareLink: "Copiar enlace",
     copied: "Enlace copiado",
     itemShare: "Compartir",
@@ -50,7 +72,7 @@ const LABELS = {
     loading: "Cargando tienda...",
     noResults: "No se encontraron resultados con ese filtro.",
     noRecentlyGone: "Aún no hay objetos registrados como recién salidos.",
-    vbucks: "V-Bucks",
+    vbucks: "paVos",
     showAllSections: "Mostrar todas las secciones",
     filterTitle: "FILTRO DE LA TIENDA",
     sortTitle: "ORDENAR TIENDA",
@@ -64,6 +86,8 @@ const LABELS = {
     sortLowPrice: "Precio bajo",
     sortLeavingSoon: "Se van pronto",
     sortAZ: "A-Z",
+    sortZA: "Z-A",
+    resetSort: "Reiniciar",
     typeLabels: {
       bundle: "Lote",
       outfit: "Skin",
@@ -71,7 +95,8 @@ const LABELS = {
       backpack: "Mochila",
       glider: "Ala delta",
       emote: "Emote",
-      wrap: "Envoltura",
+      wrap: "Papel tapiz",
+      aura: "Aura",
       jamtrack: "Canción",
       shoe: "Calzado",
       contrail: "Estela",
@@ -88,32 +113,35 @@ const LABELS = {
     },
   },
   en: {
-    brand: "Ganker Games",
+    brand: "GKG",
     brandSub: "FORTNITE SHOP",
+    objectsFortnite: "FORTNITE ITEMS",
+    changingLanguage: "Changing language",
+    loadingLanguage: "Loading...",
     navShop: "Shop",
     navNews: "News",
     navSTW: "STW",
     cart: "Cart",
-    heroKicker: "GANKER GAMES",
-    heroTitle: "SHOP",
-    heroDesc:
-      "Browse the daily shop with local pricing, V-Bucks, section filters and items leaving soon.",
+    heroKicker: "",
+    heroTitle: "",
+    heroDesc: "",
     nextUpdate: "Next update",
-    shopChangesAt: "The shop refreshes daily at 00:00 UTC",
+    shopChangesAt: "The shop refreshes daily at 6:00 PM Mexico time",
     searchPlaceholder: "Search skin, bundle, track, section...",
+    searchButton: "Search",
     filterButton: "Filter",
     sortButton: "Sort",
     all: "All",
     recent: "Recent",
-    newOnly: "New",
-    recentlyGone: "Recently gone",
+    newOnly: "New!",
+    recentlyGone: "Left the shop",
     close: "Close",
     addToCart: "Add to cart",
     remove: "Remove",
     emptyCart: "Your cart is empty",
     total: "Total",
     totalVbucks: "Total V-Bucks",
-    sendWhatsApp: "Send on WhatsApp",
+    sendWhatsApp: "Pay on WhatsApp",
     shareLink: "Copy link",
     copied: "Link copied",
     itemShare: "Share",
@@ -126,7 +154,7 @@ const LABELS = {
     loading: "Loading shop...",
     noResults: "No results found with that filter.",
     noRecentlyGone: "No recently gone items registered yet.",
-    vbucks: "V-Bucks",
+    vbucks: "paVos",
     showAllSections: "Show all sections",
     filterTitle: "SHOP FILTER",
     sortTitle: "SORT SHOP",
@@ -140,6 +168,8 @@ const LABELS = {
     sortLowPrice: "Low price",
     sortLeavingSoon: "Leaving soon",
     sortAZ: "A-Z",
+    sortZA: "Z-A",
+    resetSort: "Reset",
     typeLabels: {
       bundle: "Bundle",
       outfit: "Outfit",
@@ -148,6 +178,7 @@ const LABELS = {
       glider: "Glider",
       emote: "Emote",
       wrap: "Wrap",
+      aura: "Aura",
       jamtrack: "Song",
       shoe: "Shoes",
       contrail: "Contrail",
@@ -332,50 +363,143 @@ function getCurrentPrice(item) {
   return Number(item?.price ?? item?.price?.finalPrice ?? item?.finalPrice ?? item?.vbucks ?? item?.priceVbucks ?? 0);
 }
 
-function getRawTypeKey(rawType) {
-  const value = asText(rawType).toLowerCase();
+function getRawTypeKey(rawType, item = {}) {
+  const value = [
+    asText(rawType),
+    asText(item.typeEnglish),
+    asText(item.typeLocalized),
+    asText(item.type),
+    asText(item.displayType),
+    asText(item.backendType),
+    asText(item.backendValue),
+    asText(item.devName),
+    asText(item.nameEnglish),
+    asText(item.nameLocalized),
+    asText(item.name),
+    asText(item.descriptionEnglish),
+    asText(item.descriptionLocalized),
+    asText(item.description),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 
-  if (value.includes("outfit") || value.includes("skin")) return "outfit";
-  if (value.includes("back") || value.includes("backpack") || value.includes("mochila")) return "backpack";
+  // Mascotas / pets. Algunas APIs las mandan como PetCarrier o con nombres localizados.
+  if (
+    value.includes("petcarrier") ||
+    value.includes("pet carrier") ||
+    value.includes("pet_carrier") ||
+    value.includes("mascota") ||
+    value.includes(" pet") ||
+    value.includes("guauff") ||
+    value.includes("llamila")
+  ) {
+    return "pet";
+  }
+
+  if (value.includes("bundle") || value.includes("pack") || value.includes("lot") || value.includes("lote")) return "bundle";
+  if (
+    value.includes("outfit") ||
+    value.includes("skin") ||
+    value.includes("traje") ||
+    value.includes("personaje") ||
+    value.includes("lego outfit") ||
+    value.includes("character") ||
+    value.includes("ichigo") ||
+    value.includes("rukia") ||
+    value.includes("orihime") ||
+    value.includes("uryu") ||
+    value.includes("uryū") ||
+    value.includes("renji") ||
+    value.includes("ben tennyson") ||
+    value.includes("gwen tennyson") ||
+    value.includes("hoshimachi") ||
+    value.includes("suisei")
+  ) {
+    return "outfit";
+  }
+  if (value.includes("wrap") || value.includes("weapon wrap") || value.includes("envoltura") || value.includes("papel tapiz") || value.includes("papel")) return "wrap";
+  if (value.includes("aura")) return "aura";
+  if (value.includes("back") || value.includes("backpack") || value.includes("back bling") || value.includes("mochila")) return "backpack";
   if (value.includes("pickaxe") || value.includes("harvesting") || value.includes("pico")) return "pickaxe";
   if (value.includes("glider") || value.includes("ala")) return "glider";
-  if (value.includes("emote") || value.includes("gesto") || value.includes("emote")) return "emote";
-  if (value.includes("jam") || value.includes("track") || value.includes("song") || value.includes("music")) return "jamtrack";
-  if (value.includes("wrap")) return "wrap";
-  if (value.includes("shoe") || value.includes("calzado")) return "shoe";
+  if (value.includes("emote") || value.includes("gesture") || value.includes("gesto") || value.includes("baile")) return "emote";
+  if (value.includes("jam") || value.includes("jam track") || value.includes("song") || value.includes("canción") || value.includes("cancion")) return "jamtrack";
+  if (value.includes("shoe") || value.includes("shoes") || value.includes("calzado") || value.includes("tenis")) return "shoe";
   if (value.includes("contrail") || value.includes("estela")) return "contrail";
-  if (value.includes("loading")) return "loadingscreen";
+  if (value.includes("loading") || value.includes("pantalla")) return "loadingscreen";
   if (value.includes("spray") || value.includes("grafiti")) return "spray";
-  if (value.includes("music")) return "music";
+  if (value.includes("music") || value.includes("música") || value.includes("musica")) return "music";
   if (value.includes("toy") || value.includes("juguete")) return "toy";
-  if (value.includes("pet") || value.includes("mascota")) return "pet";
   if (value.includes("emoji")) return "emoji";
   if (value.includes("banner")) return "banner";
-  if (value.includes("vehicle") || value.includes("car") || value.includes("vehículo") || value.includes("carro")) return "vehicle";
+  if (value.includes("vehicle") || value.includes("car") || value.includes("vehículo") || value.includes("vehiculo") || value.includes("carro")) return "vehicle";
   if (value.includes("instrument") || value.includes("instrumento")) return "instrument";
-  if (value.includes("bundle") || value.includes("pack") || value.includes("lot") || value.includes("lote")) return "bundle";
 
   return "other";
 }
 
 function getTypeKey(rawType, item = {}) {
-  const includedItems = Array.isArray(item?.includedItems) ? item.includedItems : [];
-  const includedTypeKeys = [...new Set(includedItems.map((entry) => getRawTypeKey(entry.typeEnglish || entry.typeLocalized || entry.type)).filter(Boolean))];
+  const includedItems = Array.isArray(item?.includedItems)
+    ? item.includedItems
+    : Array.isArray(item?.grants)
+      ? item.grants
+      : [];
 
-  if (item?.isBundle || includedItems.length >= 3) return "bundle";
+  const includedTypeKeys = [
+    ...new Set(
+      includedItems
+        .map((entry) => getRawTypeKey(entry.typeEnglish || entry.typeLocalized || entry.type, entry))
+        .filter(Boolean)
+    ),
+  ];
+
+  const rawKey = getRawTypeKey(rawType, item);
+
+  // Regla GKG: si trae más de 4 objetos incluidos, se acomoda como Lote/Bundle.
+  if (includedItems.length > 4) return "bundle";
+
+  // Mascota debe ganar antes que mochila cuando la API lo mande como PetCarrier.
+  if (rawKey === "pet" || includedTypeKeys.includes("pet")) return "pet";
+
+  // Si trae un personaje/outfit, se acomoda como Skin aunque venga con mochila,
+  // pico, papel tapiz, aura, emote, etc. Esto cubre personajes normales, LEGO
+  // o estilos sin LEGO cuando la API los manda dentro del mismo objeto.
+  if (rawKey === "outfit" || includedTypeKeys.includes("outfit")) return "outfit";
 
   if (includedTypeKeys.length > 0) {
-    const hasOutfit = includedTypeKeys.includes("outfit");
-    const onlySkinSupport =
-      hasOutfit &&
-      includedTypeKeys.every((key) => ["outfit", "backpack", "emote"].includes(key));
+    const priority = [
+      "wrap",
+      "aura",
+      "backpack",
+      "pickaxe",
+      "glider",
+      "emote",
+      "jamtrack",
+      "shoe",
+      "contrail",
+      "loadingscreen",
+      "spray",
+      "music",
+      "toy",
+      "emoji",
+      "banner",
+      "vehicle",
+      "instrument",
+    ];
 
-    if (onlySkinSupport) return "outfit";
-    if (includedTypeKeys.length >= 3) return "bundle";
+    const best = priority.find((key) => includedTypeKeys.includes(key));
+    if (best) return best;
     if (includedTypeKeys.length === 1) return includedTypeKeys[0];
   }
 
-  return getRawTypeKey(rawType);
+  // Si la API lo manda como bundle/pack, pero no trae más de 4 objetos,
+  // no lo forzamos como Lote; usamos su tipo principal.
+  if (rawKey === "bundle" && includedItems.length <= 4) {
+    return includedTypeKeys[0] || "outfit";
+  }
+
+  return rawKey;
 }
 
 function getDisplayType(item, labels) {
@@ -383,10 +507,47 @@ function getDisplayType(item, labels) {
   return labels.typeLabels[key] || labels.typeLabels.fallback;
 }
 
-function sortItems(items, sortMode) {
+function getTypeSortRank(item) {
+  const key = item?._typeKey || getTypeKey(item?.typeEnglish || item?.typeLocalized || item?.type, item);
+
+  const ranks = {
+    bundle: 0,
+    outfit: 1,
+    pet: 2,
+    wrap: 3,
+    aura: 4,
+    backpack: 5,
+    pickaxe: 6,
+    glider: 7,
+    emote: 8,
+    jamtrack: 9,
+    shoe: 10,
+    contrail: 11,
+    loadingscreen: 12,
+    spray: 13,
+    music: 14,
+    toy: 15,
+    emoji: 16,
+    banner: 17,
+    vehicle: 18,
+    instrument: 19,
+    other: 99,
+  };
+
+  return ranks[key] ?? 99;
+}
+
+function sortItems(items, sortMode, preserveTypeRank = true) {
   const list = [...items];
 
   list.sort((a, b) => {
+    if (preserveTypeRank) {
+      const rankDiff = getTypeSortRank(a) - getTypeSortRank(b);
+      if (rankDiff !== 0) return rankDiff;
+    }
+
+    if (sortMode === "NONE") return 0;
+
     if (sortMode === "PRICE_HIGH") {
       const diff = Number(b.price || 0) - Number(a.price || 0);
       if (diff !== 0) return diff;
@@ -414,6 +575,11 @@ function sortItems(items, sortMode) {
       if (byName !== 0) return byName;
     }
 
+    if (sortMode === "ZA") {
+      const byName = getDisplayName(b).localeCompare(getDisplayName(a), "es", { sensitivity: "base" });
+      if (byName !== 0) return byName;
+    }
+
     if (sortMode === "FEATURED") {
       const aScore = (a._isFreshNew ? 3 : 0) + (a._isLeavingSoon ? 2 : 0) + (a._isRecent ? 1 : 0);
       const bScore = (b._isFreshNew ? 3 : 0) + (b._isLeavingSoon ? 2 : 0) + (b._isRecent ? 1 : 0);
@@ -428,6 +594,7 @@ function sortItems(items, sortMode) {
 
 function buildVisibleItems({ items, recentlyGone, selectedSection, search, labels, sortMode }) {
   const searchText = search.trim().toLowerCase();
+  const preserveTypeRank = selectedSection !== "ALL";
 
   const applySearch = (list) => {
     if (!searchText) return list;
@@ -447,7 +614,7 @@ function buildVisibleItems({ items, recentlyGone, selectedSection, search, label
   };
 
   if (selectedSection === "LEFT") {
-    return sortItems(applySearch(recentlyGone), sortMode);
+    return sortItems(applySearch(recentlyGone), sortMode, true);
   }
 
   let filtered = [...items];
@@ -457,7 +624,7 @@ function buildVisibleItems({ items, recentlyGone, selectedSection, search, label
   else if (selectedSection !== "ALL") filtered = filtered.filter((item) => item._section === selectedSection);
 
   filtered = applySearch(filtered);
-  return sortItems(filtered, sortMode);
+  return sortItems(filtered, sortMode, preserveTypeRank);
 }
 
 function groupItemsBySection(items) {
@@ -587,7 +754,11 @@ function normalizeShopItems(payload) {
 
   return rawItems.map((item, index) => {
     const id = item?.id || item?.mainId || item?.offerId || `${getDisplayName(item)}-${index}`;
-    const includedItems = Array.isArray(item.includedItems) ? item.includedItems : [];
+    const includedItems = Array.isArray(item.includedItems)
+      ? item.includedItems
+      : Array.isArray(item.grants)
+        ? item.grants
+        : [];
 
     const normalized = {
       ...item,
@@ -602,7 +773,7 @@ function normalizeShopItems(payload) {
       _isFreshNew: isFreshNewItem(item),
       _isLeavingSoon: isLeavingSoon(getLatestOutDate(item)),
       _galleryImages: getGalleryImages(item),
-      isBundle: item?.isBundle || includedItems.length > 1,
+      isBundle: includedItems.length > 4,
     };
 
     normalized._typeKey = getTypeKey(item.typeEnglish || item.typeLocalized || item.type, normalized);
@@ -708,36 +879,55 @@ function getCardTheme(key) {
   return CARD_THEME_PALETTE[hashString(key) % CARD_THEME_PALETTE.length];
 }
 
-function RotatingImage({ images, alt, className, intervalMs = AUTO_ROTATE_MS }) {
+
+function VCoinIcon({ className = "" }) {
+  return (
+    <span
+      className={`inline-flex items-center justify-center rounded-full border border-[#74fff3]/55 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.96),rgba(183,255,244,0.86)_34%,rgba(26,184,174,0.96)_68%,rgba(5,86,96,1)_100%)] shadow-[0_0_10px_rgba(74,255,243,0.35),inset_0_0_10px_rgba(255,255,255,0.22)] ${className}`}
+      aria-hidden="true"
+    >
+      <span className="translate-y-[0.5px] text-[0.72em] font-black leading-none text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]">
+        V
+      </span>
+    </span>
+  );
+}
+
+function RotatingImage({
+  images,
+  alt,
+  className,
+  style,
+  smartBottomFit = false,
+  smartBottomClassName = "",
+  smartBottomStyle = {},
+}) {
   const safeImages = Array.isArray(images) && images.length > 0 ? images : ["/ganker-logo.png"];
-  const [index, setIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
+  const firstImage = safeImages[0];
+  const [isTallImage, setIsTallImage] = useState(false);
 
   useEffect(() => {
-    setIndex(0);
-    setVisible(true);
-  }, [safeImages.join("|")]);
-
-  useEffect(() => {
-    if (safeImages.length <= 1) return undefined;
-
-    const interval = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setIndex((prev) => (prev + 1) % safeImages.length);
-        setVisible(true);
-      }, 260);
-    }, intervalMs);
-
-    return () => clearInterval(interval);
-  }, [safeImages, intervalMs]);
+    setIsTallImage(false);
+  }, [firstImage]);
 
   return (
     <img
-      src={safeImages[index]}
+      src={firstImage}
       alt={alt}
-      className={`${className} transition-all duration-500 ease-out ${visible ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}
+      className={`${className} ${smartBottomFit && isTallImage ? smartBottomClassName : ""} transition-transform duration-300 ease-out`}
+      style={smartBottomFit && isTallImage ? { ...style, ...smartBottomStyle } : style}
       loading="lazy"
+      onLoad={(event) => {
+        if (!smartBottomFit) return;
+
+        const image = event.currentTarget;
+        const width = image.naturalWidth || 1;
+        const height = image.naturalHeight || 1;
+
+        // Solo aplica a imágenes verticales/personajes.
+        // Armas, mochilas, picos, alas y objetos horizontales se quedan igual.
+        setIsTallImage(height / width >= 1.08);
+      }}
       onError={(event) => {
         event.currentTarget.src = "/ganker-logo.png";
       }}
@@ -746,7 +936,27 @@ function RotatingImage({ images, alt, className, intervalMs = AUTO_ROTATE_MS }) 
 }
 
 function FilterModal({ open, sections, labels, selectedSection, onSelect, onClose }) {
-  if (!open) return null;
+  const [shouldRender, setShouldRender] = useState(open);
+  const [isClosing, setIsClosing] = useState(false);
+
+  useEffect(() => {
+    let timeoutId;
+
+    if (open) {
+      setShouldRender(true);
+      setIsClosing(false);
+    } else if (shouldRender) {
+      setIsClosing(true);
+      timeoutId = setTimeout(() => {
+        setShouldRender(false);
+        setIsClosing(false);
+      }, 220);
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [open, shouldRender]);
+
+  if (!shouldRender) return null;
 
   const options = [
     { id: "RECENT", label: labels.recent },
@@ -764,18 +974,46 @@ function FilterModal({ open, sections, labels, selectedSection, onSelect, onClos
     "border-violet-500/50 bg-violet-500/10 text-violet-300",
   ];
 
+  function getFilterOptionClass(option, index, active) {
+    if (option.id === "RECENT") {
+      return active
+        ? "border-cyan-300 bg-cyan-400 text-[#001216] shadow-[0_0_20px_rgba(34,211,238,0.35)]"
+        : "border-cyan-500/55 bg-cyan-500/12 text-cyan-200";
+    }
+
+    if (option.id === "NEW") {
+      return active
+        ? "border-yellow-200 bg-yellow-300 text-[#1b1600] shadow-[0_0_20px_rgba(250,204,21,0.35)]"
+        : "border-yellow-400/60 bg-yellow-400/12 text-yellow-200";
+    }
+
+    if (option.id === "LEFT") {
+      return active
+        ? "border-red-300 bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.35)]"
+        : "border-red-500/60 bg-red-500/12 text-red-200";
+    }
+
+    return active ? "border-[#15d863] bg-[#15d863] text-[#06110a]" : palette[index % palette.length];
+  }
+
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 p-4">
-      <div className="w-full max-w-4xl rounded-[30px] border border-[#13412f] bg-[#04120d] p-5 shadow-[0_0_60px_rgba(0,255,120,0.08)] sm:p-6">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+      <div
+        className={`absolute inset-0 bg-black/70 backdrop-blur-[2px] transition-opacity duration-200 ${isClosing ? "opacity-0" : "opacity-100"}`}
+        onClick={onClose}
+      />
+      <div
+        className={`relative w-full max-w-4xl rounded-[30px] border border-[#13412f] bg-[rgba(4,18,13,0.88)] p-5 shadow-[0_0_60px_rgba(0,255,120,0.08)] backdrop-blur-xl transition-all duration-200 sm:p-6 ${
+          isClosing ? "translate-y-5 scale-[0.97] opacity-0" : "translate-y-0 scale-100 opacity-100"
+        }`}
+      >
         <h3 className="text-center text-3xl font-black italic text-white sm:text-5xl">
           {labels.filterTitle}
         </h3>
 
-        <div className="mt-6 grid max-h-[52vh] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-6 grid max-h-[52vh] grid-cols-2 gap-3 overflow-y-auto pr-1 xl:grid-cols-3">
           {options.map((option, index) => {
             const active = selectedSection === option.id;
-            const colors = palette[index % palette.length];
-
             return (
               <button
                 key={option.id}
@@ -784,9 +1022,7 @@ function FilterModal({ open, sections, labels, selectedSection, onSelect, onClos
                   onSelect(option.id);
                   onClose();
                 }}
-                className={`rounded-2xl border px-4 py-4 text-left text-sm font-black uppercase tracking-wide transition ${
-                  active ? "border-[#15d863] bg-[#15d863] text-[#06110a]" : colors
-                }`}
+                className={`flex min-h-[84px] items-center justify-center rounded-2xl border px-3 py-4 text-center text-sm font-black uppercase leading-tight tracking-wide transition ${getFilterOptionClass(option, index, active)}`}
               >
                 {option.label}
               </button>
@@ -794,7 +1030,7 @@ function FilterModal({ open, sections, labels, selectedSection, onSelect, onClos
           })}
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <button
             type="button"
             onClick={() => {
@@ -809,7 +1045,7 @@ function FilterModal({ open, sections, labels, selectedSection, onSelect, onClos
           <button
             type="button"
             onClick={onClose}
-            className="rounded-2xl border border-[#1a4e3a] bg-[#08140f] px-4 py-4 text-sm font-black uppercase text-white"
+            className="rounded-2xl border border-[#1a4e3a] bg-[#08140f]/85 px-4 py-4 text-sm font-black uppercase text-white"
           >
             {labels.close}
           </button>
@@ -820,7 +1056,27 @@ function FilterModal({ open, sections, labels, selectedSection, onSelect, onClos
 }
 
 function SortModal({ open, labels, sortMode, onSelect, onClose }) {
-  if (!open) return null;
+  const [shouldRender, setShouldRender] = useState(open);
+  const [isClosing, setIsClosing] = useState(false);
+
+  useEffect(() => {
+    let timeoutId;
+
+    if (open) {
+      setShouldRender(true);
+      setIsClosing(false);
+    } else if (shouldRender) {
+      setIsClosing(true);
+      timeoutId = setTimeout(() => {
+        setShouldRender(false);
+        setIsClosing(false);
+      }, 220);
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [open, shouldRender]);
+
+  if (!shouldRender) return null;
 
   const options = [
     { id: "FEATURED", label: labels.sortFeatured },
@@ -829,11 +1085,20 @@ function SortModal({ open, labels, sortMode, onSelect, onClose }) {
     { id: "PRICE_LOW", label: labels.sortLowPrice },
     { id: "LEAVING_SOON", label: labels.sortLeavingSoon },
     { id: "AZ", label: labels.sortAZ },
+    { id: "ZA", label: labels.sortZA },
   ];
 
   return (
-    <div className="fixed inset-0 z-[121] flex items-center justify-center bg-black/80 p-4">
-      <div className="w-full max-w-xl rounded-[30px] border border-[#13412f] bg-[#04120d] p-5 shadow-[0_0_60px_rgba(0,255,120,0.08)] sm:p-6">
+    <div className="fixed inset-0 z-[121] flex items-center justify-center p-4">
+      <div
+        className={`absolute inset-0 bg-black/70 backdrop-blur-[2px] transition-opacity duration-200 ${isClosing ? "opacity-0" : "opacity-100"}`}
+        onClick={onClose}
+      />
+      <div
+        className={`relative w-full max-w-xl rounded-[30px] border border-[#13412f] bg-[rgba(4,18,13,0.88)] p-5 shadow-[0_0_60px_rgba(0,255,120,0.08)] backdrop-blur-xl transition-all duration-200 sm:p-6 ${
+          isClosing ? "translate-y-5 scale-[0.97] opacity-0" : "translate-y-0 scale-100 opacity-100"
+        }`}
+      >
         <h3 className="text-center text-3xl font-black italic text-white sm:text-4xl">
           {labels.sortTitle}
         </h3>
@@ -847,10 +1112,10 @@ function SortModal({ open, labels, sortMode, onSelect, onClose }) {
                 onSelect(option.id);
                 onClose();
               }}
-              className={`rounded-2xl border px-4 py-4 text-left text-sm font-black uppercase tracking-wide transition ${
+              className={`rounded-2xl border px-4 py-4 text-center text-sm font-black uppercase tracking-wide transition ${
                 sortMode === option.id
                   ? "border-[#15d863] bg-[#15d863] text-[#06110a]"
-                  : "border-[#1a4e3a] bg-[#08140f] text-white"
+                  : "border-[#1a4e3a] bg-[#08140f]/85 text-white"
               }`}
             >
               {option.label}
@@ -858,20 +1123,53 @@ function SortModal({ open, labels, sortMode, onSelect, onClose }) {
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-6 w-full rounded-2xl border border-[#1a4e3a] bg-[#08140f] px-4 py-4 text-sm font-black uppercase text-white"
-        >
-          {labels.close}
-        </button>
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-[#1a4e3a] bg-[#08140f]/85 px-4 py-4 text-sm font-black uppercase text-white"
+          >
+            {labels.close}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              onSelect("NONE");
+              onClose();
+            }}
+            className="rounded-2xl border border-[#8cff9f]/60 bg-[#15d863]/15 px-4 py-4 text-sm font-black uppercase text-[#67ff9a] shadow-[0_0_18px_rgba(21,216,99,0.10)]"
+          >
+            {labels.resetSort}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
 function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQty, onRemove, onClear }) {
-  if (!open) return null;
+  const [shouldRender, setShouldRender] = useState(open);
+  const [isClosing, setIsClosing] = useState(false);
+
+  useEffect(() => {
+    let timeoutId;
+
+    if (open) {
+      setShouldRender(true);
+      setIsClosing(false);
+    } else if (shouldRender) {
+      setIsClosing(true);
+      timeoutId = setTimeout(() => {
+        setShouldRender(false);
+        setIsClosing(false);
+      }, 220);
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [open, shouldRender]);
+
+  if (!shouldRender) return null;
 
   const details = cart
     .map((cartItem) => {
@@ -893,16 +1191,36 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
   };
 
   const sendWhatsApp = () => {
-    const lines = details.map((item) => `• ${getDisplayName(item)} x${item.qty} - ${item.price} ${labels.vbucks}`);
+    const lines = [
+      "🛒 Cotización de objetos GKG",
+      "",
+      ...details.flatMap((item, index) => {
+        const itemVbucks = Number(item.price || 0) * item.qty;
+        const itemLocal = itemVbucks * VB_TO_LOCAL_RATE;
+        const imageUrl = item._galleryImages?.[0] || item.image || item.galleryImages?.[0] || "";
+        return [
+          `${index + 1}. ${getDisplayName(item)} x${item.qty}`,
+          `   ${itemVbucks} ${labels.vbucks}`,
+          `   ${language === "en" ? `$${itemLocal.toFixed(2)}` : `MX$${itemLocal.toFixed(2)}`}`,
+          imageUrl ? `   Imagen: ${imageUrl}` : null,
+        ].filter(Boolean);
+      }),
+      "",
+      `Total: ${totalVbucks} ${labels.vbucks}`,
+      `Total MX: ${language === "en" ? `$${totalLocal.toFixed(2)}` : `MX$${totalLocal.toFixed(2)}`}`,
+      "",
+      "Quiero pagar/cotizar estos objetos.",
+    ];
+
     const text = lines.join("\n");
     const url = `https://wa.me/5216568558434?text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank");
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   return (
     <div className="fixed inset-0 z-[130]">
-      <div className="absolute inset-0 bg-black/75" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-full max-w-md border-l border-[#124633] bg-[#04120d] p-4">
+      <div className="absolute inset-0 bg-black/62 backdrop-blur-[2px]" onClick={onClose} />
+      <div className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-[#124633] bg-[rgba(4,18,13,0.84)] p-4 shadow-[0_0_45px_rgba(21,216,99,0.16)] backdrop-blur-xl ${isClosing ? "animate-[slideOutRight_220ms_ease-in]" : "animate-[slideInRight_220ms_ease-out]"}`}>
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-2xl font-black">{labels.cart}</h3>
           <button
@@ -914,7 +1232,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
           </button>
         </div>
 
-        <div className="max-h-[calc(100vh-240px)] space-y-3 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
           {details.length === 0 && (
             <div className="rounded-2xl border border-[#124633] bg-[#06110c] p-4 text-slate-300">
               {labels.emptyCart}
@@ -968,7 +1286,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
           ))}
         </div>
 
-        <div className="mt-4 rounded-2xl border border-[#124633] bg-[#06110c] p-4">
+        <div className="mt-4 shrink-0 rounded-2xl border border-[#124633] bg-[rgba(6,17,12,0.92)] p-4 backdrop-blur-sm">
           <div className="flex items-center justify-between text-sm">
             <span>{labels.totalVbucks}</span>
             <span className="font-black">{totalVbucks} {labels.vbucks}</span>
@@ -991,14 +1309,14 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
             <button
               type="button"
               onClick={shareCart}
-              className="rounded-2xl border border-[#1a4e3a] bg-[#08140f] px-4 py-3 text-sm font-black text-white"
+              className="rounded-2xl border border-[#1a4e3a] bg-[#08140f]/88 px-4 py-3 text-sm font-black text-white"
             >
               {labels.shareLink}
             </button>
             <button
               type="button"
               onClick={onClear}
-              className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300"
+              className="rounded-2xl border border-red-500/40 bg-red-500/12 px-4 py-3 text-sm font-black text-red-300"
             >
               {labels.remove}
             </button>
@@ -1011,6 +1329,8 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
 
 function ItemModal({ item, labels, language, onClose, onAddToCart }) {
   const [selectedIncludedId, setSelectedIncludedId] = useState("");
+  const [touchStartX, setTouchStartX] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
   const includedItems = getIncludedItems(item);
 
   const currentDetail = useMemo(() => {
@@ -1026,23 +1346,85 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
   }, [currentDetail?.id]);
 
   useEffect(() => {
-    if (!Array.isArray(images) || images.length <= 1) return undefined;
-    const interval = setInterval(() => {
-      setImageIndex((prev) => (prev + 1) % images.length);
-    }, AUTO_ROTATE_MS);
-    return () => clearInterval(interval);
-  }, [images]);
+    const frame = window.requestAnimationFrame(() => setModalVisible(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   if (!item) return null;
 
   const leavingSoon = item._isLeavingSoon;
   const isFreshNew = item._isFreshNew;
   const displayType = getDisplayType(currentDetail, labels);
+  const mainDescription = currentDetail.descriptionLocalized || currentDetail.descriptionEnglish || currentDetail.description || "";
+  const extraDescriptionCandidates = [
+    currentDetail.descriptionEnglish,
+    currentDetail.descriptionLocalized,
+    currentDetail.devName,
+  ].filter(Boolean);
+  const extraDescription = extraDescriptionCandidates.find((entry) => entry && entry !== mainDescription) || "";
+  const currentTheme = getCardTheme(currentDetail._section || item._section || currentDetail.id || item.id);
+  const currentImageStyle = {
+    backgroundImage: `linear-gradient(180deg, ${withAlpha(currentTheme.top, 0.98)} 0%, ${withAlpha(currentTheme.middle, 0.88)} 58%, ${withAlpha(currentTheme.bottom, 0.96)} 100%)`,
+  };
+  const shareText = [
+    `Cotización de objeto: ${getDisplayName(currentDetail)}`,
+    `Tipo: ${displayType}`,
+    `Precio: ${item.price || 0} ${labels.vbucks}`,
+    `Precio MXN: ${localPrice(language, item.price)}`,
+    mainDescription ? `Descripción: ${mainDescription}` : null,
+    `Imagen: ${images[imageIndex] || item.image || ""}`,
+    "Cotización generada desde GKG Tienda Fortnite",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  function handleWhatsAppShare() {
+    if (typeof window === "undefined") return;
+    const url = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function showPrevImage() {
+    if (images.length <= 1) return;
+    setImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+  }
+
+  function showNextImage() {
+    if (images.length <= 1) return;
+    setImageIndex((prev) => (prev + 1) % images.length);
+  }
+
+  function handleImageTouchStart(event) {
+    setTouchStartX(event.touches?.[0]?.clientX ?? null);
+  }
+
+  function handleImageTouchEnd(event) {
+    if (touchStartX == null || images.length <= 1) return;
+    const endX = event.changedTouches?.[0]?.clientX ?? touchStartX;
+    const deltaX = endX - touchStartX;
+    if (Math.abs(deltaX) > 40) {
+      if (deltaX < 0) {
+        showNextImage();
+      } else {
+        showPrevImage();
+      }
+    }
+    setTouchStartX(null);
+  }
+
+  function handleModalClose() {
+    setModalVisible(false);
+    window.setTimeout(onClose, 220);
+  }
 
   return (
-    <div className="fixed inset-0 z-[125] overflow-y-auto bg-black/80 p-3 sm:p-6">
+    <div
+      className={`fixed inset-0 z-[125] overflow-y-auto bg-black/80 p-3 sm:p-6 transition-opacity duration-200 ${modalVisible ? "opacity-100" : "opacity-0"}`}
+      onClick={handleModalClose}
+    >
       <div
-        className={`mx-auto w-full max-w-6xl rounded-[32px] bg-[#04120d] shadow-[0_0_60px_rgba(0,255,120,0.08)] ${
+        onClick={(event) => event.stopPropagation()}
+        className={`mx-auto w-full max-w-6xl rounded-[32px] bg-[#04120d] shadow-[0_0_60px_rgba(0,255,120,0.08)] transition-all duration-200 ${modalVisible ? "translate-y-0 scale-100 opacity-100" : "translate-y-5 scale-[0.96] opacity-0"} ${
           leavingSoon && isFreshNew
             ? "border-2 border-red-500 ring-2 ring-yellow-400/60"
             : leavingSoon
@@ -1063,148 +1445,122 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleModalClose}
             className="rounded-2xl border border-[#1a4e3a] bg-[#08140f] px-5 py-3 text-xl font-black text-white"
           >
             {labels.close}
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[0.95fr_1.05fr]">
           <div>
-            <div className="relative overflow-hidden rounded-[28px] border border-[#124f39] bg-[linear-gradient(180deg,#11161a_0%,#141b1e_100%)]">
-              {images.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
-                    className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/80 px-4 py-4 text-xl font-black text-white"
-                  >
-                    ‹
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setImageIndex((prev) => (prev + 1) % images.length)}
-                    className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-[#19df6c] px-4 py-4 text-xl font-black text-black"
-                  >
-                    ›
-                  </button>
-                </>
+            <div className="relative overflow-hidden rounded-[28px] border border-[#124f39]" style={currentImageStyle}>
+              {leavingSoon && (
+                <div className="absolute left-3 top-3 z-20 rounded-full bg-red-500 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-lg sm:text-xs">
+                  {labels.leavingSoon}
+                </div>
               )}
 
-              <div className="aspect-[4/5] sm:aspect-[4/3] bg-[linear-gradient(180deg,#14181b_0%,#181d22_100%)]">
+              {isFreshNew && !leavingSoon && (
+                <div className="absolute left-3 top-3 z-20 rounded-full bg-yellow-400 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-[#231700] shadow-lg sm:text-xs">
+                  {labels.newBadge}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleWhatsAppShare}
+                aria-label={labels.itemShare}
+                title={labels.itemShare}
+                className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-2xl border border-[#1eff7a]/35 bg-[#07140f]/95 text-[#67ff9a] shadow-[0_0_18px_rgba(21,216,99,0.10)] transition hover:border-[#67ff9a] hover:bg-[#0b1f15]"
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M7 7h-1.5A2.5 2.5 0 0 0 3 9.5v9A2.5 2.5 0 0 0 5.5 21h9A2.5 2.5 0 0 0 17 18.5V17" />
+                  <path d="M10 14 21 3" />
+                  <path d="M14 3h7v7" />
+                </svg>
+              </button>
+
+              <div
+                className="aspect-[4/5] sm:aspect-[4/3] overflow-hidden"
+                onTouchStart={handleImageTouchStart}
+                onTouchEnd={handleImageTouchEnd}
+              >
                 <img
                   src={images[imageIndex] || "/ganker-logo.png"}
                   alt={getDisplayName(currentDetail)}
-                  className="h-full w-full object-contain object-center p-4 transition-all duration-500 ease-out"
+                  className="h-full w-full object-contain object-center p-10 sm:p-12 transition-all duration-500 ease-out scale-[0.72]"
                 />
               </div>
             </div>
 
             {images.length > 1 && (
               <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
-                {images.map((img, idx) => (
-                  <button
-                    type="button"
-                    key={`${img}-${idx}`}
-                    onClick={() => setImageIndex(idx)}
-                    className={`h-20 w-20 shrink-0 overflow-hidden rounded-2xl border ${
-                      idx === imageIndex ? "border-[#59ffbd]" : "border-[#184231]"
-                    } bg-[#04120d]`}
-                  >
-                    <img src={img} alt={`thumb-${idx}`} className="h-full w-full object-contain object-center p-1" />
-                  </button>
-                ))}
+                {images.map((img, idx) => {
+                  const thumbTheme = getCardTheme(`${currentDetail._section || item._section || item.id}-${idx}`);
+                  return (
+                    <button
+                      type="button"
+                      key={`${img}-${idx}`}
+                      onClick={() => setImageIndex(idx)}
+                      className={`h-20 w-20 shrink-0 overflow-hidden rounded-2xl border ${
+                        idx === imageIndex ? "border-[#59ffbd]" : "border-[#184231]"
+                      }`}
+                      style={{
+                        backgroundImage: `linear-gradient(180deg, ${withAlpha(thumbTheme.top, 0.98)} 0%, ${withAlpha(thumbTheme.middle, 0.88)} 60%, ${withAlpha(thumbTheme.bottom, 0.96)} 100%)`,
+                      }}
+                    >
+                      <img src={img} alt={`thumb-${idx}`} className="h-full w-full object-contain object-center p-1.5 scale-[0.88]" />
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
           <div className="space-y-4">
             <div className="rounded-[28px] border border-[#154636] bg-[#07140f] p-5">
-              <div className="rounded-2xl bg-[linear-gradient(90deg,#0c2f58,#0a3147)] px-5 py-4 text-[clamp(1.25rem,2.4vw,2.1rem)] font-black text-[#2ec0ff]">
-                {item.price || 0} {labels.vbucks}
-                <span className="ml-4 text-yellow-300">{localPrice(language, item.price)}</span>
+              <div className="rounded-2xl border border-[#144d38] bg-[linear-gradient(90deg,#082018,#0c2d1f)] px-5 py-4 text-center shadow-[0_0_18px_rgba(21,216,99,0.07)]">
+                <div className="text-base font-black leading-none text-[#67ff9a] sm:text-lg">
+                  {item.price || 0} {labels.vbucks}
+                </div>
+                <div className="mt-2 text-[1.55rem] font-black leading-none text-white sm:text-[1.8rem]">
+                  {localPrice(language, item.price)}
+                </div>
               </div>
 
-              {(leavingSoon || isFreshNew) && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {leavingSoon && (
-                    <span className="rounded-full bg-red-500 px-3 py-1 text-xs font-black text-white">
-                      {labels.leavingSoon}
-                    </span>
-                  )}
-                  {isFreshNew && (
-                    <span className="rounded-full bg-yellow-400 px-3 py-1 text-xs font-black text-[#231700]">
-                      {labels.newBadge}
-                    </span>
-                  )}
-                </div>
-              )}
-
               {item._latestOutDate && (
-                <div className="mt-4 rounded-2xl border border-[#3d3320] bg-[rgba(100,50,0,0.25)] px-4 py-4">
-                  <div className="text-sm font-bold text-[#ffd27f]">{labels.timeLeft}</div>
-                  <div className="mt-1 text-2xl font-black text-white">
+                <div className="mt-4 rounded-2xl border border-[#124d39] bg-[linear-gradient(180deg,#07170f_0%,#0b2217_100%)] px-4 py-3 text-center shadow-[0_0_18px_rgba(21,216,99,0.06)]">
+                  <div className="text-xs font-bold uppercase tracking-[0.28em] text-[#67ff9a]">{labels.timeLeft}</div>
+                  <div className="mt-1 text-xl font-black text-white sm:text-2xl">
                     {getTimeUntilDate(item._latestOutDate, language)}
                   </div>
                 </div>
               )}
 
-              {(currentDetail.descriptionLocalized || currentDetail.descriptionEnglish || currentDetail.description) && (
+              {mainDescription && (
                 <div className="mt-4 rounded-2xl border border-[#123e30] bg-[#081410] p-4 text-slate-300">
-                  “{currentDetail.descriptionLocalized || currentDetail.descriptionEnglish || currentDetail.description}”
+                  <div className="text-sm leading-relaxed text-white/90">“{mainDescription}”</div>
+                  {extraDescription && (
+                    <div className="mt-2 text-xs leading-relaxed text-slate-400">{extraDescription}</div>
+                  )}
                 </div>
               )}
 
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="mt-4">
                 <button
                   type="button"
-                  onClick={() => onAddToCart(item)}
-                  className="rounded-2xl bg-[#19df6c] px-4 py-4 text-base font-black text-black"
+                  onClick={() => onAddToCart(currentDetail)}
+                  className="w-full rounded-2xl bg-[#19df6c] px-4 py-4 text-base font-black text-black"
                 >
                   {labels.addToCart}
                 </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const shareText = `${getDisplayName(item)} - ${window.location.href}`;
-                    if (navigator.share) {
-                      try {
-                        await navigator.share({
-                          title: getDisplayName(item),
-                          text: shareText,
-                          url: window.location.href,
-                        });
-                        return;
-                      } catch {}
-                    }
-                    await navigator.clipboard.writeText(shareText);
-                    alert(labels.copied);
-                  }}
-                  className="rounded-2xl border border-[#1c583f] bg-[#08140f] px-4 py-4 text-base font-black text-[#59ffbd]"
-                >
-                  {labels.itemShare}
-                </button>
               </div>
-
-              {(currentDetail.setTextLocalized || currentDetail.setTextEnglish || currentDetail.set) && (
-                <div className="mt-4 text-sm text-slate-300">
-                  <span className="font-black text-[#59ffbd]">{labels.setLabel}: </span>
-                  {currentDetail.setTextLocalized || currentDetail.setTextEnglish || currentDetail.set}
-                </div>
-              )}
-
-              {(currentDetail.rarityLocalized || currentDetail.rarityEnglish || currentDetail.rarity) && (
-                <div className="mt-2 text-sm text-slate-300">
-                  <span className="font-black text-[#59ffbd]">{labels.rarityLabel}: </span>
-                  {currentDetail.rarityLocalized || currentDetail.rarityEnglish || currentDetail.rarity}
-                </div>
-              )}
             </div>
 
             {includedItems.length > 0 && (
               <div className="rounded-[28px] border border-[#154636] bg-[#07140f] p-5">
-                <div className="mb-4 text-base font-black uppercase tracking-[0.35em] text-[#2ec0ff]">
+                <div className="mb-4 text-base text-center font-black uppercase tracking-[0.35em] text-[#67ff9a]">
                   {labels.includes} {includedItems.length}
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -1212,23 +1568,29 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
                     const active = selectedIncludedId === entry.id;
                     const entryImages = getGalleryImages(entry);
                     const entryImage = entryImages[0] || "/ganker-logo.png";
+                    const entryTheme = getCardTheme(entry._section || entry.name || entry.id || `${index}`);
 
                     return (
                       <button
                         type="button"
                         key={`${entry.id || entry.name || index}`}
                         onClick={() => setSelectedIncludedId((prev) => (prev === entry.id ? "" : entry.id))}
-                        className={`rounded-2xl border p-3 text-left transition ${
+                        className={`rounded-2xl border p-3 text-center transition ${
                           active ? "border-[#59ffbd] bg-[#0b1712]" : "border-[#154636] bg-[#08140f]"
                         }`}
                       >
-                        <div className="aspect-square overflow-hidden rounded-xl bg-[#10161a]">
-                          <img src={entryImage} alt={getDisplayName(entry)} className="h-full w-full object-contain object-center p-2" />
+                        <div
+                          className="aspect-square overflow-hidden rounded-xl"
+                          style={{
+                            backgroundImage: `linear-gradient(180deg, ${withAlpha(entryTheme.top, 0.98)} 0%, ${withAlpha(entryTheme.middle, 0.88)} 60%, ${withAlpha(entryTheme.bottom, 0.96)} 100%)`,
+                          }}
+                        >
+                          <img src={entryImage} alt={getDisplayName(entry)} className="h-full w-full object-contain object-center p-2 scale-[0.88]" />
                         </div>
                         <div className="mt-3 line-clamp-2 text-sm font-black uppercase leading-tight text-white">
                           {getDisplayName(entry)}
                         </div>
-                        <div className="mt-1 text-xs uppercase tracking-wide text-slate-400">
+                        <div className="mt-1 text-xs uppercase tracking-wide text-slate-300">
                           {getDisplayType(entry, labels)}
                         </div>
                       </button>
@@ -1244,9 +1606,11 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
   );
 }
 
-function ShopCard({ item, labels, language, onOpen, groupKey }) {
+function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
   const theme = getCardTheme(groupKey || item._section || item.id);
   const displayType = getDisplayType(item, labels);
+  const includedCount = Array.isArray(item.includedItems) ? item.includedItems.length : 0;
+  const isLargeBundle = includedCount > 4;
 
   const borderClass =
     item._isLeavingSoon && item._isFreshNew
@@ -1255,127 +1619,271 @@ function ShopCard({ item, labels, language, onOpen, groupKey }) {
         ? "border-2 border-red-500"
         : item._isFreshNew
           ? "border-2 border-yellow-400"
-          : "border border-[#1d5c3f]";
+          : "border border-white/10";
+
+  if (isLargeBundle) {
+    return (
+      <article className="col-span-2 h-full">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onOpen(item)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onOpen(item);
+            }
+          }}
+          className="group block h-full w-full cursor-pointer text-left transition active:scale-[0.985]"
+        >
+          <div
+            className={`relative h-full overflow-hidden rounded-[18px] shadow-[0_10px_24px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 ${borderClass}`}
+            style={{
+              background: `linear-gradient(180deg, ${theme.middle} 0%, ${theme.top} 100%)`,
+            }}
+          >
+            <div className="relative aspect-[2.15/1] min-h-[168px] overflow-hidden">
+              <RotatingImage
+                images={item._galleryImages}
+                alt={getDisplayName(item)}
+                className="relative z-10 h-full w-full object-contain object-center px-1 py-1 transition-transform duration-300 group-hover:scale-[1.015]"
+                style={{ objectPosition: "center center" }}
+              />
+
+
+              <div className="absolute left-2 top-2 z-30 rounded bg-black/80 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.16em] text-white/80 shadow-md">
+                {labels.typeLabels.bundle}
+              </div>
+
+              {item._isLeavingSoon && (
+                <div className="absolute left-2 top-8 z-30 rounded-full bg-red-500 px-2 py-1 text-[8px] font-black uppercase text-white shadow-lg sm:text-[10px]">
+                  {labels.leavingSoon}
+                </div>
+              )}
+
+              {item._isFreshNew && !item._isLeavingSoon && (
+                <div className="absolute left-2 top-8 z-30 rounded-full bg-yellow-400 px-2 py-1 text-[8px] font-black uppercase text-[#231700] shadow-lg sm:text-[10px]">
+                  {labels.newBadge}
+                </div>
+              )}
+
+              <div className="absolute inset-x-0 bottom-0 z-30 p-2.5">
+                <h2 className="line-clamp-1 text-[0.98rem] font-black leading-tight text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)] sm:text-[1.1rem]">
+                  {getDisplayName(item)}
+                </h2>
+
+                <div className="mt-1 flex max-w-full items-center gap-1.5 overflow-visible">
+                  <VCoinIcon className="h-4 w-4 shrink-0 text-[10px]" />
+
+                  <span className="shrink-0 text-[0.95rem] font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)] sm:text-[1.05rem]">
+                    {item.price}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onQuickAdd?.(item);
+                    }}
+                    aria-label={labels.addToCart}
+                    title={labels.addToCart}
+                    className="ml-0.5 inline-flex shrink-0 items-center gap-1 rounded-full border border-[#8cff9f] bg-[linear-gradient(135deg,#16e83d_0%,#0dbb2e_48%,#07851f_100%)] py-1 pl-2 pr-1 text-[8px] font-black leading-none text-white shadow-[0_0_0_1px_rgba(21,255,98,0.20),0_0_10px_rgba(21,255,98,0.40),0_4px_8px_rgba(0,0,0,0.28)] ring-1 ring-[#18ff63]/25 transition hover:scale-105 hover:brightness-110 active:scale-95 sm:text-[9px]"
+                  >
+                    <span className="whitespace-nowrap">{localPrice(language, item.price)}</span>
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/18 text-[12px] leading-none text-white">+</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    );
+  }
 
   return (
     <article className="h-full">
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => onOpen(item)}
-        className="group block h-full w-full text-left"
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onOpen(item);
+          }
+        }}
+        className="group block h-full w-full cursor-pointer text-left transition active:scale-[0.985]"
       >
         <div
-          className={`flex h-full min-h-[540px] flex-col overflow-hidden rounded-[24px] bg-[#07111f] shadow-[0_12px_30px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 ${borderClass}`}
+          className={`relative h-full overflow-hidden rounded-[18px] shadow-[0_10px_24px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 ${borderClass}`}
+          style={{
+            background: `linear-gradient(180deg, ${theme.middle} 0%, ${theme.top} 100%)`,
+          }}
         >
-          <div
-            className="relative aspect-[4/5] overflow-hidden"
-            style={{
-              background: `linear-gradient(180deg, ${theme.top} 0%, ${theme.middle} 58%, ${theme.bottom} 100%)`,
-            }}
-          >
-            <div
-              className="pointer-events-none absolute inset-x-10 bottom-10 z-0 h-24 rounded-full blur-3xl"
-              style={{
-                background: `radial-gradient(ellipse at center, ${withAlpha(theme.fade, 0.58)} 0%, ${withAlpha(theme.fade, 0.22)} 45%, rgba(0,0,0,0) 78%)`,
-              }}
-            />
+          <div className="relative min-h-[235px] overflow-hidden aspect-[0.88/1]">
+            <div className="relative z-10 flex h-full w-full items-end justify-center px-2 pb-11 pt-2 transition-transform duration-300 group-hover:scale-[1.02]">
+              <RotatingImage
+                images={item._galleryImages}
+                alt={getDisplayName(item)}
+                className="h-full w-[88%] scale-[1.02] object-contain"
+                style={{ objectPosition: "center 72%" }}
+                smartBottomFit
+                smartBottomClassName="!w-[84%] !scale-[1.08] translate-y-2"
+                smartBottomStyle={{ objectPosition: "center bottom" }}
+              />
+            </div>
 
-            <RotatingImage
-              images={item._galleryImages}
-              alt={getDisplayName(item)}
-              className="relative z-10 h-full w-full object-contain object-center px-5 pt-6 pb-24 transition-transform duration-300 group-hover:scale-[1.03]"
-            />
-
-            <div
-              className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[42%]"
-              style={{
-                background: `linear-gradient(to top, rgba(5,16,28,1) 0%, rgba(5,16,28,0.98) 18%, ${withAlpha(theme.fade, 0.38)} 46%, rgba(5,16,28,0.18) 78%, rgba(5,16,28,0) 100%)`,
-              }}
-            />
-
-            <div
-              className="pointer-events-none absolute inset-x-0 bottom-[-12px] z-20 h-24 blur-2xl"
-              style={{
-                background: `linear-gradient(to top, ${withAlpha(theme.fade, 0.55)} 0%, rgba(5,16,28,0.82) 58%, rgba(5,16,28,0) 100%)`,
-              }}
-            />
 
             {item._isLeavingSoon && (
-              <div className="absolute left-3 top-3 z-30 rounded-full border border-white/20 bg-red-500 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-lg sm:text-xs">
+              <div className="absolute left-2 top-2 z-30 rounded-full bg-red-500 px-2 py-1 text-[8px] font-black uppercase text-white shadow-lg sm:text-[10px]">
                 {labels.leavingSoon}
               </div>
             )}
 
             {item._isFreshNew && !item._isLeavingSoon && (
-              <div className="absolute right-3 top-3 z-30 rounded-full border border-yellow-200 bg-yellow-400 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#231700] shadow-lg sm:text-xs">
+              <div className="absolute left-2 top-2 z-30 rounded-full bg-yellow-400 px-2 py-1 text-[8px] font-black uppercase text-[#231700] shadow-lg sm:text-[10px]">
                 {labels.newBadge}
               </div>
             )}
-          </div>
 
-          <div className="flex min-h-[170px] flex-1 flex-col justify-between bg-[linear-gradient(180deg,#071426_0%,#05101c_100%)] p-4">
-            <div>
-              <h2 className="line-clamp-2 min-h-[56px] text-[1.06rem] font-extrabold leading-tight text-white sm:text-[1.18rem]">
+            <div className="absolute inset-x-0 bottom-0 z-30 p-2.5">
+              <h2 className="line-clamp-2 text-[0.88rem] font-black leading-tight text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)] sm:text-[1rem]">
                 {getDisplayName(item)}
               </h2>
 
-              <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-300 sm:text-xs">
+              <p className="mt-0.5 text-[8px] font-black uppercase tracking-wide text-white/85 drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)] sm:text-[9px]">
                 {displayType}
               </p>
-            </div>
 
-            <div className="mt-5 flex items-end justify-between gap-3">
-              <p className="text-[1.18rem] font-extrabold text-white sm:text-[1.35rem]">
-                {item.price} {labels.vbucks}
-              </p>
+              <div className="mt-1.5 flex max-w-full items-center gap-1.5 overflow-visible">
+                <VCoinIcon className="h-4 w-4 shrink-0 text-[10px]" />
 
-              <div className="shrink-0 rounded-full bg-[#1fe26d] px-4 py-2 text-[11px] font-extrabold text-[#06110a] shadow-lg sm:text-sm">
-                {localPrice(language, item.price)}
+                <span className="shrink-0 text-[0.95rem] font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)] sm:text-[1.05rem]">
+                  {item.price}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onQuickAdd?.(item);
+                  }}
+                  aria-label={labels.addToCart}
+                  title={labels.addToCart}
+                  className="ml-0.5 inline-flex shrink-0 items-center gap-1 rounded-full border border-[#8cff9f] bg-[linear-gradient(135deg,#16e83d_0%,#0dbb2e_48%,#07851f_100%)] py-1 pl-2 pr-1 text-[8px] font-black leading-none text-white shadow-[0_0_0_1px_rgba(21,255,98,0.20),0_0_10px_rgba(21,255,98,0.40),0_4px_8px_rgba(0,0,0,0.28)] ring-1 ring-[#18ff63]/25 transition hover:scale-105 hover:brightness-110 active:scale-95 sm:text-[9px]"
+                >
+                  <span className="whitespace-nowrap">{localPrice(language, item.price)}</span>
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/18 text-[12px] leading-none text-white">+</span>
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </button>
+      </div>
     </article>
   );
 }
 
-function MobileMenuDrawer({ open, labels, cartCount, onClose }) {
-  if (!open) return null;
+function MobileMenuDrawer({ open, labels, cartCount, onClose, onCartOpen }) {
+  const [shouldRender, setShouldRender] = useState(open);
+  const [isClosing, setIsClosing] = useState(false);
+
+  useEffect(() => {
+    let timeoutId;
+
+    if (open) {
+      setShouldRender(true);
+      setIsClosing(false);
+    } else if (shouldRender) {
+      setIsClosing(true);
+      timeoutId = setTimeout(() => {
+        setShouldRender(false);
+        setIsClosing(false);
+      }, 220);
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [open, shouldRender]);
+
+  if (!shouldRender) return null;
 
   return (
-    <div className="fixed inset-0 z-[140] md:hidden">
-      <div className="absolute inset-0 bg-black/75" onClick={onClose} />
-      <div className="absolute right-0 top-0 h-full w-[86%] max-w-sm border-l border-[#124633] bg-[#04120d] p-4">
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <p className="text-lg font-black">{labels.brand}</p>
-            <p className="text-[10px] uppercase tracking-[0.3em] text-[#67ff9a]">{labels.brandSub}</p>
+    <div className="fixed inset-0 z-[140]">
+      <div className="absolute inset-0 bg-black/62 backdrop-blur-[2px]" onClick={onClose} />
+      <div
+        className={`absolute right-0 top-0 h-full w-[86%] max-w-sm border-l border-[#1eff7a]/30 bg-[rgba(3,16,9,0.84)] p-5 shadow-[0_0_45px_rgba(21,216,99,0.16)] backdrop-blur-xl ${
+          isClosing ? "animate-[slideOutRight_220ms_ease-in]" : "animate-[slideInRight_220ms_ease-out]"
+        }`}
+      >
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <img
+              src="/ganker-logo.png"
+              alt="GKG"
+              className="h-12 w-12 rounded-full border border-[#19ff72]/45 object-cover shadow-[0_0_18px_rgba(25,255,114,0.25)]"
+            />
+            <div>
+              <p className="text-2xl font-black italic leading-none text-white">{labels.brand}</p>
+              <p className="mt-1 text-[10px] font-black uppercase tracking-[0.3em] text-[#67ff9a]">
+                {labels.brandSub}
+              </p>
+            </div>
           </div>
+
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-[#1a4e3a] bg-[#08140f] px-4 py-2 font-black text-white"
+            className="rounded-2xl border border-[#1eff7a]/35 bg-[#07140f]/86 px-4 py-3 text-sm font-black text-white shadow-[0_0_18px_rgba(21,216,99,0.10)] transition hover:border-[#67ff9a] hover:text-[#67ff9a]"
           >
-            {labels.close}
+            ✕
           </button>
         </div>
 
         <div className="grid gap-3">
-          <Link href="/" onClick={onClose} className="rounded-2xl bg-[#15d863] px-4 py-4 text-center text-base font-extrabold text-[#06110a]">
+          <Link
+            href="/"
+            onClick={onClose}
+            className="rounded-2xl bg-[#15d863] px-4 py-4 text-center text-base font-black text-[#06110a] shadow-[0_0_22px_rgba(21,216,99,0.22)]"
+          >
             {labels.navShop}
           </Link>
-          <Link href="/noticias" onClick={onClose} className="rounded-2xl border border-[#284635] bg-[#0b120d] px-4 py-4 text-center text-base font-extrabold text-white">
-            {labels.navNews}
-          </Link>
-          <Link href="/stw" onClick={onClose} className="rounded-2xl border border-[#284635] bg-[#0b120d] px-4 py-4 text-center text-base font-extrabold text-white">
-            {labels.navSTW}
-          </Link>
-          <div className="rounded-2xl border border-[#67ff9a] bg-[#0b120d] px-4 py-4 text-center text-base font-extrabold text-[#67ff9a]">
+
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onCartOpen();
+            }}
+            className="rounded-2xl border border-[#67ff9a] bg-[#0b120d]/88 px-4 py-4 text-center text-base font-black text-[#67ff9a] shadow-[0_0_22px_rgba(21,216,99,0.12)]"
+          >
             {labels.cart} ({cartCount})
-          </div>
+          </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SparkleBackground() {
+  return (
+    <div className="pointer-events-none fixed inset-0 overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(22,232,61,0.10),transparent_20%),radial-gradient(circle_at_82%_22%,rgba(103,255,154,0.08),transparent_18%),radial-gradient(circle_at_50%_78%,rgba(21,216,99,0.08),transparent_22%)]" />
+      {STAR_POINTS.map((star, index) => (
+        <span
+          key={index}
+          className="absolute rounded-full bg-[#79ffb0] opacity-70 shadow-[0_0_8px_rgba(121,255,176,0.65),0_0_16px_rgba(21,216,99,0.32)]"
+          style={{
+            top: star.top,
+            left: star.left,
+            width: `${star.size}px`,
+            height: `${star.size}px`,
+            animation: `twinkle ${star.duration} ease-in-out ${star.delay} infinite`,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -1389,17 +1897,38 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [selectedSection, setSelectedSection] = useState("ALL");
-  const [sortMode, setSortMode] = useState("FEATURED");
+  const [sortMode, setSortMode] = useState("NONE");
   const [timeLeft, setTimeLeft] = useState("--:--:--");
-  const [onlineCount, setOnlineCount] = useState(187);
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [cartPulse, setCartPulse] = useState(false);
   const [modalEntry, setModalEntry] = useState(null);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [sortModalOpen, setSortModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [languageChanging, setLanguageChanging] = useState(false);
+  const [nextLanguage, setNextLanguage] = useState(null);
   const groupsRef = useRef(null);
+
+  const handleLanguageChange = (targetLang) => {
+    if (!targetLang || targetLang === language || languageChanging) return;
+    setNextLanguage(targetLang);
+    setLanguageChanging(true);
+
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        setLanguage(targetLang);
+      }, 420);
+
+      window.setTimeout(() => {
+        setLanguageChanging(false);
+        setNextLanguage(null);
+      }, 1100);
+    }
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1418,7 +1947,6 @@ export default function Home() {
     const gone = readRecentlyGone();
     setRecentlyGone(gone);
     setTimeLeft(getCountdownToNextShopUpdate());
-    setOnlineCount(164 + Math.floor(Math.random() * 58));
   }, []);
 
   useEffect(() => {
@@ -1436,14 +1964,21 @@ export default function Home() {
   useEffect(() => {
     const interval = setInterval(() => {
       setTimeLeft(getCountdownToNextShopUpdate());
-      setOnlineCount((prev) => {
-        const swing = Math.random() > 0.5 ? 1 : -1;
-        const next = prev + swing * (1 + Math.floor(Math.random() * 3));
-        return Math.max(120, Math.min(399, next));
-      });
     }, 1000);
 
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 260);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   useEffect(() => {
@@ -1520,6 +2055,16 @@ export default function Home() {
       ].filter((group) => group.items.length > 0);
     }
 
+    if (selectedSection === "ALL" && sortMode !== "NONE") {
+      return [
+        {
+          id: "ALL_SORTED",
+          title: labels.showAllSections.replace("Mostrar ", ""),
+          items: visibleItems,
+        },
+      ].filter((group) => group.items.length > 0);
+    }
+
     if (selectedSection !== "ALL" && selectedSection !== "RECENT" && selectedSection !== "NEW") {
       return [
         {
@@ -1531,7 +2076,7 @@ export default function Home() {
     }
 
     return groupItemsBySection(visibleItems);
-  }, [visibleItems, selectedSection, labels.recentlyGone]);
+  }, [visibleItems, selectedSection, sortMode, labels.recentlyGone, labels.showAllSections]);
 
   useEffect(() => {
     if (!loading && groupsRef.current) {
@@ -1544,7 +2089,7 @@ export default function Home() {
     [cart]
   );
 
-  function addToCart(item) {
+  function addToCart(item, openCartPanel = true) {
     setCart((prev) => {
       const existing = prev.find((entry) => entry.id === item.id);
       if (existing) {
@@ -1554,7 +2099,13 @@ export default function Home() {
       }
       return [...prev, { id: item.id, qty: 1 }];
     });
-    setCartOpen(true);
+
+    setCartPulse(true);
+    window.setTimeout(() => setCartPulse(false), 620);
+
+    if (openCartPanel) {
+      setCartOpen(true);
+    }
   }
 
   function updateCartQty(id, qty) {
@@ -1565,6 +2116,29 @@ export default function Home() {
     setCart((prev) =>
       prev.map((entry) => (entry.id === id ? { ...entry, qty } : entry))
     );
+  }
+
+
+  function applySearch() {
+    setSearch(searchInput.trim());
+    setSearchInput("");
+  }
+
+  function handleSearchKeyDown(event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      applySearch();
+    }
+  }
+
+  function scrollToTop() {
+    if (typeof window === "undefined") return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function scrollToBottom() {
+    if (typeof window === "undefined") return;
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
   }
 
   const titleText =
@@ -1580,76 +2154,94 @@ export default function Home() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_20%),linear-gradient(180deg,_#000000_0%,_#021106_45%,_#000000_100%)] text-white">
-      <header className="sticky top-0 z-50 border-b border-[#153321] bg-[#030603]/90 backdrop-blur">
+      <style jsx global>{`
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0.65; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOutRight {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(100%); opacity: 0.65; }
+        }
+        @keyframes cartPop {
+          0% { transform: scale(1); }
+          35% { transform: scale(1.18) rotate(-6deg); }
+          65% { transform: scale(0.94) rotate(4deg); }
+          100% { transform: scale(1); }
+        }
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.18; transform: scale(0.8); }
+          35% { opacity: 0.95; transform: scale(1.25); }
+          50% { opacity: 0.55; transform: scale(0.95); }
+          75% { opacity: 0.9; transform: scale(1.15); }
+        }
+      `}</style>
+      <SparkleBackground />
+      <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#153321] bg-[#020905]/92 backdrop-blur-xl shadow-[0_8px_28px_rgba(0,0,0,0.38)]">
         <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 md:px-6">
-          <div className="flex min-w-0 items-center gap-3">
+          <Link href="/" className="flex min-w-0 items-center gap-3">
             <img
               src="/ganker-logo.png"
-              alt="Ganker Games"
-              className="h-12 w-12 shrink-0 rounded-full border border-[#19ff72]/40 object-cover shadow-[0_0_18px_rgba(25,255,114,0.25)]"
+              alt="GKG"
+              className="h-11 w-11 shrink-0 rounded-full border border-[#19ff72]/45 object-cover shadow-[0_0_18px_rgba(25,255,114,0.25)] md:h-12 md:w-12"
             />
+
             <div className="min-w-0">
-              <p className="truncate text-base font-extrabold leading-none sm:text-lg">{labels.brand}</p>
-              <p className="text-[10px] uppercase tracking-[0.25em] text-[#67ff9a] sm:text-xs">
-                {labels.brandSub}
-              </p>
-              <div className="mt-1 inline-flex items-center gap-2 rounded-full border border-[#0fff8d]/35 bg-[#07140f] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#67ff9a] shadow-[0_0_18px_rgba(15,255,141,0.15)] sm:text-[11px]">
-                <span className="h-2 w-2 rounded-full bg-[#15ff7a] shadow-[0_0_10px_rgba(21,255,122,0.9)]" />
-                {labels.onlineNow}: {onlineCount} {labels.visitors}
+              <div className="flex items-end gap-2 whitespace-nowrap">
+                <p className="text-2xl font-black italic leading-none text-white md:text-3xl">
+                  {labels.brand}
+                </p>
+                <span className="mb-[2px] text-[11px] font-black uppercase tracking-[0.18em] text-[#67ff9a] drop-shadow-[0_0_10px_rgba(103,255,154,0.42)] md:mb-0 md:text-xs">
+                  {language === "es-419" ? "Página" : "Web"}
+                </span>
               </div>
             </div>
-          </div>
+          </Link>
 
-          <div className="ml-auto flex items-center gap-2">
-            <select
-              value={language}
-              onChange={(event) => setLanguage(event.target.value)}
-              className="rounded-xl border border-[#284635] bg-[#0b120d] px-3 py-2 text-sm font-semibold text-white outline-none focus:border-[#67ff9a]"
-            >
-              <option value="es-419">ES</option>
-              <option value="en">EN</option>
-            </select>
-
+          <div className="ml-auto flex items-center gap-2 md:gap-3">
             <button
               type="button"
-              onClick={() => setCartOpen(true)}
-              className="rounded-xl border border-[#67ff9a] bg-[#0b120d] px-3 py-2 text-sm font-bold text-[#67ff9a] md:hidden"
+              onClick={() => handleLanguageChange(language === "es-419" ? "en" : "es-419")}
+              aria-label={language === "es-419" ? "Cambiar a inglés" : "Switch to Spanish"}
+              className="relative flex h-11 w-[72px] items-center justify-center rounded-2xl border border-[#1eff7a]/35 bg-[linear-gradient(135deg,#07140f_0%,#0c2116_100%)] text-[#67ff9a] shadow-[0_0_18px_rgba(21,216,99,0.10)] transition hover:scale-[1.02] hover:border-[#67ff9a] hover:bg-[#0b1f15] md:h-12 md:w-[78px]"
             >
-              {labels.cart} ({cartCount})
+              <span className="absolute -left-1.5 top-1/2 -translate-y-1/2 rounded-full border border-red-300/50 bg-[linear-gradient(135deg,#ff3030_0%,#a40000_100%)] px-2 py-[3px] text-[10px] font-black uppercase leading-none text-white shadow-[0_0_10px_rgba(255,0,0,0.35)]">
+                {language === "es-419" ? "ESP" : "EN"}
+              </span>
+              <svg
+                viewBox="0 0 64 64"
+                className="h-6 w-6 md:h-7 md:w-7"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M19 39c0 6-4.5 11-10 12 1.4-4.1.8-8.9-1-12 0-8.8 7.2-16 16-16 6 0 11.3 3.3 14 8.3" />
+                <path d="M45 41c0-6 4.5-11 10-12-1.4 4.1-.8 8.9 1 12 0 8.8-7.2 16-16 16-6 0-11.3-3.3-14-8.3" />
+                <path d="M29 31c1.4 0 2.5 1.1 2.5 2.5S30.4 36 29 36" />
+                <path d="M35 28c3 1.6 5.4 4.2 6.8 7.4" />
+                <path d="M38.5 24.5c5.3 2.3 9.4 6.6 11.4 11.9" />
+                <path d="M25 17h14a3 3 0 0 1 3 3v10H22V20a3 3 0 0 1 3-3Z" opacity="0.9" />
+                <path d="M27 23h10" />
+                <path d="M27 27h6" />
+                <circle cx="38" cy="27" r="1" fill="currentColor" stroke="none" />
+              </svg>
             </button>
 
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="rounded-xl border border-[#284635] bg-[#0b120d] px-3 py-2 text-sm font-bold text-white md:hidden"
+              aria-label={labels.menu}
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#1eff7a]/35 bg-[#07140f] text-[#67ff9a] shadow-[0_0_18px_rgba(21,216,99,0.10)] transition hover:border-[#67ff9a] hover:bg-[#0b1f15] md:h-12 md:w-12"
             >
-              {labels.menu}
+              <span className="flex flex-col gap-1.5">
+                <span className="block h-0.5 w-5 rounded-full bg-current" />
+                <span className="block h-0.5 w-5 rounded-full bg-current" />
+                <span className="block h-0.5 w-5 rounded-full bg-current" />
+              </span>
             </button>
-
-            <nav className="hidden items-center gap-2 md:flex">
-              <Link href="/" className="rounded-xl bg-[#15d863] px-4 py-2 text-sm font-bold text-[#06110a]">
-                {labels.navShop}
-              </Link>
-              <Link
-                href="/noticias"
-                className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white transition hover:border-[#67ff9a]"
-              >
-                {labels.navNews}
-              </Link>
-              <Link
-                href="/stw"
-                className="rounded-xl border border-[#284635] bg-[#0b120d] px-4 py-2 text-sm font-bold text-white transition hover:border-[#67ff9a]"
-              >
-                {labels.navSTW}
-              </Link>
-              <button
-                type="button"
-                onClick={() => setCartOpen(true)}
-                className="rounded-xl border border-[#67ff9a] bg-[#0b120d] px-4 py-2 text-sm font-bold text-[#67ff9a]"
-              >
-                {labels.cart} ({cartCount})
-              </button>
-            </nav>
           </div>
         </div>
       </header>
@@ -1659,71 +2251,242 @@ export default function Home() {
         labels={labels}
         cartCount={cartCount}
         onClose={() => setMobileMenuOpen(false)}
+        onCartOpen={() => setCartOpen(true)}
       />
 
-      <div className="mx-auto max-w-[1600px] px-4 py-4 md:px-6 md:py-6">
-        <section className="mb-6 overflow-hidden rounded-[24px] border border-[#1d4a2d] bg-[linear-gradient(120deg,_rgba(0,255,102,0.10)_0%,_rgba(5,14,8,0.96)_35%,_rgba(2,7,3,0.96)_100%)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.35)] md:rounded-[28px] md:p-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="mb-2 text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">
-                {labels.heroKicker}
-              </p>
-              <h1 className="text-3xl font-black uppercase italic sm:text-4xl md:text-6xl">
-                {labels.heroTitle}
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200 sm:text-base md:text-lg">
-                {labels.heroDesc}
-              </p>
-            </div>
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={() => setFilterModalOpen(true)}
+          aria-label={labels.filterButton}
+          className="fixed left-4 top-[86px] z-[61] flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_24px_rgba(21,255,98,0.32),0_10px_22px_rgba(0,0,0,0.40)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white md:left-6 md:top-[98px] md:h-14 md:w-14"
+        >
+          <span className="relative block h-5 w-5 md:h-6 md:w-6">
+            <span className="absolute left-0 top-0 h-[2px] w-full rounded-full bg-current" />
+            <span className="absolute left-0 top-[7px] h-[2px] w-[82%] rounded-full bg-current md:top-[8px]" />
+            <span className="absolute left-0 top-[14px] h-[2px] w-[62%] rounded-full bg-current md:top-[16px]" />
+            <span className="absolute right-0 top-[-2px] h-1.5 w-1.5 rounded-full bg-current md:h-2 md:w-2" />
+            <span className="absolute right-1 top-[5px] h-1.5 w-1.5 rounded-full bg-current md:top-[6px] md:h-2 md:w-2" />
+            <span className="absolute right-2 top-[12px] h-1.5 w-1.5 rounded-full bg-current md:top-[14px] md:h-2 md:w-2" />
+          </span>
+        </button>
+      )}
 
-            <div className="rounded-2xl border border-[#255239] bg-[#040804]/80 p-4 backdrop-blur md:p-5">
-              <p className="text-sm font-semibold text-[#67ff9a]">{labels.nextUpdate}</p>
-              <p className="mt-2 text-2xl font-black tracking-wider sm:text-3xl md:text-4xl">
-                {timeLeft}
-              </p>
-              <p className="mt-2 text-xs text-slate-300 sm:text-sm">{labels.shopChangesAt}</p>
-            </div>
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={() => setSortModalOpen(true)}
+          aria-label={labels.sortButton}
+          className="fixed left-4 top-[146px] z-[61] flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_24px_rgba(21,255,98,0.32),0_10px_22px_rgba(0,0,0,0.40)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white md:left-6 md:top-[166px] md:h-14 md:w-14"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-7 w-7 md:h-8 md:w-8"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 6h7" />
+            <path d="M4 12h5" />
+            <path d="M4 18h3" />
+            <path d="M15 19V5" />
+            <path d="m11 9 4-4 4 4" />
+            <path d="M21 5v14" />
+            <path d="m17 15 4 4 4-4" />
+          </svg>
+        </button>
+      )}
+
+      {showScrollTop && (
+        <a
+          href="https://youtube.com/shorts/A0SAjcySAsc?feature=share"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Tutorial de compra"
+          className="fixed left-4 top-[206px] z-[61] flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_24px_rgba(21,255,98,0.32),0_10px_22px_rgba(0,0,0,0.40)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white md:left-6 md:top-[234px] md:h-14 md:w-14"
+        >
+          <span className="absolute left-[calc(100%+0.32rem)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-red-300/40 bg-[linear-gradient(135deg,#ff2f2f_0%,#980000_100%)] px-1.5 py-[2px] text-[6px] font-black uppercase leading-none tracking-[0.05em] text-white shadow-[0_0_10px_rgba(255,0,0,0.30)] md:text-[7px]">
+            Tuto de compra
+          </span>
+          <svg viewBox="0 0 24 24" className="h-6 w-6 md:h-7 md:w-7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="13" height="14" rx="3" />
+            <path d="m10 10 4 2-4 2v-4Z" fill="currentColor" stroke="none" />
+            <path d="m16 10 5-3v10l-5-3" />
+          </svg>
+        </a>
+      )}
+
+      {!showScrollTop && (
+        <button
+          type="button"
+          onClick={scrollToBottom}
+          aria-label="Ir al fondo"
+          className="fixed bottom-24 right-5 z-[61] flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_24px_rgba(21,255,98,0.32),0_10px_22px_rgba(0,0,0,0.40)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white md:bottom-[108px] md:right-7 md:h-14 md:w-14"
+        >
+          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 5v13" />
+            <path d="m6 12 6 6 6-6" />
+          </svg>
+        </button>
+      )}
+
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={scrollToTop}
+          aria-label="Volver arriba"
+          className="fixed bottom-24 right-5 z-[61] flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_24px_rgba(21,255,98,0.32),0_10px_22px_rgba(0,0,0,0.40)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white md:bottom-[108px] md:right-7 md:h-14 md:w-14"
+        >
+          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 19V6" />
+            <path d="m6 12 6-6 6 6" />
+          </svg>
+        </button>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setCartOpen(true)}
+        className={`fixed bottom-5 right-5 z-[60] flex h-12 w-12 items-center justify-center rounded-full border-[3px] border-[#8cff9f] bg-[linear-gradient(135deg,#16e83d_0%,#0dbb2e_48%,#07851f_100%)] text-white shadow-[0_0_0_2px_rgba(21,255,98,0.20),0_0_24px_rgba(21,255,98,0.68),0_10px_22px_rgba(0,0,0,0.46)] ring-2 ring-[#18ff63]/35 transition hover:scale-105 hover:shadow-[0_0_0_2px_rgba(21,255,98,0.28),0_0_34px_rgba(21,255,98,0.88),0_10px_22px_rgba(0,0,0,0.46)] active:scale-95 md:bottom-7 md:right-7 md:h-14 md:w-14 ${cartPulse ? "animate-[cartPop_620ms_ease-out]" : ""}` }
+        aria-label={labels.cart}
+      >
+        <span className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(circle_at_30%_22%,rgba(255,255,255,0.30),rgba(255,255,255,0.08)_33%,rgba(255,255,255,0)_62%)]" />
+
+        {cartPulse && (
+          <span className="absolute right-[calc(100%+0.55rem)] top-1/2 z-20 -translate-y-1/2 whitespace-nowrap rounded-full border border-[#8cff9f] bg-[#07140f] px-3 py-1 text-[10px] font-black uppercase tracking-wide text-[#67ff9a] shadow-[0_0_18px_rgba(21,216,99,0.35)]">
+            Agregado
+          </span>
+        )}
+
+        <svg
+          viewBox="0 0 24 24"
+          className="relative z-10 h-[58%] w-[58%] drop-shadow-[0_3px_5px_rgba(0,0,0,0.28)] md:h-[60%] md:w-[60%]"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="9" cy="20" r="1.25" fill="currentColor" stroke="none" />
+          <circle cx="17" cy="20" r="1.25" fill="currentColor" stroke="none" />
+          <path d="M3 4h2.2l1.6 8.2a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.76L19 7H6.1" />
+          <path d="M8 16h10" />
+        </svg>
+
+        {cartCount > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 z-20 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-red-600 px-1 text-[11px] font-black leading-none text-white shadow-[0_0_14px_rgba(255,0,0,0.75)] md:h-7 md:min-w-7 md:text-[12px]">
+            {cartCount}
+          </span>
+        )}
+      </button>
+
+      <div className="mx-auto max-w-[1600px] px-4 pb-4 pt-[92px] md:px-6 md:pb-6 md:pt-[104px]">
+        <section className="mb-5 overflow-hidden rounded-[22px] border border-[#1d4a2d] bg-[linear-gradient(120deg,_rgba(0,255,102,0.10)_0%,_rgba(5,14,8,0.96)_35%,_rgba(2,7,3,0.96)_100%)] p-3 shadow-[0_16px_45px_rgba(0,0,0,0.32)] md:rounded-[26px] md:p-4">
+          <div className="rounded-[20px] border border-[#255239] bg-[#040804]/80 p-4 text-center backdrop-blur md:p-5">
+            <p className="text-center text-sm font-black uppercase tracking-[0.34em] text-[#7dffae] drop-shadow-[0_0_12px_rgba(103,255,154,0.36)] md:text-base">{labels.objectsFortnite}</p>
+            <p className="mt-3 text-center text-sm font-black text-white md:text-base">{labels.nextUpdate}</p>
+            <p className="mt-2 text-center text-3xl font-black tracking-wider sm:text-4xl md:text-5xl">
+              {timeLeft}
+            </p>
+            <p className="mt-2 text-center text-xs text-slate-300 md:text-sm">{labels.shopChangesAt}</p>
           </div>
         </section>
 
         <div className="mb-6 rounded-[24px] border border-[#1a2c21] bg-[#060b07]/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.25)] md:rounded-[28px] md:p-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="flex flex-col gap-4">
             <div className="min-w-0">
-              <p className="text-xs font-black uppercase tracking-[0.28em] text-[#67ff9a]">
-                {labels.heroKicker}
-              </p>
-              <h2 className="mt-2 text-2xl font-black uppercase italic sm:text-3xl md:text-5xl">
+              <h2 className="text-2xl font-black uppercase italic sm:text-3xl md:text-5xl">
                 {titleText}
               </h2>
             </div>
 
-            <div className="flex w-full max-w-3xl flex-col gap-3 xl:items-end">
-              <div className="flex w-full flex-wrap items-center gap-3 xl:justify-end">
-                <div className="min-w-[260px] flex-1 xl:max-w-xl">
+            <div className="flex w-full flex-col gap-3">
+              <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 flex-1 items-center overflow-hidden rounded-full border border-[#284635] bg-[#0c110d] shadow-[0_0_0_1px_rgba(21,216,99,0.02)]">
                   <input
                     type="text"
                     placeholder={labels.searchPlaceholder}
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    className="w-full rounded-full border border-[#284635] bg-[#0c110d] px-5 py-3 text-sm text-white outline-none placeholder:text-slate-400 focus:border-[#67ff9a]"
+                    value={searchInput}
+                    onChange={(event) => setSearchInput(event.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    className="w-full bg-transparent px-5 py-3 text-sm text-white outline-none placeholder:text-slate-400"
                   />
+                  <button
+                    type="button"
+                    onClick={applySearch}
+                    className="mr-1 rounded-full bg-[#15d863] px-4 py-2 text-sm font-black text-[#06110a] transition hover:brightness-110"
+                  >
+                    {labels.searchButton}
+                  </button>
                 </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFilterModalOpen(true)}
+                  aria-label={labels.filterButton}
+                  title={labels.filterButton}
+                  className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_22px_rgba(21,255,98,0.26),0_8px_18px_rgba(0,0,0,0.30)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white"
+                >
+                  <span className="relative block h-5 w-5">
+                    <span className="absolute left-0 top-0 h-[2px] w-5 rounded-full bg-current" />
+                    <span className="absolute left-0 top-[7px] h-[2px] w-4 rounded-full bg-current" />
+                    <span className="absolute left-0 top-[14px] h-[2px] w-3 rounded-full bg-current" />
+                    <span className="absolute right-0 top-[-1px] h-1.5 w-1.5 rounded-full bg-current" />
+                    <span className="absolute right-1 top-[6px] h-1.5 w-1.5 rounded-full bg-current" />
+                    <span className="absolute right-2 top-[13px] h-1.5 w-1.5 rounded-full bg-current" />
+                  </span>
+                </button>
 
                 <button
                   type="button"
                   onClick={() => setSortModalOpen(true)}
-                  className="rounded-xl border border-[#284635] bg-[#0d1210] px-5 py-3 text-sm font-extrabold text-white"
+                  aria-label={labels.sortButton}
+                  title={labels.sortButton}
+                  className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_22px_rgba(21,255,98,0.26),0_8px_18px_rgba(0,0,0,0.30)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white"
                 >
-                  {labels.sortButton}
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-6 w-6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 6h7" />
+                    <path d="M4 12h5" />
+                    <path d="M4 18h3" />
+                    <path d="M15 19V5" />
+                    <path d="m11 9 4-4 4 4" />
+                    <path d="M21 5v14" />
+                    <path d="m17 15 4 4 4-4" />
+                  </svg>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setFilterModalOpen(true)}
-                  className="rounded-xl border border-[#284635] bg-[#0d1210] px-5 py-3 text-sm font-extrabold text-white"
+                <a
+                  href="https://youtube.com/shorts/A0SAjcySAsc?feature=share"
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Tutorial de compra"
+                  title="Tutorial de compra"
+                  className="relative flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_22px_rgba(21,255,98,0.26),0_8px_18px_rgba(0,0,0,0.30)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white"
                 >
-                  {labels.filterButton}
-                </button>
+                  <span className="absolute left-[calc(100%+0.32rem)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-red-300/40 bg-[linear-gradient(135deg,#ff2f2f_0%,#980000_100%)] px-1.5 py-[2px] text-[7px] font-black uppercase tracking-[0.08em] leading-none text-white shadow-[0_0_10px_rgba(255,0,0,0.30)]">
+                    Tuto de compra
+                  </span>
+                  <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="3" y="5" width="13" height="14" rx="3" />
+                    <path d="m10 10 4 2-4 2v-4Z" fill="currentColor" stroke="none" />
+                    <path d="m16 10 5-3v10l-5-3" />
+                  </svg>
+                </a>
               </div>
             </div>
           </div>
@@ -1764,16 +2527,13 @@ export default function Home() {
                       }}
                     />
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.30em] text-[#67ff9a]">
-                        {labels.heroKicker}
-                      </p>
                       <h3 className="text-2xl font-black uppercase italic text-white sm:text-3xl">
                         {group.title}
                       </h3>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                     {group.items.map((item) => (
                       <ShopCard
                         key={item.id}
@@ -1781,6 +2541,7 @@ export default function Home() {
                         labels={labels}
                         language={language}
                         onOpen={setModalEntry}
+                        onQuickAdd={(entry) => addToCart(entry, false)}
                         groupKey={group.id}
                       />
                     ))}
@@ -1791,6 +2552,35 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {languageChanging && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/72 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-sm rounded-[30px] border border-[#1eff7a]/35 bg-[linear-gradient(180deg,rgba(4,18,13,0.95)_0%,rgba(4,14,11,0.92)_100%)] p-6 text-center shadow-[0_0_55px_rgba(21,216,99,0.14)]">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-[#8cff9f]/55 bg-[radial-gradient(circle_at_30%_30%,rgba(22,232,61,0.28),rgba(6,30,18,0.95)_70%)] text-[#67ff9a] shadow-[0_0_24px_rgba(21,216,99,0.28)]">
+              <svg viewBox="0 0 64 64" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="32" cy="32" r="18" />
+                <path d="M14 32h36" />
+                <path d="M32 14c5 5.4 8 11.3 8 18s-3 12.6-8 18c-5-5.4-8-11.3-8-18s3-12.6 8-18Z" />
+                <path d="M8 18h12v12H8Z" />
+                <path d="M44 34h12v12H44Z" />
+                <path d="M12 26l4-8" />
+                <path d="M50 46l4-8" />
+                <path d="M48 38h4" />
+              </svg>
+            </div>
+            <p className="mt-5 text-2xl font-black italic text-white">{labels.changingLanguage}</p>
+            <p className="mt-2 text-sm font-black uppercase tracking-[0.25em] text-[#67ff9a]">{labels.loadingLanguage}</p>
+            <img
+              src="/ganker-logo.png"
+              alt="GKG"
+              className="mx-auto mt-5 h-16 w-16 rounded-full border border-[#19ff72]/45 object-cover shadow-[0_0_18px_rgba(25,255,114,0.25)]"
+            />
+            <p className="mt-3 text-xs font-black uppercase tracking-[0.2em] text-[#ff4d4d]">
+              {(nextLanguage || language) === "es-419" ? "ESP" : "EN"}
+            </p>
+          </div>
+        </div>
+      )}
 
       <FilterModal
         open={filterModalOpen}
