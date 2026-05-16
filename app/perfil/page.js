@@ -16,6 +16,7 @@ import {
   Gamepad2,
   Globe2,
   KeyRound,
+  Tag,
   LockKeyhole,
   Mail,
   MapPin,
@@ -29,14 +30,17 @@ import {
   Bell,
   Ban,
   History,
+  Heart,
   LogOut,
   RotateCcw,
+  Send,
   Trophy,
   User,
   UserCheck,
   UserPlus,
   UsersRound,
   Zap,
+  X,
 } from "lucide-react";
 
 const LANG_STORAGE_KEY = "gkg-lang";
@@ -122,6 +126,7 @@ const translations = {
     notificationSettings: "Notificaciones",
     blockedUsers: "Usuarios bloqueados",
     changeHistory: "Historial de cambios",
+    profileLabels: "Etiquetas",
     securitySettings: "Seguridad",
     privacyTitle: "Privacidad del perfil",
     privacyDesc: "Controla qué datos opcionales aparecen en tu perfil principal.",
@@ -141,6 +146,13 @@ const translations = {
     unblockUser: "Desbloquear",
     blockedLabel: "Bloqueado",
     blockSaved: "Lista de bloqueados actualizada.",
+    tagsTitle: "Etiquetas del perfil",
+    tagsDesc: "Agrega etiquetas cortas para mostrar tus gustos en tu perfil privado y público.",
+    tagsLimitNormal: "Los perfiles normales pueden agregar hasta 3 etiquetas. Los VIP pueden agregar hasta 6.",
+    tagPlaceholder: "Ej. Fortnite, Juegos, Leer libros...",
+    tagSaved: "Etiqueta guardada correctamente.",
+    tagDeleted: "Etiqueta eliminada correctamente.",
+    tagLimitReached: "Llegaste al límite de etiquetas de tu perfil.",
     historyTitle: "Historial de cambios",
     historyDesc: "Aquí aparecen los cambios importantes realizados en tu cuenta.",
     noHistory: "Aún no hay cambios registrados.",
@@ -307,6 +319,7 @@ const translations = {
     notificationSettings: "Notifications",
     blockedUsers: "Blocked users",
     changeHistory: "Change history",
+    profileLabels: "Tags",
     securitySettings: "Security",
     privacyTitle: "Profile privacy",
     privacyDesc: "Control which optional details appear on your main profile.",
@@ -326,6 +339,13 @@ const translations = {
     unblockUser: "Unblock",
     blockedLabel: "Blocked",
     blockSaved: "Blocked users updated.",
+    tagsTitle: "Profile tags",
+    tagsDesc: "Add short tags to show your interests on your private and public profile.",
+    tagsLimitNormal: "Normal profiles can add up to 3 tags. VIP users can add up to 6.",
+    tagPlaceholder: "Ex. Fortnite, Gaming, Reading books...",
+    tagSaved: "Tag saved successfully.",
+    tagDeleted: "Tag deleted successfully.",
+    tagLimitReached: "You reached your profile tag limit.",
     historyTitle: "Change history",
     historyDesc: "Important account changes will appear here.",
     noHistory: "No changes have been registered yet.",
@@ -628,6 +648,7 @@ function getConfigMenu(t) {
     { name: t.password, key: "password", icon: LockKeyhole },
     { name: t.forgotPassword, key: "reset", icon: KeyRound },
     { name: t.privacySettings, key: "privacy", icon: ShieldCheck },
+    { name: t.profileLabels, key: "tags", icon: Tag },
     { name: t.notificationSettings, key: "notifications", icon: Bell },
     { name: t.blockedUsers, key: "blocked", icon: Ban },
     { name: t.changeHistory, key: "history", icon: History },
@@ -696,6 +717,27 @@ function formatDateForVip(dateValue) {
     month: "long",
     year: "numeric",
   }).format(date);
+}
+
+
+function formatAgeFromBirthday(dateString) {
+  if (!dateString) return "No visible";
+
+  const birthDate = new Date(`${dateString}T12:00:00`);
+  if (Number.isNaN(birthDate.getTime())) return "No visible";
+
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  const dayDiff = today.getDate() - birthDate.getDate();
+
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    age -= 1;
+  }
+
+  if (age < 0 || age > 120) return "No visible";
+
+  return `${age} años`;
 }
 
 function getVipStartDate(profile) {
@@ -769,6 +811,50 @@ function getVipBadgeLabelFromMonths(months) {
   const level = getVipLevelFromMonths(months);
 
   return level > 1 ? `GKG VIP ${level}` : "GKG VIP";
+}
+
+const TAG_COLOR_CLASSES = [
+  "border-[#1eff7a]/45 bg-[#1eff7a]/12 text-[#63ff9b] shadow-[0_0_12px_rgba(30,255,122,.14)]",
+  "border-cyan-300/45 bg-cyan-300/12 text-cyan-100 shadow-[0_0_12px_rgba(103,232,249,.14)]",
+  "border-fuchsia-300/45 bg-fuchsia-400/12 text-fuchsia-100 shadow-[0_0_12px_rgba(217,70,239,.14)]",
+  "border-yellow-300/45 bg-yellow-300/12 text-yellow-100 shadow-[0_0_12px_rgba(253,224,71,.14)]",
+  "border-orange-300/45 bg-orange-400/12 text-orange-100 shadow-[0_0_12px_rgba(251,146,60,.14)]",
+  "border-sky-300/45 bg-sky-400/12 text-sky-100 shadow-[0_0_12px_rgba(56,189,248,.14)]",
+  "border-rose-300/45 bg-rose-400/12 text-rose-100 shadow-[0_0_12px_rgba(251,113,133,.14)]",
+  "border-violet-300/45 bg-violet-400/12 text-violet-100 shadow-[0_0_12px_rgba(167,139,250,.14)]",
+];
+
+function getStableTagColorIndex(tag, index = 0) {
+  const value = String(tag?.tag_text || tag || "");
+  let hash = index;
+
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) % 9973;
+  }
+
+  return Math.abs(hash) % TAG_COLOR_CLASSES.length;
+}
+
+function getTagColorClasses(tag, index = 0) {
+  return TAG_COLOR_CLASSES[getStableTagColorIndex(tag, index)];
+}
+
+function isCreatorAccount(role) {
+  return ["admin", "creator", "creador"].includes(String(role || "").toLowerCase());
+}
+
+function CreatorBadge({ className = "", size = "sm" }) {
+  const textSize = size === "xs" ? "text-[10px]" : "text-xs";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-lg border border-zinc-300/45 bg-zinc-300/10 px-3 py-1 font-black uppercase tracking-wide text-zinc-100 shadow-[0_0_16px_rgba(212,212,216,.18)] ${textSize} ${className}`}
+      title="GKG Creador"
+    >
+      <ShieldCheck size={size === "xs" ? 13 : 15} />
+      GKG Creador
+    </span>
+  );
 }
 
 function getVipCycleNumberFromMonths(months) {
@@ -1087,7 +1173,19 @@ export default function PerfilPage() {
     participaciones: null,
   });
   const [customInterests, setCustomInterests] = useState([]);
+  const [profileTags, setProfileTags] = useState([]);
+  const [tagInput, setTagInput] = useState("");
+  const [tagMessage, setTagMessage] = useState("");
+  const [tagSaving, setTagSaving] = useState(false);
   const [gkgUpdates, setGkgUpdates] = useState([]);
+  const [selectedGkgUpdate, setSelectedGkgUpdate] = useState(null);
+  const [gkgUpdateComments, setGkgUpdateComments] = useState([]);
+  const [gkgUpdateCommentText, setGkgUpdateCommentText] = useState("");
+  const [editingGkgUpdateComment, setEditingGkgUpdateComment] = useState(null);
+  const [gkgUpdateActionMessage, setGkgUpdateActionMessage] = useState("");
+  const [gkgUpdateActionLoading, setGkgUpdateActionLoading] = useState(false);
+  const [showAllGkgUpdatesMobile, setShowAllGkgUpdatesMobile] = useState(false);
+  const [showAllInterestsMobile, setShowAllInterestsMobile] = useState(false);
   const [interestModalOpen, setInterestModalOpen] = useState(false);
   const [editingInterest, setEditingInterest] = useState(null);
   const [interestImageFile, setInterestImageFile] = useState(null);
@@ -1117,6 +1215,7 @@ export default function PerfilPage() {
   const profileVipBadgeLabel = getVipBadgeLabelFromMonths(profileVipMonths);
 
   const accountRole = profile.account_role || "user";
+  const isCreatorProfile = isCreatorAccount(accountRole);
   const canManageGiveaways = accountRole === "admin" || accountRole === "creator";
   const tabs = canManageGiveaways
     ? [
@@ -1131,6 +1230,21 @@ export default function PerfilPage() {
   const configMenu = getConfigMenu(t);
   const activeDraftProfile = draftProfile || profile;
   const isProfileDeleted = Boolean(profile.deleted_at);
+  const maxProfileTags = profile.is_vip ? 6 : 3;
+  const suggestedTags = [
+    "Fortnite",
+    "Juegos",
+    "Comunidad",
+    "Tienda Fortnite",
+    "Noticias",
+    "Leer libros",
+    "Anime",
+    "Música",
+    "Competitivo",
+    "Coleccionables",
+    "Creativo",
+    "Amigos",
+  ];
 
   const stats = [
     {
@@ -1328,32 +1442,48 @@ export default function PerfilPage() {
 
   async function loadGkgUpdates() {
     try {
-      const { data, error } = await supabase
-        .from("gkg_page_updates")
-        .select("*")
-        .eq("is_visible", true)
-        .order("created_at", { ascending: false })
-        .limit(5);
+      const { data, error } = await supabase.rpc("get_gkg_page_updates_feed");
 
       if (error) throw error;
 
       setGkgUpdates(data || []);
     } catch (error) {
-      console.warn("GKG updates load error:", error);
-      setGkgUpdates([
-        {
-          id: "default-vip",
-          title: "Actualización de perfil VIP",
-          description: "Se mejoró la sección VIP, premios y reclamos dentro de Ganker Games.",
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: "default-sorteos",
-          title: "Sorteos GKG activos",
-          description: "Se actualizó el registro privado y el seguimiento de participaciones.",
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      console.warn("GKG updates RPC load error:", error);
+
+      try {
+        const { data, error: tableError } = await supabase
+          .from("gkg_page_updates")
+          .select("*")
+          .eq("is_visible", true)
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        if (tableError) throw tableError;
+
+        setGkgUpdates(data || []);
+      } catch (tableError) {
+        console.warn("GKG updates load error:", tableError);
+        setGkgUpdates([
+          {
+            id: "default-tags",
+            title: "Etiquetas de perfil disponibles",
+            description: "Ahora puedes agregar etiquetas de gustos en tu perfil para que aparezcan en tu perfil privado y público.",
+            likes_count: 0,
+            comments_count: 0,
+            is_liked: false,
+            created_at: new Date().toISOString(),
+          },
+          {
+            id: "default-updates",
+            title: "Actualizaciones interactivas",
+            description: "Las actualizaciones de la página ahora se pueden abrir para leer la descripción completa, reaccionar y comentar brevemente.",
+            likes_count: 0,
+            comments_count: 0,
+            is_liked: false,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+      }
     }
   }
 
@@ -1369,6 +1499,300 @@ export default function PerfilPage() {
       supabase.removeChannel(channel);
     };
   }, [supabase]);
+
+  async function loadGkgUpdateComments(updateId) {
+    if (!updateId || String(updateId).startsWith("default-")) {
+      setGkgUpdateComments([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc("get_gkg_update_comments", {
+        update_id_input: updateId,
+      });
+
+      if (error) throw error;
+
+      setGkgUpdateComments(data || []);
+    } catch (error) {
+      console.warn("GKG update comments error:", error);
+      setGkgUpdateComments([]);
+    }
+  }
+
+  async function openGkgUpdateModal(update) {
+    setSelectedGkgUpdate(update);
+    setGkgUpdateActionMessage("");
+    setGkgUpdateCommentText("");
+    setEditingGkgUpdateComment(null);
+    await loadGkgUpdateComments(update.id);
+  }
+
+  async function toggleGkgUpdateLike() {
+    if (!selectedGkgUpdate?.id || String(selectedGkgUpdate.id).startsWith("default-")) return;
+
+    if (!user?.id) {
+      router.push("/login");
+      return;
+    }
+
+    setGkgUpdateActionLoading(true);
+    setGkgUpdateActionMessage("");
+
+    try {
+      const { data, error } = await supabase.rpc("toggle_gkg_update_like", {
+        update_id_input: selectedGkgUpdate.id,
+      });
+
+      if (error) throw error;
+
+      const result = Array.isArray(data) ? data[0] : data;
+      const nextLiked = Boolean(result?.liked);
+      const nextLikes = Number(result?.likes_count ?? selectedGkgUpdate.likes_count ?? 0);
+
+      setSelectedGkgUpdate((current) =>
+        current
+          ? {
+              ...current,
+              is_liked: nextLiked,
+              likes_count: nextLikes,
+            }
+          : current
+      );
+
+      setGkgUpdates((current) =>
+        current.map((item) =>
+          item.id === selectedGkgUpdate.id
+            ? { ...item, is_liked: nextLiked, likes_count: nextLikes }
+            : item
+        )
+      );
+    } catch (error) {
+      setGkgUpdateActionMessage(error.message || "No se pudo guardar tu reacción.");
+    } finally {
+      setGkgUpdateActionLoading(false);
+    }
+  }
+
+  async function sendGkgUpdateComment() {
+    if (!selectedGkgUpdate?.id || String(selectedGkgUpdate.id).startsWith("default-")) return;
+
+    if (!user?.id) {
+      router.push("/login");
+      return;
+    }
+
+    const text = gkgUpdateCommentText.trim();
+
+    if (!text) {
+      setGkgUpdateActionMessage("Escribe un comentario breve.");
+      return;
+    }
+
+    if (text.length > 140) {
+      setGkgUpdateActionMessage("El comentario debe tener máximo 140 caracteres.");
+      return;
+    }
+
+    setGkgUpdateActionLoading(true);
+    setGkgUpdateActionMessage("");
+
+    try {
+      if (editingGkgUpdateComment?.id) {
+        const { error } = await supabase.rpc("update_gkg_update_comment", {
+          comment_id_input: editingGkgUpdateComment.id,
+          comment_text_input: text,
+        });
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.rpc("add_gkg_update_comment", {
+          update_id_input: selectedGkgUpdate.id,
+          comment_text_input: text,
+        });
+
+        if (error) throw error;
+      }
+
+      setGkgUpdateCommentText("");
+      setEditingGkgUpdateComment(null);
+      await loadGkgUpdateComments(selectedGkgUpdate.id);
+      await loadGkgUpdates();
+
+      if (!editingGkgUpdateComment?.id) {
+        setSelectedGkgUpdate((current) =>
+          current
+            ? {
+                ...current,
+                comments_count: Number(current.comments_count || 0) + 1,
+              }
+            : current
+        );
+      }
+    } catch (error) {
+      setGkgUpdateActionMessage(
+        error.message ||
+          (editingGkgUpdateComment?.id
+            ? "No se pudo actualizar tu comentario."
+            : "No se pudo publicar tu comentario.")
+      );
+    } finally {
+      setGkgUpdateActionLoading(false);
+    }
+  }
+
+  function startEditGkgUpdateComment(comment) {
+    if (!comment?.id || comment.profile_id !== user?.id) return;
+
+    setEditingGkgUpdateComment(comment);
+    setGkgUpdateCommentText(comment.comment_text || "");
+    setGkgUpdateActionMessage("");
+  }
+
+  function cancelEditGkgUpdateComment() {
+    setEditingGkgUpdateComment(null);
+    setGkgUpdateCommentText("");
+    setGkgUpdateActionMessage("");
+  }
+
+  async function deleteGkgUpdateComment(comment) {
+    if (!selectedGkgUpdate?.id || !comment?.id || comment.profile_id !== user?.id) return;
+
+    const confirmed =
+      typeof window === "undefined"
+        ? true
+        : window.confirm("¿Seguro que quieres borrar este comentario?");
+
+    if (!confirmed) return;
+
+    setGkgUpdateActionLoading(true);
+    setGkgUpdateActionMessage("");
+
+    try {
+      const { error } = await supabase.rpc("delete_gkg_update_comment", {
+        comment_id_input: comment.id,
+      });
+
+      if (error) throw error;
+
+      if (editingGkgUpdateComment?.id === comment.id) {
+        cancelEditGkgUpdateComment();
+      }
+
+      await loadGkgUpdateComments(selectedGkgUpdate.id);
+      await loadGkgUpdates();
+
+      setSelectedGkgUpdate((current) =>
+        current
+          ? {
+              ...current,
+              comments_count: Math.max(0, Number(current.comments_count || 0) - 1),
+            }
+          : current
+      );
+    } catch (error) {
+      setGkgUpdateActionMessage(error.message || "No se pudo borrar tu comentario.");
+    } finally {
+      setGkgUpdateActionLoading(false);
+    }
+  }
+
+  async function loadProfileTags() {
+    if (!user?.id) {
+      setProfileTags([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("profile_tags")
+        .select("*")
+        .eq("profile_id", user.id)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      setProfileTags(data || []);
+    } catch (error) {
+      console.warn("Profile tags load error:", error);
+      setProfileTags([]);
+    }
+  }
+
+  useEffect(() => {
+    loadProfileTags();
+  }, [user?.id, supabase]);
+
+  async function addProfileTag(value = tagInput) {
+    if (!user?.id || tagSaving) return;
+
+    const cleanTag = String(value || "")
+      .replace(/#/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 24);
+
+    if (!cleanTag) {
+      setTagMessage("Escribe una etiqueta.");
+      return;
+    }
+
+    if (profileTags.some((tag) => tag.tag_text.toLowerCase() === cleanTag.toLowerCase())) {
+      setTagMessage("Esa etiqueta ya está agregada.");
+      return;
+    }
+
+    if (profileTags.length >= maxProfileTags) {
+      setTagMessage(t.tagLimitReached);
+      return;
+    }
+
+    setTagSaving(true);
+    setTagMessage("");
+
+    try {
+      const { error } = await supabase.from("profile_tags").insert({
+        profile_id: user.id,
+        tag_text: cleanTag,
+      });
+
+      if (error) throw error;
+
+      setTagInput("");
+      await loadProfileTags();
+      await addChangeHistory("profile_tag_add", `Agregó etiqueta: ${cleanTag}`);
+      setTagMessage(t.tagSaved);
+    } catch (error) {
+      setTagMessage(error.message || "No se pudo guardar la etiqueta.");
+    } finally {
+      setTagSaving(false);
+    }
+  }
+
+  async function deleteProfileTag(tagId) {
+    if (!user?.id || !tagId) return;
+
+    setTagSaving(true);
+    setTagMessage("");
+
+    try {
+      const { error } = await supabase
+        .from("profile_tags")
+        .delete()
+        .eq("id", tagId)
+        .eq("profile_id", user.id);
+
+      if (error) throw error;
+
+      await loadProfileTags();
+      await addChangeHistory("profile_tag_delete", "Eliminó una etiqueta del perfil");
+      setTagMessage(t.tagDeleted);
+    } catch (error) {
+      setTagMessage(error.message || "No se pudo borrar la etiqueta.");
+    } finally {
+      setTagSaving(false);
+    }
+  }
 
   async function loadCustomInterests() {
     if (!user?.id) {
@@ -2989,16 +3413,22 @@ export default function PerfilPage() {
                 uploading={avatarUploading}
               />
 
-              {profile.is_vip && (
-                <div className="flex items-center gap-2 sm:hidden">
-                  <BadgeCheck
-                    className="text-cyan-300 drop-shadow-[0_0_12px_rgba(103,232,249,.55)]"
-                    size={26}
-                  />
+              {(isCreatorProfile || profile.is_vip) && (
+                <div className="flex flex-col items-start gap-2 sm:hidden">
+                  {isCreatorProfile && <CreatorBadge size="xs" />}
 
-                  <span className="whitespace-nowrap rounded-lg border border-cyan-300/45 bg-cyan-300/10 px-3 py-1 text-xs font-black text-cyan-200 shadow-[0_0_16px_rgba(34,211,238,.18)]">
-                    {profileVipBadgeLabel}
-                  </span>
+                  {profile.is_vip && (
+                    <div className="flex items-center gap-2">
+                      <BadgeCheck
+                        className="text-cyan-300 drop-shadow-[0_0_12px_rgba(103,232,249,.55)]"
+                        size={26}
+                      />
+
+                      <span className="whitespace-nowrap rounded-lg border border-cyan-300/45 bg-cyan-300/10 px-3 py-1 text-xs font-black text-cyan-200 shadow-[0_0_16px_rgba(34,211,238,.18)]">
+                        {profileVipBadgeLabel}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -3008,6 +3438,10 @@ export default function PerfilPage() {
                 <h1 className="gkg-mobile-text-safe max-w-full text-[2.15rem] font-black italic leading-[1.05] tracking-tight text-white drop-shadow-[4px_4px_0_rgba(0,0,0,.95)] sm:text-4xl md:text-5xl">
                   {displayName}
                 </h1>
+
+                {isCreatorProfile && (
+                  <CreatorBadge className="hidden sm:inline-flex" />
+                )}
 
                 {profile.is_vip && (
                   <>
@@ -3171,6 +3605,8 @@ export default function PerfilPage() {
                 <h3 className="line-clamp-2 text-xl font-black leading-tight">{displayName}</h3>
                 <p className="mt-1 text-sm text-zinc-400">{fortniteUser}</p>
 
+                <ProfileTagPills tags={profileTags} className="mt-3" />
+
                 <div className="mt-3 flex flex-wrap gap-2">
                   <span className="rounded-xl border border-[#1eff7a]/15 bg-[#1eff7a]/10 px-3 py-2 text-xs font-bold text-[#63ff9b]">
                     {t.ownProfile}
@@ -3208,8 +3644,8 @@ export default function PerfilPage() {
                 {profile.birthday && profile.show_birthday !== false && (
                   <InfoRow
                     icon={CalendarDays}
-                    label={t.birthday}
-                    value={activeDraftProfile.birthday}
+                    label={lang === "es" ? "Edad" : "Age"}
+                    value={formatAgeFromBirthday(activeDraftProfile.birthday)}
                   />
                 )}
               </div>
@@ -3228,35 +3664,55 @@ export default function PerfilPage() {
               </div>
 
               <div className="space-y-3">
-                {(gkgUpdates.length ? gkgUpdates : []).slice(0, 4).map((update) => (
-                  <div
+                {(gkgUpdates.length ? gkgUpdates : []).slice(0, 4).map((update, index) => (
+                  <button
+                    type="button"
                     key={update.id || update.title}
-                    className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/80 p-4"
+                    onClick={() => openGkgUpdateModal(update)}
+                    className={`${!showAllGkgUpdatesMobile && index >= 2 ? "hidden md:block" : ""} w-full rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/80 p-4 text-left transition hover:border-[#63ff9b]/60 hover:bg-[#06220f]`}
                   >
                     <div className="flex items-start gap-3">
                       <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1eff7a]/10 text-[#63ff9b]">
                         <Zap size={18} />
                       </span>
 
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <h3 className="line-clamp-1 font-black text-white">
                           {update.title || "Actualización Ganker Games"}
                         </h3>
                         <p className="mt-1 line-clamp-2 text-sm leading-5 text-zinc-400">
                           {update.description || "Nueva mejora disponible dentro de la página."}
                         </p>
-                        <p className="mt-2 text-xs font-bold text-[#63ff9b]">
-                          {formatDateForVip(update.created_at)}
-                        </p>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <p className="text-xs font-bold text-[#63ff9b]">
+                            {formatDateForVip(update.created_at)}
+                          </p>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#1eff7a]/10 px-2 py-1 text-[11px] font-black text-[#63ff9b]">
+                            <Heart size={12} /> {Number(update.likes_count || 0)}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-cyan-300/10 px-2 py-1 text-[11px] font-black text-cyan-100">
+                            <MessageCircle size={12} /> {Number(update.comments_count || 0)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
 
                 {!gkgUpdates.length && (
                   <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/80 p-4 text-sm text-zinc-400">
                     Aún no hay actualizaciones publicadas.
                   </div>
+                )}
+
+                {gkgUpdates.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllGkgUpdatesMobile((current) => !current)}
+                    className="mt-3 w-full rounded-2xl border border-[#1eff7a]/30 bg-[#1eff7a]/10 px-4 py-3 text-sm font-black text-[#63ff9b] md:hidden"
+                  >
+                    {showAllGkgUpdatesMobile ? "Mostrar menos" : "Mostrar más"}
+                  </button>
                 )}
               </div>
             </Card>
@@ -3307,17 +3763,21 @@ export default function PerfilPage() {
                     </button>
                   )}
 
-                  <button className="text-sm font-bold text-[#63ff9b]">
-                    {t.viewAll}
+                  <button
+                    type="button"
+                    onClick={() => setShowAllInterestsMobile((current) => !current)}
+                    className="text-sm font-bold text-[#63ff9b]"
+                  >
+                    {showAllInterestsMobile ? "Mostrar menos" : t.viewAll}
                   </button>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-                {combinedInterests.map((game) => (
+                {combinedInterests.map((game, index) => (
                   <div
                     key={game.id || game.title}
-                    className="group overflow-hidden rounded-2xl border border-[#1eff7a]/15 bg-[#020804]/70 transition hover:-translate-y-1 hover:border-[#1eff7a]/60 hover:shadow-[0_0_24px_rgba(30,255,122,.18)]"
+                    className={`${!showAllInterestsMobile && index >= 2 ? "hidden md:block" : ""} group overflow-hidden rounded-2xl border border-[#1eff7a]/15 bg-[#020804]/70 transition hover:-translate-y-1 hover:border-[#1eff7a]/60 hover:shadow-[0_0_24px_rgba(30,255,122,.18)]`}
                   >
                     <a
                       href={game.url || "#"}
@@ -3433,32 +3893,33 @@ export default function PerfilPage() {
                       idsMatch(id, member.id)
                     );
                     const statusConfig = getPresenceConfig(member.presence_status || "offline");
+                    const rawMemberUserLabel = member.ganker_user || member.fortnite_user || t.noFortniteUser;
+                    const memberUserLabel = isOwnProfile
+                      ? profile.ganker_user || profile.fortnite_user || rawMemberUserLabel
+                      : rawMemberUserLabel;
 
                     return (
                       <div
                         key={member.id}
-                        className="flex h-full flex-col justify-between rounded-2xl border border-[#1eff7a]/15 bg-white/[0.03] p-4"
+                        className="flex h-full flex-col justify-between rounded-2xl border border-[#1eff7a]/15 bg-white/[0.03] p-3 sm:p-4"
                       >
                         <a
                           href={getPublicProfileHref(member, user?.id)}
-                          className="flex items-start gap-3 rounded-xl transition hover:text-[#63ff9b]"
+                          className="flex flex-col items-center gap-3 rounded-xl text-center transition hover:text-[#63ff9b] sm:flex-row sm:items-start sm:text-left"
                         >
                           <AvatarDisplay
                             src={member.avatar_url || ""}
-                            alt={getProfileDisplayName(member)}
+                            alt={memberUserLabel}
                             status={member.presence_status || "offline"}
                             size="md"
                           />
 
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-black text-white">
-                              {getProfileDisplayName(member)}
-                            </p>
-                            <p className="truncate text-xs text-zinc-400">
-                              {member.ganker_user || member.fortnite_user || t.noFortniteUser}
+                            <p className="mx-auto max-w-[120px] truncate text-sm font-black text-white sm:mx-0 sm:max-w-none">
+                              {memberUserLabel}
                             </p>
                             <span
-                              className={`mt-2 inline-flex items-center gap-2 rounded-full border border-white/10 px-2 py-1 text-[11px] font-bold ${statusConfig.text}`}
+                              className={`mt-2 hidden items-center gap-2 rounded-full border border-white/10 px-2 py-1 text-[11px] font-bold sm:inline-flex ${statusConfig.text}`}
                             >
                               <span className={`h-2 w-2 rounded-full ${statusConfig.dot}`} />
                               {getStatusLabel(member.presence_status || "offline", t)}
@@ -3470,7 +3931,7 @@ export default function PerfilPage() {
                           type="button"
                           onClick={() => !isOwnProfile && toggleFollow(member.id)}
                           disabled={isOwnProfile}
-                          className={`mt-4 inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${
+                          className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${
                             isOwnProfile
                               ? "cursor-default border border-[#1eff7a]/15 bg-[#1eff7a]/10 text-[#63ff9b]"
                               : isFollowing
@@ -3637,6 +4098,167 @@ export default function PerfilPage() {
               >
                 {interestSaving ? "Guardando..." : "Guardar interés"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedGkgUpdate && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[32px] border border-[#1eff7a]/25 bg-[#020804] p-5 text-white shadow-[0_0_45px_rgba(30,255,122,.18)] sm:p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-[#63ff9b]">
+                  Actualización Ganker Games
+                </p>
+                <h3 className="mt-2 text-2xl font-black leading-tight">
+                  {selectedGkgUpdate.title || "Actualización"}
+                </h3>
+                <p className="mt-2 text-xs font-bold text-[#63ff9b]">
+                  {formatDateForVip(selectedGkgUpdate.created_at)}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedGkgUpdate(null);
+                  setEditingGkgUpdateComment(null);
+                  setGkgUpdateCommentText("");
+                }}
+                className="rounded-2xl border border-[#1eff7a]/30 px-4 py-2 text-sm font-black text-[#63ff9b]"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/80 p-4 text-sm leading-7 text-zinc-200">
+              {selectedGkgUpdate.description || "Nueva mejora disponible dentro de la página."}
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={toggleGkgUpdateLike}
+                disabled={gkgUpdateActionLoading}
+                className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-black transition ${
+                  selectedGkgUpdate.is_liked
+                    ? "border-red-300/50 bg-red-400/15 text-red-200"
+                    : "border-[#1eff7a]/30 bg-[#1eff7a]/10 text-[#63ff9b]"
+                } disabled:opacity-60`}
+              >
+                <Heart size={18} />
+                {selectedGkgUpdate.is_liked ? "Te gusta" : "Me gusta"}
+                <span>{Number(selectedGkgUpdate.likes_count || 0)}</span>
+              </button>
+
+              <span className="inline-flex items-center gap-2 rounded-2xl border border-cyan-300/25 bg-cyan-300/10 px-4 py-3 text-sm font-black text-cyan-100">
+                <MessageCircle size={18} />
+                Comentarios {Number(selectedGkgUpdate.comments_count || gkgUpdateComments.length || 0)}
+              </span>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/60 p-4">
+              <h4 className="mb-3 text-sm font-black uppercase tracking-[0.18em] text-[#63ff9b]">
+                Comentario breve
+              </h4>
+
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                <input
+                  type="text"
+                  value={gkgUpdateCommentText}
+                  maxLength={140}
+                  onChange={(event) => setGkgUpdateCommentText(event.target.value)}
+                  placeholder="Escribe un comentario breve..."
+                  className="w-full rounded-2xl border border-[#1eff7a]/25 bg-[#020804] px-4 py-3 text-white outline-none placeholder:text-zinc-500 focus:border-[#1eff7a]"
+                />
+
+                <button
+                  type="button"
+                  onClick={sendGkgUpdateComment}
+                  disabled={gkgUpdateActionLoading}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#1eff7a] px-5 py-3 font-black text-black disabled:opacity-60"
+                >
+                  <Send size={18} />
+                  {editingGkgUpdateComment ? "Guardar" : "Enviar"}
+                </button>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs text-zinc-500">Máximo 140 caracteres.</p>
+
+                {editingGkgUpdateComment && (
+                  <button
+                    type="button"
+                    onClick={cancelEditGkgUpdateComment}
+                    className="rounded-full border border-red-400/30 bg-red-500/10 px-3 py-1 text-xs font-black text-red-200"
+                  >
+                    Cancelar edición
+                  </button>
+                )}
+              </div>
+
+              {gkgUpdateActionMessage && (
+                <div className="mt-3 rounded-2xl border border-red-500/25 bg-red-500/10 p-3 text-sm text-red-100">
+                  {gkgUpdateActionMessage}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {gkgUpdateComments.length ? (
+                gkgUpdateComments.map((comment) => (
+                  <div
+                    key={comment.id}
+                    className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/70 p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-black text-white">
+                            {comment.ganker_user || comment.display_name || "Usuario GKG"}
+                          </p>
+
+                          {comment.updated_at && comment.updated_at !== comment.created_at && (
+                            <span className="rounded-full bg-cyan-300/10 px-2 py-0.5 text-[10px] font-black text-cyan-100">
+                              Editado
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 break-words text-sm leading-6 text-zinc-300">{comment.comment_text}</p>
+
+                        {comment.profile_id === user?.id && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEditGkgUpdateComment(comment)}
+                              className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs font-black text-cyan-100"
+                            >
+                              Editar
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => deleteGkgUpdateComment(comment)}
+                              className="rounded-full border border-red-400/30 bg-red-500/10 px-3 py-1 text-xs font-black text-red-200"
+                            >
+                              Borrar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <span className="shrink-0 text-right text-[11px] font-bold text-zinc-500">
+                        {formatDateForVip(comment.created_at)}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/70 p-4 text-sm text-zinc-400">
+                  Aún no hay comentarios. Sé el primero en comentar.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -3856,6 +4478,91 @@ export default function PerfilPage() {
                     {saving ? t.saving : t.saveProfile}
                   </button>
                 </form>
+              </Card>
+            )}
+
+            {configSection === "tags" && (
+              <Card>
+                <h2 className="mb-2 text-2xl font-black">{t.tagsTitle}</h2>
+                <p className="mb-2 text-sm text-zinc-400">{t.tagsDesc}</p>
+                <p className="mb-6 text-xs font-bold text-[#63ff9b]">
+                  {t.tagsLimitNormal} Actualmente: {profileTags.length}/{maxProfileTags}
+                </p>
+
+                <div className="space-y-5">
+                  <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/70 p-4">
+                    <h3 className="mb-3 text-sm font-black uppercase tracking-[0.18em] text-[#63ff9b]">
+                      Tus etiquetas
+                    </h3>
+
+                    <ProfileTagPills tags={profileTags} />
+
+                    <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
+                      <input
+                        type="text"
+                        value={tagInput}
+                        maxLength={24}
+                        onChange={(event) => setTagInput(event.target.value)}
+                        placeholder={t.tagPlaceholder}
+                        className="w-full rounded-2xl border border-[#1eff7a]/25 bg-[#020804] px-4 py-3 text-white outline-none placeholder:text-zinc-500 focus:border-[#1eff7a]"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => addProfileTag()}
+                        disabled={tagSaving || profileTags.length >= maxProfileTags}
+                        className="rounded-2xl bg-[#1eff7a] px-6 py-3 font-black text-black disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Agregar
+                      </button>
+                    </div>
+
+                    {profileTags.length > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {profileTags.map((tag) => (
+                          <button
+                            type="button"
+                            key={tag.id}
+                            onClick={() => deleteProfileTag(tag.id)}
+                            className="inline-flex items-center gap-2 rounded-full border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs font-black text-red-200"
+                          >
+                            #{tag.tag_text}
+                            <X size={12} />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-cyan-300/15 bg-cyan-300/5 p-4">
+                    <h3 className="mb-3 text-sm font-black uppercase tracking-[0.18em] text-cyan-100">
+                      Recomendadas
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {suggestedTags.map((tag) => {
+                        const disabled = profileTags.some((item) => item.tag_text.toLowerCase() === tag.toLowerCase()) || profileTags.length >= maxProfileTags;
+
+                        return (
+                          <button
+                            type="button"
+                            key={tag}
+                            onClick={() => addProfileTag(tag)}
+                            disabled={disabled || tagSaving}
+                            className="rounded-full border border-[#1eff7a]/25 bg-[#021509] px-3 py-2 text-xs font-black text-[#63ff9b] transition hover:border-[#63ff9b] disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            #{tag}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {tagMessage && (
+                    <div className="rounded-2xl border border-[#1eff7a]/25 bg-[#021509] p-3 text-sm text-zinc-200">
+                      {tagMessage}
+                    </div>
+                  )}
+                </div>
               </Card>
             )}
 
@@ -6505,7 +7212,11 @@ function CreatorPanel({ lang, supabase, accountRole }) {
 
       if (error) throw error;
 
-      setManualRewardMessage("Premio agregado correctamente.");
+      setManualRewardMessage(
+        manualRewardType === "sorteo"
+          ? "PREMIO SORTEO agregado correctamente y asignado al usuario."
+          : "PREMIO VIP agregado correctamente y asignado al usuario."
+      );
       setManualRewardUser("");
       setManualRewardName("");
       setManualRewardType("sorteo");
@@ -6550,7 +7261,7 @@ function CreatorPanel({ lang, supabase, accountRole }) {
       </Card>
 
       <Card>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-3">
           <button
             type="button"
             onClick={() => setCreatorSection("vip")}
@@ -6561,6 +7272,18 @@ function CreatorPanel({ lang, supabase, accountRole }) {
             }`}
           >
             Control VIP
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCreatorSection("premios")}
+            className={`rounded-2xl border px-5 py-4 text-sm font-black transition ${
+              creatorSection === "premios"
+                ? "border-yellow-300/50 bg-yellow-300/15 text-yellow-100"
+                : "border-[#1eff7a]/20 bg-[#021509] text-zinc-300 hover:border-[#63ff9b]"
+            }`}
+          >
+            Premios
           </button>
 
           <button
@@ -6607,7 +7330,7 @@ function CreatorPanel({ lang, supabase, accountRole }) {
             type="text"
             value={vipSearch}
             onChange={(event) => setVipSearch(event.target.value)}
-            placeholder="Buscar por nombre, usuario o correo..."
+            placeholder="Buscar por usuario GKG o correo..."
             className="mt-5 w-full rounded-2xl border border-[#1eff7a]/25 bg-[#020804] px-4 py-3 text-white outline-none placeholder:text-zinc-500 focus:border-[#1eff7a]"
           />
 
@@ -6797,17 +7520,23 @@ function CreatorPanel({ lang, supabase, accountRole }) {
           </p>
         </Card>
 
+
+      </div>
+      )}
+
+      {creatorSection === "premios" && (
+      <div className="space-y-6">
         <Card>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#1eff7a]/30 bg-[#1eff7a]/10 px-4 py-2 text-xs font-black uppercase tracking-[0.24em] text-[#63ff9b]">
                 <Trophy size={16} />
-                Premios VIP y Sorteo
+                Control de premios
               </div>
 
-              <h3 className="text-2xl font-black">Premios desbloqueados</h3>
+              <h3 className="text-2xl font-black">Listado de premios asignados</h3>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-400">
-                Consulta premios VIP y PREMIO SORTEO. También puedes agregar premios manualmente, marcar cobrado, disponible, procesando o quitar.
+                Administra los premios por usuario: agrega premios manuales, revisa qué regalo pidió cada usuario y cambia el estado a disponible, procesando, cobrado o quítalo.
               </p>
             </div>
           </div>
@@ -6864,7 +7593,7 @@ function CreatorPanel({ lang, supabase, accountRole }) {
             type="text"
             value={vipRewardSearch}
             onChange={(event) => setVipRewardSearch(event.target.value)}
-            placeholder="Buscar premio, usuario, correo o estatus..."
+            placeholder="Buscar premio, usuario GKG o estatus..."
             className="mt-5 w-full rounded-2xl border border-[#1eff7a]/25 bg-[#020804] px-4 py-3 text-white outline-none placeholder:text-zinc-500 focus:border-[#1eff7a]"
           />
 
@@ -6875,23 +7604,42 @@ function CreatorPanel({ lang, supabase, accountRole }) {
               </p>
             ) : filteredVipRewards.length === 0 ? (
               <p className="rounded-2xl border border-[#1eff7a]/15 bg-[#020804]/70 p-4 text-sm text-zinc-400">
-                No hay premios VIP registrados.
+                No hay premios registrados.
               </p>
             ) : (
-              filteredVipRewards.map((reward) => (
+              filteredVipRewards.map((reward) => {
+                const isSorteoReward = reward.reward_type === "sorteo";
+                const rewardUserLabel = reward.ganker_user || reward.fortnite_user || reward.display_name || "Usuario GKG";
+
+                return (
                 <div
                   key={reward.id}
-                  className="grid gap-3 rounded-2xl border border-[#1eff7a]/15 bg-[#020804]/75 p-4 lg:grid-cols-[1fr_auto]"
+                  className={`grid gap-4 rounded-3xl border p-4 lg:grid-cols-[1fr_auto] lg:items-center ${
+                    isSorteoReward
+                      ? "border-yellow-300/25 bg-[radial-gradient(circle_at_left,rgba(250,204,21,.12),transparent_34%),#020804]/90"
+                      : "border-cyan-300/20 bg-[radial-gradient(circle_at_left,rgba(34,211,238,.10),transparent_34%),#020804]/90"
+                  }`}
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-lg font-black text-white">
-                      {reward.reward_name}
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-400">
-                      {reward.display_name || reward.ganker_user || reward.email || "Usuario GKG"} · {reward.email || "Sin correo visible"}
-                    </p>
+                    <div className="flex items-center gap-4">
+                      <AvatarDisplay
+                        src={reward.avatar_url || ""}
+                        alt={rewardUserLabel}
+                        status="offline"
+                        size="sm"
+                      />
 
-                    <div className="mt-2 flex flex-wrap gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-lg font-black text-white">
+                          {rewardUserLabel}
+                        </p>
+                        <p className={`truncate text-sm font-black ${isSorteoReward ? "text-yellow-200" : "text-cyan-100"}`}>
+                          {reward.reward_name}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <span className={`rounded-full px-3 py-1 text-xs font-black ${
                         reward.reward_type === "sorteo"
                           ? "bg-yellow-300/10 text-yellow-100"
@@ -6975,7 +7723,8 @@ function CreatorPanel({ lang, supabase, accountRole }) {
                     </button>
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         </Card>
@@ -7595,6 +8344,24 @@ function Legend({ color, label, value }) {
       </div>
 
       <span className="font-bold text-zinc-300">{value}</span>
+    </div>
+  );
+}
+
+function ProfileTagPills({ tags = [], className = "" }) {
+  if (!tags.length) return null;
+
+  return (
+    <div className={`flex flex-wrap gap-2 ${className}`}>
+      {tags.map((tag, index) => (
+        <span
+          key={tag.id || tag.tag_text}
+          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-black transition hover:scale-[1.02] ${getTagColorClasses(tag, index)}`}
+        >
+          <Tag size={12} />
+          {tag.tag_text}
+        </span>
+      ))}
     </div>
   );
 }
@@ -8591,12 +9358,17 @@ function VIPPrizesTab({ profile, user, supabase }) {
               const status = reward.status || "available";
               const isClaimed = status === "claimed";
               const isProcessing = status === "processing";
-              const typeLabel = reward.reward_type === "sorteo" ? "PREMIO SORTEO" : "PREMIO VIP";
+              const isSorteoReward = reward.reward_type === "sorteo";
+              const typeLabel = isSorteoReward ? "PREMIO SORTEO" : "PREMIO VIP";
 
               return (
                 <div
                   key={reward.id}
-                  className="flex h-full min-h-[300px] flex-col items-center rounded-3xl border border-cyan-300/20 bg-[radial-gradient(circle_at_top,rgba(34,211,238,.14),transparent_35%),#03170c] p-5 text-center"
+                  className={`flex h-full min-h-[300px] flex-col items-center rounded-3xl border p-5 text-center ${
+                    isSorteoReward
+                      ? "border-yellow-300/30 bg-[radial-gradient(circle_at_top,rgba(250,204,21,.15),transparent_38%),#03170c]"
+                      : "border-cyan-300/20 bg-[radial-gradient(circle_at_top,rgba(34,211,238,.14),transparent_35%),#03170c]"
+                  }`}
                 >
                   <div className="min-h-[142px] w-full">
                     <p className={`text-xs font-black uppercase tracking-[0.18em] ${
@@ -8621,7 +9393,9 @@ function VIPPrizesTab({ profile, user, supabase }) {
                           ? "bg-[#1eff7a]/10 text-[#63ff9b]"
                           : isProcessing
                             ? "bg-red-500/15 text-red-200"
-                            : "bg-cyan-300/10 text-cyan-200"
+                            : isSorteoReward
+                              ? "bg-yellow-300/10 text-yellow-100"
+                              : "bg-cyan-300/10 text-cyan-200"
                       }`}
                     >
                       {isClaimed ? "Cobrado" : isProcessing ? "Procesando regalo" : "Disponible"}
@@ -8647,7 +9421,9 @@ function VIPPrizesTab({ profile, user, supabase }) {
                     <button
                       type="button"
                       onClick={() => openClaimModal(reward)}
-                      className="mt-auto w-full rounded-2xl bg-[#1eff7a] px-4 py-3 font-black text-black transition hover:brightness-110"
+                      className={`mt-auto w-full rounded-2xl px-4 py-3 font-black text-black transition hover:brightness-110 ${
+                        isSorteoReward ? "bg-yellow-300" : "bg-[#1eff7a]"
+                      }`}
                     >
                       Reclamar premio
                     </button>

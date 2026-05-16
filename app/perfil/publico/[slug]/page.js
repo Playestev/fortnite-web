@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   BadgeCheck,
+  ShieldCheck,
   Ban,
   CalendarDays,
   ArrowDown,
@@ -21,6 +22,7 @@ import {
   Trophy,
   User,
   UsersRound,
+  Tag,
   Zap,
 } from "lucide-react";
 
@@ -73,6 +75,50 @@ function getVipBadgeLabelFromMonths(months) {
   return level > 1 ? `GKG VIP ${level}` : "GKG VIP";
 }
 
+const TAG_COLOR_CLASSES = [
+  "border-[#1eff7a]/45 bg-[#1eff7a]/12 text-[#63ff9b] shadow-[0_0_12px_rgba(30,255,122,.14)]",
+  "border-cyan-300/45 bg-cyan-300/12 text-cyan-100 shadow-[0_0_12px_rgba(103,232,249,.14)]",
+  "border-fuchsia-300/45 bg-fuchsia-400/12 text-fuchsia-100 shadow-[0_0_12px_rgba(217,70,239,.14)]",
+  "border-yellow-300/45 bg-yellow-300/12 text-yellow-100 shadow-[0_0_12px_rgba(253,224,71,.14)]",
+  "border-orange-300/45 bg-orange-400/12 text-orange-100 shadow-[0_0_12px_rgba(251,146,60,.14)]",
+  "border-sky-300/45 bg-sky-400/12 text-sky-100 shadow-[0_0_12px_rgba(56,189,248,.14)]",
+  "border-rose-300/45 bg-rose-400/12 text-rose-100 shadow-[0_0_12px_rgba(251,113,133,.14)]",
+  "border-violet-300/45 bg-violet-400/12 text-violet-100 shadow-[0_0_12px_rgba(167,139,250,.14)]",
+];
+
+function getStableTagColorIndex(tag, index = 0) {
+  const value = String(tag?.tag_text || tag || "");
+  let hash = index;
+
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) % 9973;
+  }
+
+  return Math.abs(hash) % TAG_COLOR_CLASSES.length;
+}
+
+function getTagColorClasses(tag, index = 0) {
+  return TAG_COLOR_CLASSES[getStableTagColorIndex(tag, index)];
+}
+
+function isCreatorAccount(role) {
+  return ["admin", "creator", "creador"].includes(String(role || "").toLowerCase());
+}
+
+function CreatorBadge({ className = "", size = "sm" }) {
+  const textSize = size === "xs" ? "text-[10px]" : "text-xs";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-lg border border-zinc-300/45 bg-zinc-300/10 px-3 py-1 font-black uppercase tracking-wide text-zinc-100 shadow-[0_0_16px_rgba(212,212,216,.18)] ${textSize} ${className}`}
+      title="GKG Creador"
+    >
+      <ShieldCheck size={size === "xs" ? 13 : 15} />
+      GKG Creador
+    </span>
+  );
+}
+
 function getProfileName(profile) {
   if (!profile) return "Jugador GKG";
 
@@ -95,6 +141,27 @@ function formatDateMX(dateString) {
     month: "long",
     year: "numeric",
   }).format(date);
+}
+
+
+function formatAgeFromBirthday(dateString) {
+  if (!dateString) return "No visible";
+
+  const birthDate = new Date(`${dateString}T12:00:00`);
+  if (Number.isNaN(birthDate.getTime())) return "No visible";
+
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  const dayDiff = today.getDate() - birthDate.getDate();
+
+  if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+    age -= 1;
+  }
+
+  if (age < 0 || age > 120) return "No visible";
+
+  return `${age} años`;
 }
 
 function getPresenceConfig(status) {
@@ -159,6 +226,24 @@ function Card({ children, className = "" }) {
   );
 }
 
+function ProfileTagPills({ tags = [], className = "" }) {
+  if (!tags.length) return null;
+
+  return (
+    <div className={`flex flex-wrap gap-2 ${className}`}>
+      {tags.map((tag, index) => (
+        <span
+          key={tag.id || tag.tag_text}
+          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-black transition hover:scale-[1.02] ${getTagColorClasses(tag, index)}`}
+        >
+          <Tag size={12} />
+          {tag.tag_text}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function StatItem({ icon: Icon, label, value }) {
   return (
     <div className="flex items-center gap-3 border-b border-[#1eff7a]/12 p-4 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0">
@@ -195,6 +280,7 @@ export default function PublicProfilePage() {
   const [blockMessage, setBlockMessage] = useState("");
   const [blockLoading, setBlockLoading] = useState(false);
   const [customInterests, setCustomInterests] = useState([]);
+  const [profileTags, setProfileTags] = useState([]);
   const [publicStats, setPublicStats] = useState({
     premios: 0,
     sorteos: 0,
@@ -203,9 +289,6 @@ export default function PublicProfilePage() {
     following: 0,
   });
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [lang, setLang] = useState("es");
-  const [languageChanging, setLanguageChanging] = useState(false);
-  const [nextLanguage, setNextLanguage] = useState(null);
 
   useEffect(() => {
     function handleScroll() {
@@ -217,22 +300,6 @@ export default function PublicProfilePage() {
 
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  function togglePublicLang() {
-    if (languageChanging) return;
-
-    const nextLang = lang === "es" ? "en" : "es";
-    setNextLanguage(nextLang);
-    setLanguageChanging(true);
-
-    if (typeof window !== "undefined") {
-      window.setTimeout(() => setLang(nextLang), 420);
-      window.setTimeout(() => {
-        setLanguageChanging(false);
-        setNextLanguage(null);
-      }, 1100);
-    }
-  }
 
   function handleFloatingScroll() {
     if (typeof window === "undefined") return;
@@ -247,7 +314,8 @@ export default function PublicProfilePage() {
 
   async function handleHeaderSessionAction() {
     if (currentUser?.id) {
-      router.push("/perfil");
+      await supabase.auth.signOut();
+      router.push("/login");
       return;
     }
 
@@ -297,6 +365,18 @@ export default function PublicProfilePage() {
         setCustomInterests(interests || []);
       } catch (interestError) {
         setCustomInterests([]);
+      }
+
+      try {
+        const { data: tags } = await supabase
+          .from("profile_tags")
+          .select("*")
+          .eq("profile_id", publicProfile.id)
+          .order("created_at", { ascending: true });
+
+        setProfileTags(tags || []);
+      } catch (tagsError) {
+        setProfileTags([]);
       }
 
       try {
@@ -412,6 +492,7 @@ export default function PublicProfilePage() {
     ? Math.max(1, Number(profile.vip_streak_months || profile.vip_cycle_months || 1))
     : 0;
   const vipBadgeLabel = getVipBadgeLabelFromMonths(vipMonths);
+  const publicIsCreator = isCreatorAccount(profile.account_role);
   const overrideByKey = new Map(
     (customInterests || [])
       .filter((item) => item.default_key)
@@ -460,11 +541,20 @@ export default function PublicProfilePage() {
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <button
               type="button"
-              onClick={togglePublicLang}
+              onClick={handleGoBackToPrivateProfile}
+              className="hidden h-12 items-center gap-2 rounded-2xl border border-[#1eff7a]/35 bg-[#021509] px-4 text-sm font-black text-[#63ff9b] shadow-[0_0_20px_rgba(30,255,122,.12)] transition hover:border-[#63ff9b] hover:bg-[#063115] md:inline-flex"
+              title={currentUser?.id ? "Regresar a mi perfil" : "Regresar"}
+            >
+              <ChevronLeft size={18} />
+              {currentUser?.id ? "Mi perfil" : "Volver"}
+            </button>
+
+            <button
+              type="button"
               className="flex h-11 items-center gap-1.5 rounded-2xl border border-[#1eff7a]/35 bg-[#021509] px-2.5 text-xs font-black uppercase tracking-wide text-[#63ff9b] shadow-[0_0_20px_rgba(30,255,122,.12)] hover:border-[#63ff9b] sm:h-12 sm:gap-2 sm:px-4 sm:text-sm"
               title="Idioma"
             >
-              <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-black text-white sm:text-[11px]">{lang === "es" ? "ESP" : "ENG"}</span>
+              <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-black text-white sm:text-[11px]">ESP</span>
               <Globe2 size={16} />
             </button>
 
@@ -472,37 +562,13 @@ export default function PublicProfilePage() {
               type="button"
               onClick={handleHeaderSessionAction}
               className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-500/10 text-sm font-black text-red-300 shadow-[0_0_18px_rgba(239,68,68,.10)] transition hover:bg-red-500/20 sm:h-12 sm:w-12"
-              title={currentUser?.id ? "Mi perfil" : "Iniciar sesión"}
+              title={currentUser?.id ? "Cerrar sesión" : "Iniciar sesión"}
             >
               <LogOut size={18} />
             </button>
           </div>
         </div>
       </header>
-
-      {languageChanging && (
-        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/72 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-[30px] border border-[#1eff7a]/35 bg-[linear-gradient(180deg,rgba(4,18,13,0.95)_0%,rgba(4,14,11,0.92)_100%)] p-6 text-center shadow-[0_0_55px_rgba(21,216,99,0.14)]">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-[#8cff9f]/55 bg-[radial-gradient(circle_at_30%_30%,rgba(22,232,61,0.28),rgba(6,30,18,0.95)_70%)] text-[#67ff9a] shadow-[0_0_24px_rgba(21,216,99,0.28)]">
-              <Globe2 size={40} />
-            </div>
-            <p className="mt-5 text-2xl font-black italic text-white">
-              {lang === "es" ? "Cambiando idioma" : "Changing language"}
-            </p>
-            <p className="mt-2 text-sm font-black uppercase tracking-[0.25em] text-[#67ff9a]">
-              {lang === "es" ? "Cargando..." : "Loading..."}
-            </p>
-            <img
-              src="/ganker-logo.png"
-              alt="GKG"
-              className="mx-auto mt-5 h-16 w-16 rounded-full border border-[#19ff72]/45 object-cover shadow-[0_0_18px_rgba(25,255,114,0.25)]"
-            />
-            <p className="mt-3 text-xs font-black uppercase tracking-[0.2em] text-[#ff4d4d]">
-              {(nextLanguage || lang) === "es" ? "ESP" : "ENG"}
-            </p>
-          </div>
-        </div>
-      )}
 
       <button
         type="button"
@@ -533,12 +599,18 @@ export default function PublicProfilePage() {
                   #{profile.public_profile_number || profile.ganker_user || "GKG"}
                 </span>
 
-                {publicIsVip && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <BadgeCheck className="text-cyan-300 drop-shadow-[0_0_12px_rgba(103,232,249,.55)]" size={24} />
-                    <span className="rounded-lg border border-cyan-300/45 bg-cyan-300/10 px-3 py-1 text-xs font-bold text-cyan-200 shadow-[0_0_16px_rgba(34,211,238,.18)]">
-                      {vipBadgeLabel}
-                    </span>
+                {(publicIsCreator || publicIsVip) && (
+                  <div className="flex flex-col items-start gap-2">
+                    {publicIsCreator && <CreatorBadge size="xs" />}
+
+                    {publicIsVip && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <BadgeCheck className="text-cyan-300 drop-shadow-[0_0_12px_rgba(103,232,249,.55)]" size={24} />
+                        <span className="rounded-lg border border-cyan-300/45 bg-cyan-300/10 px-3 py-1 text-xs font-bold text-cyan-200 shadow-[0_0_16px_rgba(34,211,238,.18)]">
+                          {vipBadgeLabel}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -562,6 +634,10 @@ export default function PublicProfilePage() {
                 <span className="hidden rounded-lg border border-[#1eff7a]/40 bg-[#1eff7a]/10 px-3 py-1 text-sm font-bold text-[#63ff9b] lg:inline-flex">
                   #{profile.public_profile_number || profile.ganker_user || "GKG"}
                 </span>
+
+                {publicIsCreator && (
+                  <CreatorBadge className="hidden lg:inline-flex" />
+                )}
 
                 {publicIsVip && (
                   <div className="hidden items-center gap-2 lg:flex">
@@ -632,12 +708,13 @@ export default function PublicProfilePage() {
             <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/70 p-4">
               <h3 className="text-xl font-black">{displayName}</h3>
               <p className="mt-1 text-sm text-zinc-400">{profile.ganker_user || "Usuario GKG"}</p>
+              <ProfileTagPills tags={profileTags} className="mt-3" />
             </div>
 
             <div className="mt-6 space-y-4 border-t border-[#1eff7a]/15 pt-5">
               {showCountry && <InfoRow icon={MapPin} label="País" value={profile.country} />}
               <InfoRow icon={Clock} label="Estado" value={statusConfig.label} />
-              {showBirthday && <InfoRow icon={CalendarDays} label="Cumpleaños" value={formatDateMX(profile.birthday)} />}
+              {showBirthday && <InfoRow icon={CalendarDays} label="Edad" value={formatAgeFromBirthday(profile.birthday)} />}
             </div>
           </Card>
 
