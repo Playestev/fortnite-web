@@ -382,8 +382,9 @@ export default function LoginPage() {
     });
 
     if (error) {
-      throw new Error("No se pudo revisar si el perfil está en restauración.");
-    }
+  console.warn("No se pudo revisar si el perfil está en restauración:", error);
+  return null;
+  }
 
     const deletedProfile = Array.isArray(data) ? data[0] : data;
 
