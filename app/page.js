@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const LANG_STORAGE_KEY = "gkg-lang";
@@ -39,6 +40,8 @@ const LABELS = {
     navShop: "Tienda",
     navNews: "Noticias",
     navSTW: "STW",
+    login: "Iniciar sesión",
+    myProfile: "Mi perfil",
     cart: "Carrito",
     heroKicker: "",
     heroTitle: "",
@@ -121,6 +124,8 @@ const LABELS = {
     navShop: "Shop",
     navNews: "News",
     navSTW: "STW",
+    login: "Log in",
+    myProfile: "My profile",
     cart: "Cart",
     heroKicker: "",
     heroTitle: "",
@@ -1787,7 +1792,7 @@ function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
   );
 }
 
-function MobileMenuDrawer({ open, labels, cartCount, onClose, onCartOpen }) {
+function MobileMenuDrawer({ open, labels, cartCount, authHref, authLabel, onClose, onCartOpen }) {
   const [shouldRender, setShouldRender] = useState(open);
   const [isClosing, setIsClosing] = useState(false);
 
@@ -1851,6 +1856,14 @@ function MobileMenuDrawer({ open, labels, cartCount, onClose, onCartOpen }) {
             {labels.navShop}
           </Link>
 
+          <Link
+            href={authHref}
+            onClick={onClose}
+            className="rounded-2xl border border-cyan-300/45 bg-cyan-300/10 px-4 py-4 text-center text-base font-black text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.12)] transition hover:border-cyan-200 hover:bg-cyan-300/15"
+          >
+            {authLabel}
+          </Link>
+
           <button
             type="button"
             onClick={() => {
@@ -1891,6 +1904,16 @@ function SparkleBackground() {
 export default function Home() {
   const [language, setLanguage] = useState("es-419");
   const labels = LABELS[language];
+  const supabase = useMemo(() => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) return null;
+
+    return createBrowserClient(supabaseUrl, supabaseAnonKey);
+  }, []);
+
+  const [sessionUser, setSessionUser] = useState(null);
 
   const [allItems, setAllItems] = useState([]);
   const [recentlyGone, setRecentlyGone] = useState([]);
@@ -1948,6 +1971,25 @@ export default function Home() {
     setRecentlyGone(gone);
     setTimeLeft(getCountdownToNextShopUpdate());
   }, []);
+
+  useEffect(() => {
+    if (!supabase) return undefined;
+
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setSessionUser(data?.session?.user || null);
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionUser(session?.user || null);
+    });
+
+    return () => {
+      mounted = false;
+      authListener?.subscription?.unsubscribe?.();
+    };
+  }, [supabase]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -2152,6 +2194,9 @@ export default function Home() {
             ? labels.recentlyGone
             : selectedSection;
 
+  const authHref = sessionUser?.id ? "/perfil" : "/login";
+  const authLabel = sessionUser?.id ? labels.myProfile : labels.login;
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_20%),linear-gradient(180deg,_#000000_0%,_#021106_45%,_#000000_100%)] text-white">
       <style jsx global>{`
@@ -2179,23 +2224,13 @@ export default function Home() {
       <SparkleBackground />
       <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#153321] bg-[#020905]/92 backdrop-blur-xl shadow-[0_8px_28px_rgba(0,0,0,0.38)]">
         <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 md:px-6">
-          <Link href="/" className="flex min-w-0 items-center gap-3">
-            <img
-              src="/ganker-logo.png"
-              alt="GKG"
-              className="h-11 w-11 shrink-0 rounded-full border border-[#19ff72]/45 object-cover shadow-[0_0_18px_rgba(25,255,114,0.25)] md:h-12 md:w-12"
-            />
-
-            <div className="min-w-0">
-              <div className="flex items-end gap-2 whitespace-nowrap">
-                <p className="text-2xl font-black italic leading-none text-white md:text-3xl">
-                  {labels.brand}
-                </p>
-                <span className="mb-[2px] text-[11px] font-black uppercase tracking-[0.18em] text-[#67ff9a] drop-shadow-[0_0_10px_rgba(103,255,154,0.42)] md:mb-0 md:text-xs">
-                  {language === "es-419" ? "Página" : "Web"}
-                </span>
-              </div>
-            </div>
+          <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <span className="shrink-0 text-[2rem] font-black italic leading-none tracking-tight text-white drop-shadow-[3px_3px_0_rgba(0,0,0,.9)] md:text-4xl">
+              {labels.brand}
+            </span>
+            <span className="hidden text-[10px] font-black uppercase tracking-[0.28em] text-[#67ff9a] drop-shadow-[0_0_10px_rgba(103,255,154,0.42)] min-[360px]:inline sm:text-xs sm:tracking-[0.35em]">
+              {language === "es-419" ? "Página" : "Web"}
+            </span>
           </Link>
 
           <div className="ml-auto flex items-center gap-2 md:gap-3">
@@ -2203,14 +2238,14 @@ export default function Home() {
               type="button"
               onClick={() => handleLanguageChange(language === "es-419" ? "en" : "es-419")}
               aria-label={language === "es-419" ? "Cambiar a inglés" : "Switch to Spanish"}
-              className="relative flex h-11 w-[72px] items-center justify-center rounded-2xl border border-[#1eff7a]/35 bg-[linear-gradient(135deg,#07140f_0%,#0c2116_100%)] text-[#67ff9a] shadow-[0_0_18px_rgba(21,216,99,0.10)] transition hover:scale-[1.02] hover:border-[#67ff9a] hover:bg-[#0b1f15] md:h-12 md:w-[78px]"
+              className="flex h-11 items-center gap-1.5 rounded-2xl border border-[#1eff7a]/35 bg-[#021509] px-2.5 text-xs font-black uppercase tracking-wide text-[#63ff9b] shadow-[0_0_20px_rgba(30,255,122,.12)] hover:border-[#63ff9b] sm:h-12 sm:gap-2 sm:px-4 sm:text-sm"
             >
-              <span className="absolute -left-1.5 top-1/2 -translate-y-1/2 rounded-full border border-red-300/50 bg-[linear-gradient(135deg,#ff3030_0%,#a40000_100%)] px-2 py-[3px] text-[10px] font-black uppercase leading-none text-white shadow-[0_0_10px_rgba(255,0,0,0.35)]">
-                {language === "es-419" ? "ESP" : "EN"}
+              <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-black text-white sm:text-[11px]">
+                {language === "es-419" ? "ESP" : "ENG"}
               </span>
               <svg
                 viewBox="0 0 64 64"
-                className="h-6 w-6 md:h-7 md:w-7"
+                className="h-4 w-4 sm:h-5 sm:w-5"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2.5"
@@ -2218,17 +2253,20 @@ export default function Home() {
                 strokeLinejoin="round"
                 aria-hidden="true"
               >
-                <path d="M19 39c0 6-4.5 11-10 12 1.4-4.1.8-8.9-1-12 0-8.8 7.2-16 16-16 6 0 11.3 3.3 14 8.3" />
-                <path d="M45 41c0-6 4.5-11 10-12-1.4 4.1-.8 8.9 1 12 0 8.8-7.2 16-16 16-6 0-11.3-3.3-14-8.3" />
-                <path d="M29 31c1.4 0 2.5 1.1 2.5 2.5S30.4 36 29 36" />
-                <path d="M35 28c3 1.6 5.4 4.2 6.8 7.4" />
-                <path d="M38.5 24.5c5.3 2.3 9.4 6.6 11.4 11.9" />
-                <path d="M25 17h14a3 3 0 0 1 3 3v10H22V20a3 3 0 0 1 3-3Z" opacity="0.9" />
-                <path d="M27 23h10" />
-                <path d="M27 27h6" />
-                <circle cx="38" cy="27" r="1" fill="currentColor" stroke="none" />
+                <circle cx="32" cy="32" r="18" />
+                <path d="M14 32h36" />
+                <path d="M32 14c5 5.4 8 11.3 8 18s-3 12.6-8 18c-5-5.4-8-11.3-8-18s3-12.6 8-18Z" />
+                <path d="M8 18h12v12H8Z" />
+                <path d="M44 34h12v12H44Z" />
               </svg>
             </button>
+
+            <Link
+              href={authHref}
+              className="hidden rounded-2xl border border-cyan-300/35 bg-cyan-300/10 px-4 py-3 text-sm font-black text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.10)] transition hover:border-cyan-200 hover:bg-cyan-300/15 lg:inline-flex"
+            >
+              {authLabel}
+            </Link>
 
             <button
               type="button"
@@ -2250,6 +2288,8 @@ export default function Home() {
         open={mobileMenuOpen}
         labels={labels}
         cartCount={cartCount}
+        authHref={authHref}
+        authLabel={authLabel}
         onClose={() => setMobileMenuOpen(false)}
         onCartOpen={() => setCartOpen(true)}
       />
