@@ -938,6 +938,16 @@ export default function LoginPage() {
             ? "No tengo cuenta, registrarme"
             : "Ya tengo cuenta, iniciar sesión"}
         </button>
+
+        {mode === "login" && (
+          <Link
+            href="/tienda"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-300/35 bg-cyan-300/10 px-4 py-3 font-black text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/15"
+          >
+            <span aria-hidden="true">🛒</span>
+            Entrar a la tienda Fortnite
+          </Link>
+        )}
       </div>
 
       {restoreCandidate && (
