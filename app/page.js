@@ -38,6 +38,7 @@ const LABELS = {
     changingLanguage: "Cambiando idioma",
     loadingLanguage: "Cargando...",
     navShop: "Tienda",
+    navVbucks: "paVos",
     navNews: "Noticias",
     navSTW: "STW",
     login: "Iniciar sesión",
@@ -62,7 +63,7 @@ const LABELS = {
     emptyCart: "Tu carrito está vacío",
     total: "Total",
     totalVbucks: "Total V-Bucks",
-    sendWhatsApp: "Pagar por WhatsApp",
+    sendWhatsApp: "Mandar por WhatsApp",
     shareLink: "Copiar enlace",
     copied: "Enlace copiado",
     itemShare: "Compartir",
@@ -122,6 +123,7 @@ const LABELS = {
     changingLanguage: "Changing language",
     loadingLanguage: "Loading...",
     navShop: "Shop",
+    navVbucks: "V-Bucks",
     navNews: "News",
     navSTW: "STW",
     login: "Log in",
@@ -146,7 +148,7 @@ const LABELS = {
     emptyCart: "Your cart is empty",
     total: "Total",
     totalVbucks: "Total V-Bucks",
-    sendWhatsApp: "Pay on WhatsApp",
+    sendWhatsApp: "Send on WhatsApp",
     shareLink: "Copy link",
     copied: "Link copied",
     itemShare: "Share",
@@ -1156,6 +1158,28 @@ function SortModal({ open, labels, sortMode, onSelect, onClose }) {
 function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQty, onRemove, onClear }) {
   const [shouldRender, setShouldRender] = useState(open);
   const [isClosing, setIsClosing] = useState(false);
+  const [recipientUsername, setRecipientUsername] = useState("");
+  const [splitEnabled, setSplitEnabled] = useState(false);
+  const [primaryItemIds, setPrimaryItemIds] = useState([]);
+  const [splitUsers, setSplitUsers] = useState([
+    { id: "secondary-1", name: "", itemIds: [] },
+  ]);
+  const [giftModalOpen, setGiftModalOpen] = useState(false);
+
+  const details = useMemo(
+    () =>
+      cart
+        .map((cartItem) => {
+          const item = allItems.find((entry) => entry.id === cartItem.id);
+          if (!item) return null;
+          return { ...item, qty: cartItem.qty };
+        })
+        .filter(Boolean),
+    [cart, allItems]
+  );
+
+  const detailIds = useMemo(() => details.map((item) => item.id), [details]);
+  const detailKey = detailIds.join("|");
 
   useEffect(() => {
     let timeoutId;
@@ -1174,18 +1198,158 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
     return () => clearTimeout(timeoutId);
   }, [open, shouldRender]);
 
-  if (!shouldRender) return null;
+  useEffect(() => {
+    if (!detailIds.length) {
+      setPrimaryItemIds([]);
+      setSplitUsers((current) =>
+        current.map((user, index) => ({
+          ...user,
+          id: user.id || `secondary-${index + 1}`,
+          itemIds: [],
+        }))
+      );
+      return;
+    }
 
-  const details = cart
-    .map((cartItem) => {
-      const item = allItems.find((entry) => entry.id === cartItem.id);
-      if (!item) return null;
-      return { ...item, qty: cartItem.qty };
-    })
-    .filter(Boolean);
+    setPrimaryItemIds((current) => syncSelectedCartItems(current, detailIds));
+    setSplitUsers((current) =>
+      current.map((user, index) => ({
+        ...user,
+        id: user.id || `secondary-${index + 1}`,
+        itemIds: syncSelectedCartItems(user.itemIds, detailIds),
+      }))
+    );
+  }, [detailKey]);
+
+  if (!shouldRender) return null;
 
   const totalVbucks = details.reduce((sum, item) => sum + Number(item.price || 0) * item.qty, 0);
   const totalLocal = details.reduce((sum, item) => sum + Number(item.price || 0) * VB_TO_LOCAL_RATE * item.qty, 0);
+  const cleanRecipient = recipientUsername.trim();
+  const activeSplitUsers = splitEnabled
+    ? splitUsers
+        .map((user) => ({
+          ...user,
+          name: String(user.name || "").trim(),
+          itemIds: Array.isArray(user.itemIds) ? user.itemIds : [],
+        }))
+        .filter((user) => user.name)
+    : [];
+
+  function syncSelectedCartItems(currentSelection, ids) {
+    const current = Array.isArray(currentSelection) ? currentSelection : [];
+    const validCurrent = current.filter((id) => ids.includes(id));
+    const missingIds = ids.filter((id) => !validCurrent.includes(id));
+
+    if (current.length === 0) return ids;
+    return [...validCurrent, ...missingIds];
+  }
+
+  function getItemsForIds(ids = []) {
+    const selectedIds = Array.isArray(ids) ? ids : [];
+    return details.filter((item) => selectedIds.includes(item.id));
+  }
+
+  function toggleRecipientItem(recipientId, itemId) {
+    if (recipientId === "principal") {
+      setPrimaryItemIds((current) =>
+        current.includes(itemId)
+          ? current.filter((id) => id !== itemId)
+          : [...current, itemId]
+      );
+      return;
+    }
+
+    setSplitUsers((current) =>
+      current.map((user) =>
+        user.id === recipientId
+          ? {
+              ...user,
+              itemIds: user.itemIds?.includes(itemId)
+                ? user.itemIds.filter((id) => id !== itemId)
+                : [...(user.itemIds || []), itemId],
+            }
+          : user
+      )
+    );
+  }
+
+  function selectAllForRecipient(recipientId) {
+    if (recipientId === "principal") {
+      setPrimaryItemIds(detailIds);
+      return;
+    }
+
+    setSplitUsers((current) =>
+      current.map((user) =>
+        user.id === recipientId ? { ...user, itemIds: detailIds } : user
+      )
+    );
+  }
+
+  function clearItemsForRecipient(recipientId) {
+    if (recipientId === "principal") {
+      setPrimaryItemIds([]);
+      return;
+    }
+
+    setSplitUsers((current) =>
+      current.map((user) =>
+        user.id === recipientId ? { ...user, itemIds: [] } : user
+      )
+    );
+  }
+
+  function updateSplitUser(index, value) {
+    setSplitUsers((current) =>
+      current.map((user, currentIndex) =>
+        currentIndex === index ? { ...user, name: value } : user
+      )
+    );
+  }
+
+  function resetSecondaryUser() {
+    setSplitUsers([{ id: "secondary-1", name: "", itemIds: detailIds }]);
+  }
+
+  function toggleSecondaryUser(enabled) {
+    setSplitEnabled(enabled);
+
+    if (enabled) {
+      setSplitUsers((current) => {
+        const firstUser = current?.[0] || { id: "secondary-1", name: "", itemIds: detailIds };
+
+        return [
+          {
+            id: "secondary-1",
+            name: firstUser.name || "",
+            itemIds: syncSelectedCartItems(firstUser.itemIds, detailIds),
+          },
+        ];
+      });
+    } else {
+      resetSecondaryUser();
+    }
+  }
+
+  function formatMoney(value) {
+    return language === "en" ? `$${value.toFixed(2)}` : `MX$${value.toFixed(2)}`;
+  }
+
+  function buildItemLines(items) {
+    return items.flatMap((item, index) => {
+      const itemVbucks = Number(item.price || 0) * item.qty;
+      const itemLocal = itemVbucks * VB_TO_LOCAL_RATE;
+      const imageUrl = item._galleryImages?.[0] || item.image || item.galleryImages?.[0] || "";
+
+      return [
+        `${index + 1}. ${getDisplayName(item)} x${item.qty}`,
+        `   ${itemVbucks} ${labels.vbucks}`,
+        `   ${formatMoney(itemLocal)}`,
+        imageUrl ? `   Imagen: ${imageUrl}` : null,
+      ].filter(Boolean);
+    });
+  }
 
   const shareCart = async () => {
     const ids = cart.map((item) => `${item.id}:${item.qty}`).join(",");
@@ -1195,49 +1359,302 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
     alert(labels.copied);
   };
 
-  const sendWhatsApp = () => {
+  const confirmSendWhatsApp = () => {
+    if (details.length === 0) {
+      alert(labels.emptyCart);
+      return;
+    }
+
+    if (!cleanRecipient) {
+      alert(language === "en" ? "Add the Fortnite username to send to." : "Agrega el usuario de Fortnite a enviar.");
+      return;
+    }
+
+    const primaryItems = getItemsForIds(primaryItemIds);
+
+    if (primaryItems.length === 0) {
+      alert(
+        language === "en"
+          ? "Select at least one item for the main user."
+          : "Selecciona al menos un objeto para el usuario principal."
+      );
+      return;
+    }
+
+    if (splitEnabled) {
+      if (activeSplitUsers.length < 1) {
+        alert(
+          language === "en"
+            ? "Add the secondary username."
+            : "Agrega el usuario adicional."
+        );
+        return;
+      }
+
+      const userWithoutItems = activeSplitUsers.find((user) => getItemsForIds(user.itemIds).length === 0);
+      if (userWithoutItems) {
+        alert(
+          language === "en"
+            ? "Select at least one item for the secondary user."
+            : "Selecciona al menos un objeto para el usuario adicional."
+        );
+        return;
+      }
+    }
+
     const lines = [
       "🛒 Cotización de objetos GKG",
       "",
-      ...details.flatMap((item, index) => {
-        const itemVbucks = Number(item.price || 0) * item.qty;
-        const itemLocal = itemVbucks * VB_TO_LOCAL_RATE;
-        const imageUrl = item._galleryImages?.[0] || item.image || item.galleryImages?.[0] || "";
-        return [
-          `${index + 1}. ${getDisplayName(item)} x${item.qty}`,
-          `   ${itemVbucks} ${labels.vbucks}`,
-          `   ${language === "en" ? `$${itemLocal.toFixed(2)}` : `MX$${itemLocal.toFixed(2)}`}`,
-          imageUrl ? `   Imagen: ${imageUrl}` : null,
-        ].filter(Boolean);
-      }),
+      "🎮 Datos de entrega",
+      `Usuario principal a enviar: ${cleanRecipient}`,
+      "",
+      "📦 Objetos del carrito",
+      ...buildItemLines(primaryItems),
+    ];
+
+    if (splitEnabled) {
+      activeSplitUsers.forEach((user, index) => {
+        const selectedItems = getItemsForIds(user.itemIds);
+        lines.push(
+          "",
+          `Usuario adicional a enviar: ${user.name}`,
+          ...buildItemLines(selectedItems)
+        );
+      });
+    }
+
+    lines.push(
       "",
       `Total: ${totalVbucks} ${labels.vbucks}`,
-      `Total MX: ${language === "en" ? `$${totalLocal.toFixed(2)}` : `MX$${totalLocal.toFixed(2)}`}`,
+      `Total MX: ${formatMoney(totalLocal)}`,
       "",
-      "Quiero pagar/cotizar estos objetos.",
-    ];
+      "Quiero cotizar/enviar estos objetos por regalo."
+    );
 
     const text = lines.join("\n");
     const url = `https://wa.me/5216568558434?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank", "noopener,noreferrer");
+    setGiftModalOpen(false);
   };
+
+  const openGiftModal = () => {
+    if (details.length === 0) {
+      alert(labels.emptyCart);
+      return;
+    }
+
+    setGiftModalOpen(true);
+  };
+
+  function RecipientItemSelector({ recipientId, selectedIds = [] }) {
+    if (details.length === 0) return null;
+
+    return (
+      <div className="mt-3 rounded-2xl border border-[#1a4e3a]/80 bg-[#04120d] p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[#63ff9b]">
+            Selecciona qué objetos recibirá
+          </span>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => selectAllForRecipient(recipientId)}
+              className="rounded-lg border border-[#67ff9a]/30 px-2 py-1 text-[10px] font-black text-[#67ff9a]"
+            >
+              Todos
+            </button>
+            <button
+              type="button"
+              onClick={() => clearItemsForRecipient(recipientId)}
+              className="rounded-lg border border-red-500/30 px-2 py-1 text-[10px] font-black text-red-200"
+            >
+              Ninguno
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-2">
+          {details.map((item) => {
+            const checked = selectedIds.includes(item.id);
+            const itemTotal = Number(item.price || 0) * item.qty;
+
+            return (
+              <label
+                key={`${recipientId}-${item.id}`}
+                className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 transition ${
+                  checked
+                    ? "border-[#67ff9a]/55 bg-[#15d863]/10"
+                    : "border-[#1a4e3a] bg-[#08140f]/80"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleRecipientItem(recipientId, item.id)}
+                  className="h-4 w-4 shrink-0 accent-[#15d863]"
+                />
+
+                <div className="min-w-0 flex-1">
+                  <div className="line-clamp-1 text-xs font-black text-white">
+                    {getDisplayName(item)} x{item.qty}
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    {itemTotal} {labels.vbucks} · {formatMoney(itemTotal * VB_TO_LOCAL_RATE)}
+                  </div>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+
+  function renderGiftDataModal() {
+    return (
+      <div className="fixed inset-0 z-[145] flex items-end justify-center bg-black/72 p-0 backdrop-blur-[3px] sm:items-center sm:p-4">
+        <div
+          className="flex h-[100dvh] w-full flex-col overflow-hidden rounded-none border-0 bg-[rgba(4,18,13,0.98)] shadow-[0_0_60px_rgba(21,216,99,0.16)] sm:h-auto sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-[30px] sm:border sm:border-[#124633]/70"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="shrink-0 bg-[rgba(4,18,13,0.98)] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.25em] text-[#63ff9b]">
+                  Datos de regalo
+                </p>
+                <h3 className="mt-1 text-2xl font-black text-white">
+                  Confirmar envío por WhatsApp
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-slate-400">
+                  Debes poner los datos de regalo para continuar. Agrega el usuario principal y, si vas a dividir, selecciona qué objetos recibirá cada usuario.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setGiftModalOpen(false)}
+                className="shrink-0 rounded-xl border border-[#1a4e3a]/70 bg-[#08140f] px-4 py-2 text-sm font-black text-white"
+              >
+                {labels.close}
+              </button>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-6 [-webkit-overflow-scrolling:touch] [touch-action:pan-y] [&::-webkit-scrollbar]:hidden">
+            <div className="rounded-2xl bg-[#06110c] p-3 shadow-[inset_0_0_0_1px_rgba(30,255,122,.18)]">
+              <label className="block">
+                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-white">
+                  Usuario principal a enviar *
+                </span>
+                <input
+                  type="text"
+                  value={recipientUsername}
+                  onChange={(event) => setRecipientUsername(event.target.value)}
+                  placeholder="Ej. GankerGames"
+                  className="w-full rounded-2xl border border-[#1a4e3a]/70 bg-[#08140f] px-4 py-3 text-sm font-bold text-white outline-none transition placeholder:text-slate-500 focus:border-[#67ff9a]"
+                />
+              </label>
+
+              <RecipientItemSelector recipientId="principal" selectedIds={primaryItemIds} />
+            </div>
+
+            <div className="rounded-2xl bg-[#06110c] p-3 shadow-[inset_0_0_0_1px_rgba(30,255,122,.18)]">
+              <label className="flex cursor-pointer items-center justify-between gap-3">
+                <span>
+                  <span className="block text-sm font-black text-white">Agregar 1 usuario adicional</span>
+                  <span className="block text-xs leading-5 text-slate-400">
+                    Actívalo solo si una parte del carrito irá a otra cuenta. Podrás elegir qué objetos recibe.
+                  </span>
+                </span>
+
+                <input
+                  type="checkbox"
+                  checked={splitEnabled}
+                  onChange={(event) => toggleSecondaryUser(event.target.checked)}
+                  className="h-5 w-5 accent-[#15d863]"
+                />
+              </label>
+
+              {splitEnabled && (
+                <div className="mt-3 space-y-3">
+                  {splitUsers.slice(0, 1).map((user, index) => (
+                    <div key={user.id} className="rounded-2xl bg-[#04120d] p-3 shadow-[inset_0_0_0_1px_rgba(30,255,122,.16)]">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="text-xs font-black uppercase tracking-wide text-white">
+                          Usuario adicional
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => toggleSecondaryUser(false)}
+                          className="rounded-xl border border-red-500/35 bg-red-500/10 px-3 py-2 text-xs font-black text-red-200"
+                          aria-label="Quitar usuario adicional"
+                        >
+                          Quitar
+                        </button>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={user.name}
+                        onChange={(event) => updateSplitUser(index, event.target.value)}
+                        placeholder="Nombre del usuario adicional"
+                        className="w-full rounded-xl border border-[#1a4e3a]/70 bg-[#08140f] px-3 py-2 text-sm font-bold text-white outline-none transition placeholder:text-slate-500 focus:border-[#67ff9a]"
+                      />
+
+                      <RecipientItemSelector recipientId={user.id} selectedIds={user.itemIds || []} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="shrink-0 bg-[rgba(4,18,13,0.98)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-18px_30px_rgba(4,18,13,.92)]">
+            <button
+              type="button"
+              onClick={confirmSendWhatsApp}
+              className="w-full rounded-2xl bg-[#15d863] px-4 py-4 text-sm font-black text-[#06110a] shadow-[0_0_18px_rgba(21,216,99,0.18)] transition hover:brightness-110"
+            >
+              Confirmar y mandar por WhatsApp
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[130]">
       <div className="absolute inset-0 bg-black/62 backdrop-blur-[2px]" onClick={onClose} />
-      <div className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-[#124633] bg-[rgba(4,18,13,0.84)] p-4 shadow-[0_0_45px_rgba(21,216,99,0.16)] backdrop-blur-xl ${isClosing ? "animate-[slideOutRight_220ms_ease-in]" : "animate-[slideInRight_220ms_ease-out]"}`}>
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-2xl font-black">{labels.cart}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-[#1a4e3a] bg-[#08140f] px-4 py-2 font-black text-white"
-          >
-            {labels.close}
-          </button>
+      <div
+        className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col overflow-hidden border-l border-[#124633] bg-[rgba(4,18,13,0.90)] shadow-[0_0_45px_rgba(21,216,99,0.16)] backdrop-blur-xl sm:max-w-lg ${
+          isClosing ? "animate-[slideOutRight_220ms_ease-in]" : "animate-[slideInRight_220ms_ease-out]"
+        }`}
+      >
+        <div className="shrink-0 border-b border-[#124633]/70 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#63ff9b]">
+                Ganker Games
+              </p>
+              <h3 className="text-2xl font-black">{labels.cart}</h3>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-[#1a4e3a] bg-[#08140f] px-4 py-2 font-black text-white"
+            >
+              {labels.close}
+            </button>
+          </div>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 pr-2">
           {details.length === 0 && (
             <div className="rounded-2xl border border-[#124633] bg-[#06110c] p-4 text-slate-300">
               {labels.emptyCart}
@@ -1247,7 +1664,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
           {details.map((item) => (
             <div key={item.id} className="rounded-2xl border border-[#124633] bg-[#06110c] p-3">
               <div className="flex gap-3">
-                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl bg-[#101812]">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#101812]">
                   <img
                     src={item._galleryImages?.[0] || "/ganker-logo.png"}
                     alt={getDisplayName(item)}
@@ -1289,45 +1706,48 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
               </div>
             </div>
           ))}
+
         </div>
 
-        <div className="mt-4 shrink-0 rounded-2xl border border-[#124633] bg-[rgba(6,17,12,0.92)] p-4 backdrop-blur-sm">
-          <div className="flex items-center justify-between text-sm">
-            <span>{labels.totalVbucks}</span>
-            <span className="font-black">{totalVbucks} {labels.vbucks}</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-sm">
-            <span>{labels.total}</span>
-            <span className="font-black">
-              {language === "en" ? `$${totalLocal.toFixed(2)}` : `MX$${totalLocal.toFixed(2)}`}
-            </span>
-          </div>
+        <div className="shrink-0 border-t border-[#124633]/70 bg-[rgba(4,18,13,0.96)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="rounded-2xl border border-[#124633] bg-[rgba(6,17,12,0.92)] p-4 backdrop-blur-sm">
+            <div className="flex items-center justify-between text-sm">
+              <span>{labels.totalVbucks}</span>
+              <span className="font-black">{totalVbucks} {labels.vbucks}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-sm">
+              <span>{labels.total}</span>
+              <span className="font-black">{formatMoney(totalLocal)}</span>
+            </div>
 
-          <div className="mt-4 grid gap-3">
-            <button
-              type="button"
-              onClick={sendWhatsApp}
-              className="rounded-2xl bg-[#15d863] px-4 py-3 text-sm font-black text-[#06110a]"
-            >
-              {labels.sendWhatsApp}
-            </button>
-            <button
-              type="button"
-              onClick={shareCart}
-              className="rounded-2xl border border-[#1a4e3a] bg-[#08140f]/88 px-4 py-3 text-sm font-black text-white"
-            >
-              {labels.shareLink}
-            </button>
-            <button
-              type="button"
-              onClick={onClear}
-              className="rounded-2xl border border-red-500/40 bg-red-500/12 px-4 py-3 text-sm font-black text-red-300"
-            >
-              {labels.remove}
-            </button>
+            <div className="mt-4 grid gap-3">
+              <button
+                type="button"
+                onClick={openGiftModal}
+                className="rounded-2xl bg-[#15d863] px-4 py-3 text-sm font-black text-[#06110a] shadow-[0_0_18px_rgba(21,216,99,0.18)] transition hover:brightness-110"
+              >
+                {labels.sendWhatsApp}
+              </button>
+              <button
+                type="button"
+                onClick={shareCart}
+                className="rounded-2xl border border-[#1a4e3a] bg-[#08140f]/88 px-4 py-3 text-sm font-black text-white"
+              >
+                {labels.shareLink}
+              </button>
+              <button
+                type="button"
+                onClick={onClear}
+                className="rounded-2xl border border-red-500/40 bg-red-500/12 px-4 py-3 text-sm font-black text-red-300"
+              >
+                {labels.remove}
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {giftModalOpen && renderGiftDataModal()}
     </div>
   );
 }
@@ -1857,6 +2277,14 @@ function MobileMenuDrawer({ open, labels, cartCount, authHref, authLabel, onClos
           </Link>
 
           <Link
+            href="/vbucks"
+            onClick={onClose}
+            className="rounded-2xl border border-cyan-300/45 bg-cyan-300/10 px-4 py-4 text-center text-base font-black text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.12)] transition hover:border-cyan-200 hover:bg-cyan-300/15"
+          >
+            {labels.navVbucks}
+          </Link>
+
+          <Link
             href={authHref}
             onClick={onClose}
             className="rounded-2xl border border-cyan-300/45 bg-cyan-300/10 px-4 py-4 text-center text-base font-black text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,0.12)] transition hover:border-cyan-200 hover:bg-cyan-300/15"
@@ -2341,6 +2769,19 @@ export default function Home() {
       )}
 
       {showScrollTop && (
+        <Link
+          href="/vbucks"
+          aria-label={labels.navVbucks}
+          title={labels.navVbucks}
+          className="fixed left-4 top-[266px] z-[61] flex h-12 w-12 items-center justify-center rounded-full border-2 border-cyan-200 bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,.95),rgba(124,249,255,.85)_32%,rgba(22,184,205,.85)_62%,rgba(7,57,78,1)_100%)] text-white shadow-[0_0_0_2px_rgba(34,211,238,0.16),0_0_26px_rgba(34,211,238,0.42),0_10px_22px_rgba(0,0,0,0.40)] transition hover:scale-105 hover:border-white md:left-6 md:top-[302px] md:h-14 md:w-14"
+        >
+          <span className="text-2xl font-black italic leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,.45)] md:text-3xl">
+            V
+          </span>
+        </Link>
+      )}
+
+      {showScrollTop && (
         <a
           href="https://youtube.com/shorts/A0SAjcySAsc?feature=share"
           target="_blank"
@@ -2509,6 +2950,17 @@ export default function Home() {
                     <path d="m17 15 4 4 4-4" />
                   </svg>
                 </button>
+
+                <Link
+                  href="/vbucks"
+                  aria-label={labels.navVbucks}
+                  title={labels.navVbucks}
+                  className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-cyan-200 bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,.95),rgba(124,249,255,.85)_32%,rgba(22,184,205,.85)_62%,rgba(7,57,78,1)_100%)] text-white shadow-[0_0_0_2px_rgba(34,211,238,0.16),0_0_22px_rgba(34,211,238,0.34),0_8px_18px_rgba(0,0,0,0.30)] transition hover:scale-105 hover:border-white"
+                >
+                  <span className="text-2xl font-black italic leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,.45)]">
+                    V
+                  </span>
+                </Link>
 
                 <a
                   href="https://youtube.com/shorts/A0SAjcySAsc?feature=share"

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 const BAD_WORDS = [
@@ -834,6 +835,17 @@ export default function LoginPage() {
               )}
             </button>
           </div>
+
+          {mode === "login" && (
+            <div className="text-right">
+              <Link
+                href="/olvide-contrasena"
+                className="text-sm font-black text-[#67ff9a] transition hover:text-white"
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
+          )}
 
           {mode === "register" && (
             <>
