@@ -322,8 +322,20 @@ export default function PublicProfilePage() {
   }
 
   useEffect(() => {
+    let active = true;
+
+    const loadingSafetyTimeout = window.setTimeout(() => {
+      if (!active) return;
+
+      setLoading(false);
+      setErrorMessage((current) =>
+        current || "La carga del perfil tardó demasiado. Actualiza la página para intentarlo nuevamente."
+      );
+    }, 12000);
+
     async function loadPublicProfile() {
-      const { data: sessionData } = await supabase.auth.getSession();
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
       setCurrentUser(sessionData.session?.user || null);
 
       const slug = decodeURIComponent(String(params?.slug || "")).trim();
@@ -352,62 +364,86 @@ export default function PublicProfilePage() {
         return;
       }
 
-      setProfile(publicProfile);
+        setProfile(publicProfile);
+        setLoading(false);
 
-      try {
-        const { data: interests } = await supabase
-          .from("profile_interests")
-          .select("*")
-          .eq("profile_id", publicProfile.id)
-          .order("created_at", { ascending: true });
+        // Los datos secundarios se completan sin bloquear la vista principal.
+        void Promise.allSettled([
+          (async () => {
+            try {
+              const { data: interests } = await supabase
+                .from("profile_interests")
+                .select("*")
+                .eq("profile_id", publicProfile.id)
+                .order("created_at", { ascending: true });
 
-        setCustomInterests(interests || []);
-      } catch (interestError) {
-        setCustomInterests([]);
+              setCustomInterests(interests || []);
+            } catch (interestError) {
+              setCustomInterests([]);
+            }
+          })(),
+          (async () => {
+            try {
+              const { data: tags } = await supabase
+                .from("profile_tags")
+                .select("*")
+                .eq("profile_id", publicProfile.id)
+                .order("created_at", { ascending: true });
+
+              setProfileTags(tags || []);
+            } catch (tagsError) {
+              setProfileTags([]);
+            }
+          })(),
+          (async () => {
+            try {
+              const { data: statsData, error: statsError } = await supabase.rpc(
+                "get_profile_stats_by_id",
+                { target_profile_id: publicProfile.id }
+              );
+
+              if (statsError) throw statsError;
+
+              const stats = Array.isArray(statsData) ? statsData[0] : statsData;
+
+              setPublicStats({
+                premios: Number(stats?.premios || publicProfile.premios_count || 0),
+                sorteos: Number(stats?.sorteos || publicProfile.sorteos_ganados_count || 0),
+                participaciones: Number(stats?.participaciones || publicProfile.participaciones_count || 0),
+                followers: Number(stats?.followers || 0),
+                following: Number(stats?.following || 0),
+              });
+            } catch (statsError) {
+              setPublicStats({
+                premios: Number(publicProfile.premios_count || 0),
+                sorteos: Number(publicProfile.sorteos_ganados_count || 0),
+                participaciones: Number(publicProfile.participaciones_count || 0),
+                followers: 0,
+                following: 0,
+              });
+            }
+          })(),
+        ]);
+      } catch (error) {
+        console.error("Public profile initialization error:", error);
+        setErrorMessage(
+          error?.message || "No se pudo cargar el perfil público. Intenta nuevamente."
+        );
+      } finally {
+        window.clearTimeout(loadingSafetyTimeout);
+
+        if (active) {
+          setLoading(false);
+        }
       }
-
-      try {
-        const { data: tags } = await supabase
-          .from("profile_tags")
-          .select("*")
-          .eq("profile_id", publicProfile.id)
-          .order("created_at", { ascending: true });
-
-        setProfileTags(tags || []);
-      } catch (tagsError) {
-        setProfileTags([]);
-      }
-
-      try {
-        const { data: statsData, error: statsError } = await supabase.rpc("get_profile_stats_by_id", {
-          target_profile_id: publicProfile.id,
-        });
-
-        if (statsError) throw statsError;
-
-        const stats = Array.isArray(statsData) ? statsData[0] : statsData;
-
-        setPublicStats({
-          premios: Number(stats?.premios || publicProfile.premios_count || 0),
-          sorteos: Number(stats?.sorteos || publicProfile.sorteos_ganados_count || 0),
-          participaciones: Number(stats?.participaciones || publicProfile.participaciones_count || 0),
-          followers: Number(stats?.followers || 0),
-          following: Number(stats?.following || 0),
-        });
-      } catch (statsError) {
-        setPublicStats({
-          premios: Number(publicProfile.premios_count || 0),
-          sorteos: Number(publicProfile.sorteos_ganados_count || 0),
-          participaciones: Number(publicProfile.participaciones_count || 0),
-          followers: 0,
-          following: 0,
-        });
-      }
-
-      setLoading(false);
     }
 
     loadPublicProfile();
+
+    return () => {
+      active = false;
+      window.clearTimeout(loadingSafetyTimeout);
+    };
   }, [params, supabase]);
 
   async function handleGoBackToPrivateProfile() {
@@ -450,7 +486,8 @@ export default function PublicProfilePage() {
 
   if (loading) {
     return (
-      <main translate="no" className="flex min-h-screen items-center justify-center bg-[#001207] text-white">
+      <main translate="no" className="relative flex min-h-screen items-center justify-center bg-[#001207] text-white">
+        <GkgTwinkleBackground />
         <div className="rounded-3xl border border-[#1eff7a]/30 bg-[#020804] p-6 font-black text-[#1eff7a] shadow-[0_0_30px_rgba(30,255,122,.18)]">
           Cargando perfil público...
         </div>
@@ -460,7 +497,8 @@ export default function PublicProfilePage() {
 
   if (errorMessage) {
     return (
-      <main translate="no" className="flex min-h-screen items-center justify-center bg-[#001207] px-4 text-white">
+      <main translate="no" className="relative flex min-h-screen items-center justify-center bg-[#001207] px-4 text-white">
+        <GkgTwinkleBackground />
         <Card className="max-w-md text-center">
           <h1 className="text-2xl font-black text-red-300">Perfil no disponible</h1>
           <p className="mt-3 text-sm text-zinc-400">{errorMessage}</p>
@@ -524,7 +562,18 @@ export default function PublicProfilePage() {
   ];
 
   return (
-    <main translate="no" className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_24%),linear-gradient(180deg,#001f0b_0%,#001708_45%,#001207_100%)] text-white">
+    <main translate="no" className="relative isolate min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_24%),linear-gradient(180deg,#001f0b_0%,#001708_45%,#001207_100%)] text-white">
+      <style jsx global>{`
+        @keyframes gkgTwinkle {
+          0%, 100% { opacity: 0.22; transform: scale(0.82); }
+          50% { opacity: 1; transform: scale(1.14); }
+        }
+        @keyframes gkgFloatGlow {
+          0%, 100% { opacity: 0.16; transform: translate3d(0, 0, 0); }
+          50% { opacity: 0.36; transform: translate3d(0, -12px, 0); }
+        }
+      `}</style>
+      <GkgTwinkleBackground />
       <header className="sticky top-0 z-[100] w-full max-w-[100vw] overflow-hidden border-b border-[#0f3d22] bg-[#020804]/95 supports-[backdrop-filter]:bg-[#020804]/90 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3">
           <a
@@ -810,3 +859,62 @@ export default function PublicProfilePage() {
   );
 }
 
+
+
+const GKG_TWINKLE_STARS = [
+  { left: "8%", top: "10%", size: 3, delay: "0s", duration: "2.6s", opacity: 0.95 },
+  { left: "19%", top: "30%", size: 2, delay: ".5s", duration: "2.1s", opacity: 0.82 },
+  { left: "33%", top: "14%", size: 4, delay: ".8s", duration: "3s", opacity: 0.88 },
+  { left: "47%", top: "8%", size: 2, delay: "1.3s", duration: "2.4s", opacity: 0.78 },
+  { left: "63%", top: "18%", size: 3, delay: ".2s", duration: "2.8s", opacity: 0.92 },
+  { left: "79%", top: "9%", size: 2, delay: "1.1s", duration: "2.2s", opacity: 0.72 },
+  { left: "89%", top: "28%", size: 4, delay: ".9s", duration: "3.2s", opacity: 0.94 },
+  { left: "12%", top: "45%", size: 2, delay: "1.8s", duration: "2.5s", opacity: 0.76 },
+  { left: "26%", top: "57%", size: 3, delay: ".4s", duration: "2.9s", opacity: 0.9 },
+  { left: "40%", top: "39%", size: 2, delay: "1.2s", duration: "2s", opacity: 0.7 },
+  { left: "55%", top: "50%", size: 4, delay: "0s", duration: "3.1s", opacity: 0.96 },
+  { left: "68%", top: "42%", size: 2, delay: "1.6s", duration: "2.4s", opacity: 0.8 },
+  { left: "82%", top: "54%", size: 3, delay: ".7s", duration: "2.7s", opacity: 0.88 },
+  { left: "92%", top: "63%", size: 2, delay: "1.5s", duration: "2.2s", opacity: 0.68 },
+  { left: "10%", top: "73%", size: 4, delay: "1.1s", duration: "3s", opacity: 0.92 },
+  { left: "23%", top: "86%", size: 2, delay: ".6s", duration: "2.4s", opacity: 0.76 },
+  { left: "37%", top: "78%", size: 3, delay: "1.7s", duration: "2.8s", opacity: 0.84 },
+  { left: "58%", top: "89%", size: 2, delay: ".3s", duration: "2.1s", opacity: 0.7 },
+  { left: "76%", top: "81%", size: 4, delay: "1.4s", duration: "3.3s", opacity: 0.95 },
+  { left: "90%", top: "92%", size: 2, delay: ".9s", duration: "2.3s", opacity: 0.74 },
+];
+
+function GkgTwinkleBackground() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(30,255,122,0.16),transparent_0,transparent_22%),radial-gradient(circle_at_78%_16%,rgba(30,255,122,0.14),transparent_0,transparent_18%),radial-gradient(circle_at_68%_58%,rgba(99,255,155,0.12),transparent_0,transparent_20%),radial-gradient(circle_at_12%_88%,rgba(30,255,122,0.12),transparent_0,transparent_18%)]" />
+      <div
+        className="absolute left-[8%] top-[16%] h-40 w-40 rounded-full bg-[#1eff7a]/8 blur-3xl"
+        style={{ animation: "gkgFloatGlow 7s ease-in-out infinite" }}
+      />
+      <div
+        className="absolute right-[12%] top-[34%] h-48 w-48 rounded-full bg-[#63ff9b]/8 blur-3xl"
+        style={{ animation: "gkgFloatGlow 8.5s ease-in-out infinite", animationDelay: "1.4s" }}
+      />
+      <div
+        className="absolute bottom-[8%] left-[24%] h-52 w-52 rounded-full bg-[#1eff7a]/6 blur-3xl"
+        style={{ animation: "gkgFloatGlow 9.2s ease-in-out infinite", animationDelay: ".7s" }}
+      />
+      {GKG_TWINKLE_STARS.map((star, index) => (
+        <span
+          key={`${star.left}-${star.top}-${index}`}
+          className="absolute rounded-full bg-[#95ffd0] shadow-[0_0_10px_rgba(149,255,208,0.9)]"
+          style={{
+            left: star.left,
+            top: star.top,
+            width: `${star.size}px`,
+            height: `${star.size}px`,
+            opacity: star.opacity,
+            animation: `gkgTwinkle ${star.duration} ease-in-out infinite`,
+            animationDelay: star.delay,
+          }}
+        />
+      ))}
+    </div>
+  );
+}

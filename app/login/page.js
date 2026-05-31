@@ -192,9 +192,26 @@ function createHumanChallenge() {
   };
 }
 
+
+async function promiseWithTimeout(promise, timeoutMs, errorMessage) {
+  let timeoutId;
+
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(errorMessage));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [mode, setMode] = useState("login");
 
@@ -271,6 +288,16 @@ export default function LoginPage() {
     setMessageType(type);
   }
 
+  function openProfilePage() {
+    if (typeof window !== "undefined") {
+      window.location.replace("/perfil");
+      return;
+    }
+
+    router.replace("/perfil");
+    router.refresh();
+  }
+
   function handleAvatarChange(event) {
     const file = event.target.files?.[0];
 
@@ -315,10 +342,14 @@ export default function LoginPage() {
   }
 
   async function signInAndOpenProfile(loginEmail, shouldRestoreProfile = false) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: loginEmail,
-      password,
-    });
+    const { data, error } = await promiseWithTimeout(
+      supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password,
+      }),
+      12000,
+      "El inicio de sesión tardó demasiado. Revisa tu conexión e intenta nuevamente."
+    );
 
     if (error) throw error;
 
@@ -344,8 +375,7 @@ export default function LoginPage() {
       });
     }
 
-    router.replace("/perfil");
-    router.refresh();
+    openProfilePage();
   }
 
   async function resolveLoginEmail(loginInput) {
@@ -356,11 +386,12 @@ export default function LoginPage() {
     }
 
     if (!loginEmail.includes("@")) {
-      const { data: foundEmail, error: usernameError } = await supabase.rpc(
-        "get_email_by_ganker_user",
-        {
+      const { data: foundEmail, error: usernameError } = await promiseWithTimeout(
+        supabase.rpc("get_email_by_ganker_user", {
           username_input: loginEmail,
-        }
+        }),
+        8000,
+        "La búsqueda del usuario tardó demasiado. Intenta nuevamente."
       );
 
       if (usernameError) {
@@ -378,22 +409,31 @@ export default function LoginPage() {
   }
 
   async function checkDeletedProfile(loginInput) {
-    const { data, error } = await supabase.rpc("get_deleted_profile_by_login", {
-      login_input: loginInput.trim().toLowerCase(),
-    });
+    try {
+      const { data, error } = await promiseWithTimeout(
+        supabase.rpc("get_deleted_profile_by_login", {
+          login_input: loginInput.trim().toLowerCase(),
+        }),
+        6000,
+        "La revisión del perfil tardó demasiado."
+      );
 
-    if (error) {
-  console.warn("No se pudo revisar si el perfil está en restauración:", error);
-  return null;
-  }
+      if (error) {
+        console.warn("No se pudo revisar si el perfil está en restauración:", error);
+        return null;
+      }
 
-    const deletedProfile = Array.isArray(data) ? data[0] : data;
+      const deletedProfile = Array.isArray(data) ? data[0] : data;
 
-    if (!deletedProfile?.deleted_at) {
+      if (!deletedProfile?.deleted_at) {
+        return null;
+      }
+
+      return deletedProfile;
+    } catch (error) {
+      console.warn("La revisión del perfil excedió el tiempo permitido:", error);
       return null;
     }
-
-    return deletedProfile;
   }
 
   async function handleRestoreLogin() {
@@ -613,8 +653,7 @@ export default function LoginPage() {
 
         showMessage("Cuenta creada correctamente.", "success");
 
-        router.replace("/perfil");
-        router.refresh();
+        openProfilePage();
         return;
       }
 

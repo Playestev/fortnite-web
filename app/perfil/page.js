@@ -2201,8 +2201,20 @@ export default function PerfilPage() {
   }
 
   useEffect(() => {
+    let active = true;
+
+    const loadingSafetyTimeout = window.setTimeout(() => {
+      if (!active) return;
+
+      setLoading(false);
+      setProfileMessage((current) =>
+        current || "La carga del perfil está tardando más de lo esperado. Puedes continuar y volver a intentar."
+      );
+    }, 12000);
+
     async function loadProfile() {
-      const { data: sessionData } = await supabase.auth.getSession();
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
 
       if (!sessionData.session) {
         setUser(null);
@@ -2334,14 +2346,35 @@ export default function PerfilPage() {
         setPresenceStatus("online");
       }
 
-      await updatePresenceStatus("online", currentUser.id);
-      await loadSocialData(currentUser.id);
-      await loadSettingsData(currentUser.id);
+        // El perfil básico ya está listo. No detenemos toda la pantalla
+        // mientras cargan comunidad, historial o presencia.
+        setLoading(false);
 
-      setLoading(false);
+        void Promise.allSettled([
+          updatePresenceStatus("online", currentUser.id),
+          loadSocialData(currentUser.id),
+          loadSettingsData(currentUser.id),
+        ]);
+      } catch (error) {
+        console.error("Profile initialization error:", error);
+        setProfileMessage(
+          "No se pudo terminar de cargar el perfil. Revisa tu conexión y actualiza la página."
+        );
+      } finally {
+        window.clearTimeout(loadingSafetyTimeout);
+
+        if (active) {
+          setLoading(false);
+        }
+      }
     }
 
     loadProfile();
+
+    return () => {
+      active = false;
+      window.clearTimeout(loadingSafetyTimeout);
+    };
   }, [router, supabase]);
 
   async function updatePresenceStatus(status, targetUserId = user?.id) {
@@ -3281,7 +3314,8 @@ export default function PerfilPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen w-full max-w-[100vw] items-center justify-center overflow-x-hidden bg-[#001207] text-white">
+      <main className="relative flex min-h-screen w-full max-w-[100vw] items-center justify-center overflow-x-hidden bg-[#001207] text-white">
+        <GkgTwinkleBackground />
       <style jsx global>{`@keyframes slideInRight{from{transform:translateX(100%);opacity:.65}to{transform:translateX(0);opacity:1}}@keyframes slideOutRight{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:.65}}`}</style>
         <div className="rounded-3xl border border-[#1eff7a]/30 bg-[#020804] p-6 font-black text-[#1eff7a] shadow-[0_0_30px_rgba(30,255,122,.18)]">
           {t.loading}
@@ -3291,7 +3325,8 @@ export default function PerfilPage() {
   }
 
   return (
-    <main translate="no" className="gkg-mobile-shell min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_24%),linear-gradient(180deg,#001f0b_0%,#001708_45%,#001207_100%)] text-white">
+    <main translate="no" className="gkg-mobile-shell relative isolate min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_24%),linear-gradient(180deg,#001f0b_0%,#001708_45%,#001207_100%)] text-white">
+      <GkgTwinkleBackground />
       <style jsx global>{`
         html,
         body {
@@ -3347,6 +3382,14 @@ export default function PerfilPage() {
         @keyframes mobileMenuDrop {
           from { transform: translateY(-14px) scale(0.94); opacity: 0; }
           to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes gkgTwinkle {
+          0%, 100% { opacity: 0.22; transform: scale(0.82); }
+          50% { opacity: 1; transform: scale(1.14); }
+        }
+        @keyframes gkgFloatGlow {
+          0%, 100% { opacity: 0.16; transform: translate3d(0, 0, 0); }
+          50% { opacity: 0.36; transform: translate3d(0, -12px, 0); }
         }
       `}</style>
 
@@ -9664,5 +9707,64 @@ function SimpleTab({ title, icon: Icon, children }) {
         <p className="text-zinc-400">{children}</p>
       </Card>
     </section>
+  );
+}
+
+
+const GKG_TWINKLE_STARS = [
+  { left: "8%", top: "10%", size: 3, delay: "0s", duration: "2.6s", opacity: 0.95 },
+  { left: "19%", top: "30%", size: 2, delay: ".5s", duration: "2.1s", opacity: 0.82 },
+  { left: "33%", top: "14%", size: 4, delay: ".8s", duration: "3s", opacity: 0.88 },
+  { left: "47%", top: "8%", size: 2, delay: "1.3s", duration: "2.4s", opacity: 0.78 },
+  { left: "63%", top: "18%", size: 3, delay: ".2s", duration: "2.8s", opacity: 0.92 },
+  { left: "79%", top: "9%", size: 2, delay: "1.1s", duration: "2.2s", opacity: 0.72 },
+  { left: "89%", top: "28%", size: 4, delay: ".9s", duration: "3.2s", opacity: 0.94 },
+  { left: "12%", top: "45%", size: 2, delay: "1.8s", duration: "2.5s", opacity: 0.76 },
+  { left: "26%", top: "57%", size: 3, delay: ".4s", duration: "2.9s", opacity: 0.9 },
+  { left: "40%", top: "39%", size: 2, delay: "1.2s", duration: "2s", opacity: 0.7 },
+  { left: "55%", top: "50%", size: 4, delay: "0s", duration: "3.1s", opacity: 0.96 },
+  { left: "68%", top: "42%", size: 2, delay: "1.6s", duration: "2.4s", opacity: 0.8 },
+  { left: "82%", top: "54%", size: 3, delay: ".7s", duration: "2.7s", opacity: 0.88 },
+  { left: "92%", top: "63%", size: 2, delay: "1.5s", duration: "2.2s", opacity: 0.68 },
+  { left: "10%", top: "73%", size: 4, delay: "1.1s", duration: "3s", opacity: 0.92 },
+  { left: "23%", top: "86%", size: 2, delay: ".6s", duration: "2.4s", opacity: 0.76 },
+  { left: "37%", top: "78%", size: 3, delay: "1.7s", duration: "2.8s", opacity: 0.84 },
+  { left: "58%", top: "89%", size: 2, delay: ".3s", duration: "2.1s", opacity: 0.7 },
+  { left: "76%", top: "81%", size: 4, delay: "1.4s", duration: "3.3s", opacity: 0.95 },
+  { left: "90%", top: "92%", size: 2, delay: ".9s", duration: "2.3s", opacity: 0.74 },
+];
+
+function GkgTwinkleBackground() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_12%,rgba(30,255,122,0.16),transparent_0,transparent_22%),radial-gradient(circle_at_78%_16%,rgba(30,255,122,0.14),transparent_0,transparent_18%),radial-gradient(circle_at_68%_58%,rgba(99,255,155,0.12),transparent_0,transparent_20%),radial-gradient(circle_at_12%_88%,rgba(30,255,122,0.12),transparent_0,transparent_18%)]" />
+      <div
+        className="absolute left-[8%] top-[16%] h-40 w-40 rounded-full bg-[#1eff7a]/8 blur-3xl"
+        style={{ animation: "gkgFloatGlow 7s ease-in-out infinite" }}
+      />
+      <div
+        className="absolute right-[12%] top-[34%] h-48 w-48 rounded-full bg-[#63ff9b]/8 blur-3xl"
+        style={{ animation: "gkgFloatGlow 8.5s ease-in-out infinite", animationDelay: "1.4s" }}
+      />
+      <div
+        className="absolute bottom-[8%] left-[24%] h-52 w-52 rounded-full bg-[#1eff7a]/6 blur-3xl"
+        style={{ animation: "gkgFloatGlow 9.2s ease-in-out infinite", animationDelay: ".7s" }}
+      />
+      {GKG_TWINKLE_STARS.map((star, index) => (
+        <span
+          key={`${star.left}-${star.top}-${index}`}
+          className="absolute rounded-full bg-[#95ffd0] shadow-[0_0_10px_rgba(149,255,208,0.9)]"
+          style={{
+            left: star.left,
+            top: star.top,
+            width: `${star.size}px`,
+            height: `${star.size}px`,
+            opacity: star.opacity,
+            animation: `gkgTwinkle ${star.duration} ease-in-out infinite`,
+            animationDelay: star.delay,
+          }}
+        />
+      ))}
+    </div>
   );
 }
