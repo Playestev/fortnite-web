@@ -39,7 +39,7 @@ export default function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [checkingLink, setCheckingLink] = useState(true);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [canResetPassword, setCanResetPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -47,82 +47,41 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     let active = true;
-    let fallbackTimeout;
 
-    function allowPasswordReset() {
+    async function readSession() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       if (!active) return;
-      setCanResetPassword(true);
-      setCheckingLink(false);
-      setMessage("");
+
+      setCanResetPassword(Boolean(session));
+      setCheckingSession(false);
+
+      if (!session) {
+        setMessage(
+          "No encontramos una recuperación activa. Solicita un enlace nuevo desde tu correo."
+        );
+        setMessageType("error");
+      }
     }
 
-    function rejectPasswordReset() {
-      if (!active) return;
-      setCanResetPassword(false);
-      setCheckingLink(false);
-      setMessage(
-        "El enlace de recuperación no es válido o ya venció. Solicita uno nuevo."
-      );
-      setMessageType("error");
-    }
+    readSession();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
 
-      if (event === "PASSWORD_RECOVERY" || session) {
-        allowPasswordReset();
+      if (session) {
+        setCanResetPassword(true);
+        setCheckingSession(false);
+        setMessage("");
       }
     });
 
-    async function prepareRecoverySession() {
-      try {
-        const searchParams = new URLSearchParams(window.location.search);
-        const code = searchParams.get("code");
-
-        // Si Supabase usa PKCE, el enlace llega con ?code=...
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-          if (error) throw error;
-
-          allowPasswordReset();
-          return;
-        }
-
-        // Si Supabase procesa el enlace desde el fragmento de la URL,
-        // la sesión puede estar disponible directamente o unos instantes después.
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (session) {
-          allowPasswordReset();
-          return;
-        }
-
-        fallbackTimeout = window.setTimeout(async () => {
-          const {
-            data: { session: delayedSession },
-          } = await supabase.auth.getSession();
-
-          if (delayedSession) {
-            allowPasswordReset();
-          } else {
-            rejectPasswordReset();
-          }
-        }, 1200);
-      } catch {
-        rejectPasswordReset();
-      }
-    }
-
-    prepareRecoverySession();
-
     return () => {
       active = false;
-      if (fallbackTimeout) window.clearTimeout(fallbackTimeout);
       subscription.unsubscribe();
     };
   }, [supabase]);
@@ -187,9 +146,9 @@ export default function ResetPasswordPage() {
           Escribe tu nueva contraseña y confírmala para recuperar tu cuenta.
         </p>
 
-        {checkingLink ? (
+        {checkingSession ? (
           <div className="mt-7 rounded-2xl border border-[#1eff7a]/25 bg-[#07140f] p-4 text-sm text-[#67ff9a]">
-            Validando enlace de recuperación...
+            Validando recuperación...
           </div>
         ) : canResetPassword ? (
           <form onSubmit={handleSubmit} className="mt-7 space-y-5">

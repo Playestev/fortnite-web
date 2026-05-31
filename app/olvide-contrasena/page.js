@@ -29,19 +29,20 @@ export default function OlvideContrasenaPage() {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        // El correo abre una pantalla intermedia.
+        // El token NO se valida automáticamente al cargar la página.
+        redirectTo: `${window.location.origin}/confirmar-recuperacion`,
       });
 
       if (error) throw error;
 
-      // Respuesta genérica para no confirmar públicamente si una cuenta existe.
       setMessage(
         "Si el correo pertenece a una cuenta, recibirás un enlace para cambiar tu contraseña. Revisa también spam o correo no deseado."
       );
       setMessageType("success");
     } catch (error) {
       setMessage(
-        error.message || "No se pudo enviar el correo de recuperación. Intenta de nuevo."
+        error.message || "No se pudo enviar el correo de recuperación."
       );
       setMessageType("error");
     } finally {
@@ -51,7 +52,7 @@ export default function OlvideContrasenaPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.18),_transparent_28%),linear-gradient(180deg,#000_0%,#021106_100%)] px-4 py-10 text-white">
-      <div className="w-full max-w-2xl rounded-[28px] border border-[#1eff7a]/30 bg-[#04120d]/90 p-6 shadow-[0_0_40px_rgba(21,216,99,0.14)] md:p-8">
+      <div className="w-full max-w-3xl rounded-[28px] border border-[#1eff7a]/30 bg-[#04120d]/90 p-6 shadow-[0_0_40px_rgba(21,216,99,0.14)] md:p-8">
         <h1 className="text-3xl font-black italic">
           ¿Olvidaste tu contraseña?
         </h1>
