@@ -22,6 +22,7 @@ import {
   MapPin,
   MessageCircle,
   Settings,
+  Search,
   ShieldCheck,
   Star,
   Ticket,
@@ -64,6 +65,7 @@ const translations = {
     avatarUploadError: "No se pudo subir la foto de perfil.",
     tabs: {
       profile: "Perfil",
+      community: "Comunidad",
       prizes: "Premios",
       giveaways: "Sorteos",
       settings: "Configuración",
@@ -102,6 +104,8 @@ const translations = {
     ownProfile: "Tu perfil",
     communitySectionTitle: "Comunidad GKG",
     communitySectionDesc: "Perfiles de la comunidad con foto, nombre, usuario Ganker Games y estado actual.",
+    communitySearchPlaceholder: "Buscar usuario de Ganker Games...",
+    communitySearchEmpty: "No encontramos usuarios con ese nombre.",
     activityFollowers: "Actividad seguidores",
     noFollowedActivity: "Sigue a jugadores para ver su actividad aquí.",
     communityEmpty: "Aún no hay perfiles visibles en la comunidad.",
@@ -257,6 +261,7 @@ const translations = {
     avatarUploadError: "Could not upload profile photo.",
     tabs: {
       profile: "Profile",
+      community: "Community",
       prizes: "Prizes",
       giveaways: "Giveaways",
       settings: "Settings",
@@ -295,6 +300,8 @@ const translations = {
     ownProfile: "Your profile",
     communitySectionTitle: "GKG Community",
     communitySectionDesc: "Community profiles with photo, name, Ganker Games username and current status.",
+    communitySearchPlaceholder: "Search Ganker Games username...",
+    communitySearchEmpty: "We could not find users with that name.",
     activityFollowers: "Followers activity",
     noFollowedActivity: "Follow players to see their activity here.",
     communityEmpty: "There are no visible community profiles yet.",
@@ -635,6 +642,7 @@ const countries = [
 function getTabs(t) {
   return [
     { name: t.tabs.profile, key: "Perfil", icon: User },
+    { name: t.tabs.community, key: "Comunidad", icon: UsersRound },
     { name: "VIP", key: "VIP", icon: Crown },
     { name: t.tabs.prizes, key: "Premios", icon: Trophy },
     { name: t.tabs.giveaways, key: "Sorteos", icon: Gift },
@@ -1013,9 +1021,14 @@ function MobileProfileTabsDrawer({ open, tabs, activeTab, onSelect, onClose }) {
         }`}
       >
         <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-2xl font-black italic leading-none text-white">GKG</p>
-            <p className="mt-1 text-[10px] font-black uppercase tracking-[0.3em] text-[#67ff9a]">
+          <div className="flex items-center gap-3">
+            <img
+              src="/gankergames-header-logo.png"
+              alt="Logo de Ganker Games"
+              className="h-12 w-auto max-w-[180px] object-contain drop-shadow-[0_0_12px_rgba(30,255,122,.40)]"
+            />
+
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#67ff9a]">
               Perfil
             </p>
           </div>
@@ -1162,6 +1175,7 @@ export default function PerfilPage() {
   const [manualPresence, setManualPresence] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [communityProfiles, setCommunityProfiles] = useState([]);
+  const [communitySearch, setCommunitySearch] = useState("");
   const [followingIds, setFollowingIds] = useState([]);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
@@ -1388,6 +1402,34 @@ export default function PerfilPage() {
       return getProfileDisplayName(a).localeCompare(getProfileDisplayName(b));
     });
   }, [blockedProfiles, communityProfiles, followingIds, user]);
+
+  const filteredCommunityProfiles = useMemo(() => {
+    const cleanSearch = String(communitySearch || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase();
+
+    if (!cleanSearch) return communityProfilesSorted;
+
+    return communityProfilesSorted.filter((item) => {
+      const searchableText = [
+        item.ganker_user,
+        item.fortnite_user,
+        item.display_name,
+        item.first_name,
+        item.middle_name,
+        item.last_name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+
+      return searchableText.includes(cleanSearch);
+    });
+  }, [communityProfilesSorted, communitySearch]);
 
   const followedProfiles = useMemo(
     () =>
@@ -2504,11 +2546,16 @@ export default function PerfilPage() {
   }
 
   function scrollToCommunity() {
-    if (typeof document === "undefined") return;
-    document.getElementById("community-directory")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    setActiveTab("Comunidad");
+
+    if (typeof window === "undefined") return;
+
+    window.setTimeout(() => {
+      document.getElementById("community-directory")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
   }
 
   function scrollToTop() {
@@ -3310,18 +3357,22 @@ export default function PerfilPage() {
         className="hidden"
         onChange={handleAvatarFileChange}
       />
-      <header className="sticky top-0 z-[100] w-full max-w-[100vw] overflow-hidden border-b border-[#0f3d22] bg-[#020804]/95 backdrop-blur-xl supports-[backdrop-filter]:bg-[#020804]/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-[100] w-full max-w-[100vw] overflow-hidden border-b border-[#0f3d22] bg-[#020804]/95 backdrop-blur-xl supports-[backdrop-filter]:bg-[#020804]/90">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3">
-          <a href="/" className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-              <span className="shrink-0 text-[2rem] font-black italic leading-none tracking-tight text-white drop-shadow-[3px_3px_0_rgba(0,0,0,.9)] sm:text-4xl">
-                GKG
-              </span>
+          <a
+            href="/"
+            aria-label="Ir al inicio de GankerGames"
+            className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3"
+          >
+            <img
+              src="/gankergames-header-logo.png"
+              alt="Logo de Ganker Games"
+              className="h-9 w-auto max-w-[112px] shrink-0 object-contain drop-shadow-[0_0_12px_rgba(30,255,122,.40)] sm:h-11 sm:max-w-[155px]"
+            />
 
-              <span className="hidden text-[10px] font-black uppercase tracking-[0.28em] text-[#63ff9b] min-[380px]:inline sm:text-xs sm:tracking-[0.35em]">
-                {t.profileLabel}
-              </span>
-            </div>
+            <span className="inline shrink-0 text-[8px] font-black uppercase tracking-[0.18em] text-[#63ff9b] sm:text-xs sm:tracking-[0.35em]">
+              {t.profileLabel}
+            </span>
           </a>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -3329,7 +3380,7 @@ export default function PerfilPage() {
               type="button"
               onClick={toggleLang}
               aria-label="Cambiar idioma"
-              className="flex items-center gap-1.5 rounded-2xl border border-[#1eff7a]/35 bg-[#021509] px-2.5 py-2 text-xs font-black uppercase tracking-wide text-[#63ff9b] shadow-[0_0_20px_rgba(30,255,122,.12)] hover:border-[#63ff9b] sm:gap-2 sm:px-4 sm:py-3 sm:text-sm"
+              className="flex h-11 items-center gap-1 rounded-2xl border border-[#1eff7a]/35 bg-[#021509] px-2 text-xs font-black uppercase tracking-wide text-[#63ff9b] shadow-[0_0_20px_rgba(30,255,122,.12)] transition hover:border-[#63ff9b] sm:h-12 sm:gap-2 sm:px-4 sm:text-sm"
             >
               <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-black text-white sm:text-[11px]">
                 {lang === "es" ? "ESP" : "ENG"}
@@ -3339,9 +3390,28 @@ export default function PerfilPage() {
 
             <button
               type="button"
-              className="hidden rounded-2xl border border-[#1eff7a]/35 bg-[#021509] px-5 py-3 text-sm font-black uppercase tracking-wide text-[#63ff9b] shadow-[0_0_20px_rgba(30,255,122,.12)] hover:border-[#63ff9b] md:block"
+              onClick={() => {
+                setActiveTab("Perfil");
+                setMobileTabsOpen(false);
+                router.push("/perfil");
+
+                if (typeof window !== "undefined") {
+                  window.setTimeout(
+                    () => window.scrollTo({ top: 0, behavior: "smooth" }),
+                    60
+                  );
+                }
+              }}
+              aria-label={t.myProfile}
+              title={t.myProfile}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#1eff7a]/40 bg-[#021509] text-[#63ff9b] shadow-[0_0_20px_rgba(30,255,122,.14)] transition hover:border-[#63ff9b] hover:bg-[#063115] sm:h-12 sm:w-12"
             >
-              {t.myProfile}
+              <img
+                src="/gankergames-profile-icon.png"
+                alt=""
+                aria-hidden="true"
+                className="h-8 w-8 object-contain"
+              />
             </button>
 
             <button
@@ -3349,7 +3419,7 @@ export default function PerfilPage() {
               onClick={logout}
               aria-label={t.logout}
               title={t.logout}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-500/10 text-sm font-black text-red-300 hover:bg-red-500/20 sm:h-auto sm:w-auto sm:gap-2 sm:px-4 sm:py-3"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-500/10 text-sm font-black text-red-300 transition hover:bg-red-500/20 sm:h-12 sm:w-auto sm:gap-2 sm:px-4"
             >
               <LogOut size={18} />
               <span className="hidden sm:inline">{t.logout}</span>
@@ -3866,17 +3936,39 @@ export default function PerfilPage() {
             </Card>
           </section>
 
-          <section id="community-directory" className="mx-auto max-w-7xl px-4 pb-8">
+        </>
+      )}
+
+
+      {activeTab === "Comunidad" && (
+
+        <section id="community-directory" className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-6">
             <Card>
-              <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <h2 className="text-2xl font-black">{t.communitySectionTitle}</h2>
                   <p className="mt-2 text-sm text-zinc-400">{t.communitySectionDesc}</p>
                 </div>
 
-                {socialLoading && (
-                  <p className="text-sm font-bold text-[#63ff9b]">{t.socialLoading}</p>
-                )}
+                <div className="w-full lg:max-w-md">
+                  <label className="relative block">
+                    <Search
+                      size={18}
+                      className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#63ff9b]"
+                    />
+                    <input
+                      type="search"
+                      value={communitySearch}
+                      onChange={(event) => setCommunitySearch(event.target.value)}
+                      placeholder={t.communitySearchPlaceholder}
+                      className="w-full rounded-2xl border border-[#1eff7a]/30 bg-[#021509] py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-[#63ff9b] focus:shadow-[0_0_18px_rgba(30,255,122,.12)]"
+                    />
+                  </label>
+
+                  {socialLoading && (
+                    <p className="mt-2 text-xs font-bold text-[#63ff9b]">{t.socialLoading}</p>
+                  )}
+                </div>
               </div>
 
               {socialMessage && (
@@ -3885,9 +3977,9 @@ export default function PerfilPage() {
                 </div>
               )}
 
-              {communityProfilesSorted.length ? (
-                <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                  {communityProfilesSorted.map((member) => {
+              {filteredCommunityProfiles.length ? (
+                <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
+                  {filteredCommunityProfiles.map((member) => {
                     const isOwnProfile = idsMatch(member.id, user?.id);
                     const isFollowing = followingIds.some((id) =>
                       idsMatch(id, member.id)
@@ -3901,7 +3993,7 @@ export default function PerfilPage() {
                     return (
                       <div
                         key={member.id}
-                        className="flex h-full flex-col justify-between rounded-2xl border border-[#1eff7a]/15 bg-white/[0.03] p-3 sm:p-4"
+                        className="flex h-full min-w-0 flex-col justify-between rounded-2xl border border-[#1eff7a]/15 bg-white/[0.03] p-2.5 sm:p-4"
                       >
                         <a
                           href={getPublicProfileHref(member, user?.id)}
@@ -3962,11 +4054,12 @@ export default function PerfilPage() {
                   })}
                 </div>
               ) : (
-                <p className="text-sm text-zinc-400">{t.communityEmpty}</p>
+                <p className="text-sm text-zinc-400">
+                  {communitySearch.trim() ? t.communitySearchEmpty : t.communityEmpty}
+                </p>
               )}
             </Card>
           </section>
-        </>
       )}
 
       {interestModalOpen && (

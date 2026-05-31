@@ -11,7 +11,6 @@ import {
   ArrowDown,
   ArrowUp,
   MapPin,
-  ChevronLeft,
   Clock,
   Gamepad2,
   Gift,
@@ -528,12 +527,18 @@ export default function PublicProfilePage() {
     <main translate="no" className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_24%),linear-gradient(180deg,#001f0b_0%,#001708_45%,#001207_100%)] text-white">
       <header className="sticky top-0 z-[100] w-full max-w-[100vw] overflow-hidden border-b border-[#0f3d22] bg-[#020804]/95 supports-[backdrop-filter]:bg-[#020804]/90 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3">
-          <a href="/" className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-            <span className="shrink-0 text-[2rem] font-black italic leading-none tracking-tight text-white drop-shadow-[3px_3px_0_rgba(0,0,0,.9)] sm:text-4xl">
-              GKG
-            </span>
+          <a
+            href="/"
+            aria-label="Ir al inicio de GankerGames"
+            className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3"
+          >
+            <img
+              src="/gankergames-header-logo.png"
+              alt="Logo de Ganker Games"
+              className="h-9 w-auto max-w-[112px] shrink-0 object-contain drop-shadow-[0_0_12px_rgba(30,255,122,.40)] sm:h-11 sm:max-w-[155px]"
+            />
 
-            <span className="hidden text-[10px] font-black uppercase tracking-[0.28em] text-[#63ff9b] min-[360px]:inline sm:text-xs sm:tracking-[0.35em]">
+            <span className="inline shrink-0 text-[8px] font-black uppercase tracking-[0.14em] text-[#63ff9b] sm:text-xs sm:tracking-[0.28em]">
               Perfil público
             </span>
           </a>
@@ -541,18 +546,9 @@ export default function PublicProfilePage() {
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <button
               type="button"
-              onClick={handleGoBackToPrivateProfile}
-              className="hidden h-12 items-center gap-2 rounded-2xl border border-[#1eff7a]/35 bg-[#021509] px-4 text-sm font-black text-[#63ff9b] shadow-[0_0_20px_rgba(30,255,122,.12)] transition hover:border-[#63ff9b] hover:bg-[#063115] md:inline-flex"
-              title={currentUser?.id ? "Regresar a mi perfil" : "Regresar"}
-            >
-              <ChevronLeft size={18} />
-              {currentUser?.id ? "Mi perfil" : "Volver"}
-            </button>
-
-            <button
-              type="button"
-              className="flex h-11 items-center gap-1.5 rounded-2xl border border-[#1eff7a]/35 bg-[#021509] px-2.5 text-xs font-black uppercase tracking-wide text-[#63ff9b] shadow-[0_0_20px_rgba(30,255,122,.12)] hover:border-[#63ff9b] sm:h-12 sm:gap-2 sm:px-4 sm:text-sm"
+              className="flex h-11 items-center gap-1 rounded-2xl border border-[#1eff7a]/35 bg-[#021509] px-2 text-xs font-black uppercase tracking-wide text-[#63ff9b] shadow-[0_0_20px_rgba(30,255,122,.12)] transition hover:border-[#63ff9b] sm:h-12 sm:gap-2 sm:px-4 sm:text-sm"
               title="Idioma"
+              aria-label="Idioma: español"
             >
               <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-black text-white sm:text-[11px]">ESP</span>
               <Globe2 size={16} />
@@ -560,25 +556,34 @@ export default function PublicProfilePage() {
 
             <button
               type="button"
+              onClick={handleGoBackToPrivateProfile}
+              aria-label={currentUser?.id ? "Regresar a mi perfil" : "Ir al inicio de sesión"}
+              title={currentUser?.id ? "Regresar a mi perfil" : "Ir al inicio de sesión"}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#1eff7a]/40 bg-[#021509] text-[#63ff9b] shadow-[0_0_20px_rgba(30,255,122,.14)] transition hover:border-[#63ff9b] hover:bg-[#063115] sm:h-12 sm:w-12"
+            >
+              <img
+                src="/gankergames-profile-icon.png"
+                alt=""
+                aria-hidden="true"
+                className="h-8 w-8 object-contain"
+              />
+            </button>
+
+            <button
+              type="button"
               onClick={handleHeaderSessionAction}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-500/10 text-sm font-black text-red-300 shadow-[0_0_18px_rgba(239,68,68,.10)] transition hover:bg-red-500/20 sm:h-12 sm:w-12"
+              aria-label={currentUser?.id ? "Cerrar sesión" : "Iniciar sesión"}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-red-500/40 bg-red-500/10 text-sm font-black text-red-300 shadow-[0_0_18px_rgba(239,68,68,.10)] transition hover:bg-red-500/20 sm:h-12 sm:w-auto sm:gap-2 sm:px-4"
               title={currentUser?.id ? "Cerrar sesión" : "Iniciar sesión"}
             >
               <LogOut size={18} />
+              <span className="hidden sm:inline">
+                {currentUser?.id ? "Cerrar sesión" : "Iniciar sesión"}
+              </span>
             </button>
           </div>
         </div>
       </header>
-
-      <button
-        type="button"
-        onClick={handleGoBackToPrivateProfile}
-        aria-label="Volver"
-        title="Volver"
-        className="fixed left-3 top-[70px] z-[80] flex h-12 w-12 items-center justify-center rounded-2xl border border-[#1eff7a]/35 bg-[#07140f]/95 text-[#67ff9a] shadow-[0_0_18px_rgba(21,216,99,0.16)] transition-all duration-300 hover:border-[#67ff9a] hover:bg-[#0b1f15] sm:hidden"
-      >
-        <ChevronLeft size={20} />
-      </button>
 
       <section className="relative overflow-hidden border-b border-[#0f3d22]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_25%,rgba(30,255,122,0.22),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(0,255,102,0.12),transparent_25%),linear-gradient(180deg,#06240f_0%,#001808_100%)]" />
