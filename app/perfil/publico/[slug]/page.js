@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import ProfileNotificationCenter from "@/components/ProfileNotificationCenter";
 import {
   BadgeCheck,
   ShieldCheck,
@@ -617,6 +618,16 @@ export default function PublicProfilePage() {
                 className="h-8 w-8 object-contain"
               />
             </button>
+
+            {currentUser?.id && (
+              <ProfileNotificationCenter
+                supabase={supabase}
+                userId={currentUser.id}
+                onNavigateTab={(tabKey) => {
+                  router.push(`/perfil?tab=${encodeURIComponent(tabKey || "Perfil")}`);
+                }}
+              />
+            )}
 
             <button
               type="button"

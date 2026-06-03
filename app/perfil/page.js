@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import ProfileNotificationCenter from "@/components/ProfileNotificationCenter";
 import {
   BadgeCheck,
   CalendarDays,
@@ -2161,8 +2162,18 @@ export default function PerfilPage() {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get("tab");
-      if (tab === "Sorteos") {
-        setActiveTab("Sorteos");
+      const allowedTabs = [
+        "Perfil",
+        "Comunidad",
+        "VIP",
+        "Premios",
+        "Sorteos",
+        "Configuración",
+        "Creador",
+      ];
+
+      if (allowedTabs.includes(tab)) {
+        setActiveTab(tab);
       }
     }
   }, []);
@@ -3456,6 +3467,21 @@ export default function PerfilPage() {
                 className="h-8 w-8 object-contain"
               />
             </button>
+
+            <ProfileNotificationCenter
+              supabase={supabase}
+              userId={user?.id}
+              onNavigateTab={(tabKey) => {
+                setActiveTab(tabKey);
+                setMobileTabsOpen(false);
+
+                if (typeof window !== "undefined") {
+                  window.setTimeout(() => {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }, 60);
+                }
+              }}
+            />
 
             <button
               type="button"
