@@ -345,6 +345,7 @@ export default function LoginPage() {
 
   const [restoreCandidate, setRestoreCandidate] = useState(null);
   const [restoreLoading, setRestoreLoading] = useState(false);
+  const [legalAccepted, setLegalAccepted] = useState(false);
 
   const passwordStrength = useMemo(
     () => getPasswordStrength(password, firstNames, paternalLastName, gankerUser),
@@ -656,6 +657,10 @@ export default function LoginPage() {
       return "No se pudo verificar que eres humano. Intenta de nuevo.";
     }
 
+    if (!legalAccepted) {
+      return "Debes aceptar los Términos de uso y confirmar que consultaste el Aviso de privacidad.";
+    }
+
     const { data: available, error } = await supabase.rpc(
       "is_ganker_user_available",
       {
@@ -719,6 +724,9 @@ export default function LoginPage() {
               nationality,
               avatar_url: "",
               user_type: userType,
+              legal_terms_accepted_at: new Date().toISOString(),
+              legal_terms_version: "2026-06",
+              privacy_notice_version: "2026-06",
             },
           },
         });
@@ -812,6 +820,7 @@ export default function LoginPage() {
     setHumanChallenge(createHumanChallenge());
     setShowPassword(false);
     setRestoreCandidate(null);
+    setLegalAccepted(false);
   }
 
   return (
@@ -1041,6 +1050,27 @@ export default function LoginPage() {
                   />
                 </div>
               </div>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-[#1eff7a]/25 bg-[#07140f] p-4 text-xs leading-5 text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={legalAccepted}
+                  onChange={(event) => setLegalAccepted(event.target.checked)}
+                  required
+                  className="mt-1 h-4 w-4 accent-[#15d863]"
+                />
+                <span>
+                  He leído y acepto los{" "}
+                  <Link className="font-black text-[#67ff9a] underline" href="/terminos-de-uso" target="_blank">
+                    Términos de uso
+                  </Link>
+                  {" "}y confirmo que consulté el{" "}
+                  <Link className="font-black text-[#67ff9a] underline" href="/aviso-de-privacidad" target="_blank">
+                    Aviso de privacidad
+                  </Link>
+                  . Si soy menor de edad, cuento con autorización de mi madre, padre o tutor.
+                </span>
+              </label>
             </>
           )}
 
@@ -1092,6 +1122,54 @@ export default function LoginPage() {
             Entrar a la tienda Fortnite
           </Link>
         )}
+
+        <footer className="mt-5 border-t border-[#1eff7a]/15 pt-4 text-center text-xs leading-6 text-slate-400">
+          <nav className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+            <Link
+              href="/aviso-de-privacidad"
+              className="transition hover:text-[#67ff9a]"
+            >
+              Aviso de privacidad
+            </Link>
+
+            <span aria-hidden="true" className="text-[#1eff7a]/45">
+              •
+            </span>
+
+            <Link
+              href="/terminos-de-uso"
+              className="transition hover:text-[#67ff9a]"
+            >
+              Términos de uso
+            </Link>
+
+            <span aria-hidden="true" className="text-[#1eff7a]/45">
+              •
+            </span>
+
+            <Link
+              href="/politica-de-cookies"
+              className="transition hover:text-[#67ff9a]"
+            >
+              Política de cookies
+            </Link>
+
+            <span aria-hidden="true" className="text-[#1eff7a]/45">
+              •
+            </span>
+
+            <Link
+              href="/aviso-legal"
+              className="transition hover:text-[#67ff9a]"
+            >
+              Aviso legal
+            </Link>
+          </nav>
+
+          <p className="mt-2">
+            © {new Date().getFullYear()} Ganker Games. Todos los derechos reservados.
+          </p>
+        </footer>
       </div>
 
       {restoreCandidate && (
