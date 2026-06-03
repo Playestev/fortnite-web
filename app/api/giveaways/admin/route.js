@@ -2,6 +2,8 @@ import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+const GKG_TIME_ZONE = process.env.GKG_TIME_ZONE || "America/Ciudad_Juarez";
+
 function jsonError(message, status = 500) {
   return NextResponse.json({ error: message }, { status });
 }
@@ -60,26 +62,68 @@ async function requireManager(request, supabase) {
   };
 }
 
-function getMonthInfo() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const monthIndex = now.getMonth();
-  const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
-  const monthLabel = new Intl.DateTimeFormat("es-MX", { month: "long" }).format(now);
-  const cleanLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
-  const startDate = `${monthKey}-01`;
-  const endDate = new Date(year, monthIndex + 1, 0).toISOString().slice(0, 10);
-
-  return { monthKey, monthLabel: cleanLabel, startDate, endDate };
+function capitalize(value = "") {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
 }
 
-async function ensureCurrentCampaign(supabase) {
-  const current = getMonthInfo();
+function getZonedDateParts(date = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: GKG_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 
+  const parts = formatter.formatToParts(date);
+  const getPart = (type) => parts.find((part) => part.type === type)?.value;
+
+  return {
+    year: Number(getPart("year")),
+    month: Number(getPart("month")),
+    day: Number(getPart("day")),
+  };
+}
+
+function buildMonthInfo(year, monthNumber) {
+  const monthKey = `${year}-${String(monthNumber).padStart(2, "0")}`;
+  const monthLabel = capitalize(
+    new Intl.DateTimeFormat("es-MX", {
+      month: "long",
+      timeZone: "UTC",
+    }).format(new Date(Date.UTC(year, monthNumber - 1, 1)))
+  );
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+
+  return {
+    monthKey,
+    monthLabel,
+    startDate: `${monthKey}-01`,
+    endDate: `${monthKey}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
+function getCurrentMonthInfo() {
+  const { year, month } = getZonedDateParts();
+  return buildMonthInfo(year, month);
+}
+
+function getPreviousMonthInfo(currentMonthKey) {
+  const [year, month] = String(currentMonthKey)
+    .split("-")
+    .map(Number);
+
+  const previousYear = month === 1 ? year - 1 : year;
+  const previousMonth = month === 1 ? 12 : month - 1;
+
+  return buildMonthInfo(previousYear, previousMonth);
+}
+
+async function ensureCurrentCampaign(supabase, current) {
   const { data: existing, error: existingError } = await supabase
     .from("giveaway_campaigns")
     .select("*")
     .eq("month_key", current.monthKey)
+    .order("is_canonical", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -89,12 +133,48 @@ async function ensureCurrentCampaign(supabase) {
   }
 
   if (existing) {
-    await supabase.from("giveaway_campaigns").update({ is_active: false }).neq("id", existing.id);
-    await supabase.from("giveaway_campaigns").update({ is_active: true }).eq("id", existing.id);
-    return { ...existing, is_active: true };
+    const { error: deactivateDuplicatesError } = await supabase
+      .from("giveaway_campaigns")
+      .update({ is_active: false, is_canonical: false })
+      .eq("month_key", current.monthKey)
+      .neq("id", existing.id);
+
+    if (deactivateDuplicatesError) {
+      throw new Error(deactivateDuplicatesError.message);
+    }
+
+    const { error: deactivateOtherMonthsError } = await supabase
+      .from("giveaway_campaigns")
+      .update({ is_active: false })
+      .neq("id", existing.id)
+      .eq("is_active", true);
+
+    if (deactivateOtherMonthsError) {
+      throw new Error(deactivateOtherMonthsError.message);
+    }
+
+    const { data: activated, error: activateError } = await supabase
+      .from("giveaway_campaigns")
+      .update({ is_active: true, is_canonical: true })
+      .eq("id", existing.id)
+      .select("*")
+      .single();
+
+    if (activateError) {
+      throw new Error(activateError.message);
+    }
+
+    return activated;
   }
 
-  await supabase.from("giveaway_campaigns").update({ is_active: false }).eq("is_active", true);
+  const { error: deactivateError } = await supabase
+    .from("giveaway_campaigns")
+    .update({ is_active: false })
+    .eq("is_active", true);
+
+  if (deactivateError) {
+    throw new Error(deactivateError.message);
+  }
 
   const { data: created, error: createError } = await supabase
     .from("giveaway_campaigns")
@@ -105,6 +185,7 @@ async function ensureCurrentCampaign(supabase) {
       start_date: current.startDate,
       end_date: current.endDate,
       is_active: true,
+      is_canonical: true,
     })
     .select("*")
     .single();
@@ -116,135 +197,114 @@ async function ensureCurrentCampaign(supabase) {
   return created;
 }
 
-async function getParticipants(supabase, campaignId) {
-  const { data, error } = await supabase
-    .from("giveaway_entries")
-    .select("fortnite_name, is_vip, entries_weight, created_at")
-    .eq("campaign_id", campaignId)
-    .order("created_at", { ascending: false });
+async function ensurePreviousMonthClosed(supabase, previousMonthKey) {
+  const { data, error } = await supabase.rpc("rollover_giveaway_month", {
+    target_month_key: previousMonthKey,
+  });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const grouped = (data || []).reduce((acc, row) => {
-    const key = row.fortnite_name || "Jugador";
+  return data || [];
+}
 
-    if (!acc[key]) {
-      acc[key] = {
-        fortnite_name: key,
-        is_vip: Boolean(row.is_vip),
-        registros: 0,
-        participaciones: 0,
-      };
-    }
-
-    acc[key].is_vip = acc[key].is_vip || Boolean(row.is_vip);
-    acc[key].registros += 1;
-    acc[key].participaciones += Number(row.entries_weight || 1);
-
-    return acc;
-  }, {});
-
-  return Object.values(grouped).sort((a, b) => {
-    if (b.participaciones !== a.participaciones) {
-      return b.participaciones - a.participaciones;
-    }
-
-    return a.fortnite_name.localeCompare(b.fortnite_name);
+async function getMonthParticipants(supabase, monthKey) {
+  const { data, error } = await supabase.rpc("get_giveaway_month_participants", {
+    month_key_input: monthKey,
   });
-}
 
-function buildWeightedPool(participants) {
-  const pool = [];
-
-  for (const participant of participants) {
-    const weight = Math.max(1, Number(participant.participaciones || 1));
-
-    for (let i = 0; i < weight; i += 1) {
-      pool.push(participant);
-    }
+  if (error) {
+    throw new Error(error.message);
   }
 
-  return pool;
+  return data || [];
 }
 
-function pickWinner(participants, excludedNames = new Set()) {
-  const available =
-    participants.filter((item) => !excludedNames.has(item.fortnite_name)).length > 0
-      ? participants.filter((item) => !excludedNames.has(item.fortnite_name))
-      : participants;
+async function getMonthSnapshot(supabase, monthKey) {
+  const { data, error } = await supabase
+    .from("giveaway_month_participant_snapshots")
+    .select("fortnite_name, normalized_name, is_vip, registros, participaciones")
+    .eq("month_key", monthKey)
+    .order("participaciones", { ascending: false })
+    .order("registros", { ascending: false })
+    .order("fortnite_name", { ascending: true });
 
-  const pool = buildWeightedPool(available);
-
-  if (pool.length === 0) {
-    return null;
+  if (error) {
+    throw new Error(error.message);
   }
 
-  const index = Math.floor(Math.random() * pool.length);
-  return pool[index];
+  return data || [];
 }
 
-function mapWinner(campaignId, prizeType, placeLabel, winner) {
-  if (!winner) return null;
+async function getMonthWinners(supabase, monthKey) {
+  const { data: winners, error } = await supabase
+    .from("giveaway_winners")
+    .select("*")
+    .eq("month_key", monthKey)
+    .order("selected_at", { ascending: true });
 
-  return {
-    campaign_id: campaignId,
-    prize_type: prizeType,
-    place_label: placeLabel,
-    fortnite_name: winner.fortnite_name,
-    is_vip: Boolean(winner.is_vip),
-    entries_count: Number(winner.participaciones || 1),
-    records_count: Number(winner.registros || 1),
-    selected_at: new Date().toISOString(),
-  };
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (winners || []).map((winner) => ({
+    ...winner,
+    prize_name: winner.reward_name || "",
+  }));
 }
 
 async function getInvites(supabase, campaignId) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("giveaway_invites")
     .select("id, token, note, active, used_at, used_by, created_at")
     .eq("campaign_id", campaignId)
     .order("created_at", { ascending: false })
     .limit(50);
 
+  if (error) {
+    throw new Error(error.message);
+  }
+
   return data || [];
+}
+
+async function getAdminPayload(supabase) {
+  const current = getCurrentMonthInfo();
+  const previous = getPreviousMonthInfo(current.monthKey);
+  const campaign = await ensureCurrentCampaign(supabase, current);
+
+  await ensurePreviousMonthClosed(supabase, previous.monthKey);
+
+  const [invites, participants, previousParticipants, previousWinners] = await Promise.all([
+    getInvites(supabase, campaign.id),
+    getMonthParticipants(supabase, current.monthKey),
+    getMonthSnapshot(supabase, previous.monthKey),
+    getMonthWinners(supabase, previous.monthKey),
+  ]);
+
+  return {
+    campaign,
+    invites,
+    participants,
+    winners: previousWinners,
+    current_month: campaign,
+    current_participants: participants,
+    previous_month: {
+      month_key: previous.monthKey,
+      month_label: previous.monthLabel,
+    },
+    previous_month_winners: previousWinners,
+    previous_month_participants: previousParticipants,
+  };
 }
 
 export async function GET(request) {
   try {
     const supabase = getAdminSupabase();
-
     await requireManager(request, supabase);
 
-    const campaign = await ensureCurrentCampaign(supabase);
-
-    if (!campaign) {
-      return NextResponse.json({
-        campaign: null,
-        invites: [],
-        winners: [],
-        participants: [],
-      });
-    }
-
-    const [{ data: winners }, participants, invites] =
-      await Promise.all([
-        supabase
-          .from("giveaway_winners")
-          .select("*")
-          .eq("campaign_id", campaign.id)
-          .order("selected_at", { ascending: false }),
-        getParticipants(supabase, campaign.id),
-        getInvites(supabase, campaign.id),
-      ]);
-
-    return NextResponse.json({
-      campaign,
-      invites,
-      winners: winners || [],
-      participants,
-    });
+    return NextResponse.json(await getAdminPayload(supabase));
   } catch (error) {
     return jsonError(error.message || "No autorizado.", 403);
   }
@@ -253,17 +313,13 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const supabase = getAdminSupabase();
-
     await requireManager(request, supabase);
 
     const body = await request.json();
     const action = body.action;
-
-    const campaign = await ensureCurrentCampaign(supabase);
-
-    if (!campaign) {
-      return jsonError("No hay campaña activa.", 400);
-    }
+    const current = getCurrentMonthInfo();
+    const previous = getPreviousMonthInfo(current.monthKey);
+    const campaign = await ensureCurrentCampaign(supabase, current);
 
     if (action === "generate_invites") {
       const count = Math.min(200, Math.max(1, Number(body.count || 1)));
@@ -291,8 +347,8 @@ export async function POST(request) {
       }
 
       return NextResponse.json({
-        campaign,
-        invites: await getInvites(supabase, campaign.id),
+        ...(await getAdminPayload(supabase)),
+        message: "Enlaces personalizados generados correctamente.",
       });
     }
 
@@ -314,63 +370,34 @@ export async function POST(request) {
       }
 
       return NextResponse.json({
-        campaign,
-        invites: await getInvites(supabase, campaign.id),
+        ...(await getAdminPayload(supabase)),
         message: "Enlace borrado correctamente.",
       });
     }
 
-    if (action === "draw_winners") {
-      const participants = await getParticipants(supabase, campaign.id);
-      const excluded = new Set();
+    if (action === "repair_monthly_close" || action === "draw_winners") {
+      const targetMonthKey = String(body.month_key || previous.monthKey).trim();
 
-      const winner1 = pickWinner(participants, excluded);
-
-      if (winner1) {
-        excluded.add(winner1.fortnite_name);
+      if (!/^\d{4}-\d{2}$/.test(targetMonthKey)) {
+        return jsonError("El mes debe tener el formato YYYY-MM.", 400);
       }
 
-      const frequentPool = participants.filter(
-        (item) => Number(item.participaciones || 0) >= 2 || Number(item.registros || 0) >= 2
+      const { data: repairResult, error: repairError } = await supabase.rpc(
+        "repair_giveaway_month",
+        {
+          target_month_key: targetMonthKey,
+        }
       );
 
-      const winner2 = pickWinner(frequentPool, excluded);
-
-      if (winner2) {
-        excluded.add(winner2.fortnite_name);
-      }
-
-      const vipPool = participants.filter((item) => Boolean(item.is_vip));
-      const winner3 = pickWinner(vipPool, excluded);
-
-      const winnersToInsert = [
-        mapWinner(campaign.id, "monthly", "GKG del Mes", winner1),
-        mapWinner(campaign.id, "frequent", "GKG Frecuente del Mes", winner2),
-        mapWinner(campaign.id, "vip", "GKG VIP del Mes", winner3),
-      ].filter(Boolean);
-
-      if (winnersToInsert.length === 0) {
-        return jsonError("No hay participantes suficientes para sortear.", 400);
-      }
-
-      await supabase
-        .from("giveaway_winners")
-        .delete()
-        .eq("campaign_id", campaign.id);
-
-      const { data: winners, error } = await supabase
-        .from("giveaway_winners")
-        .insert(winnersToInsert)
-        .select("*");
-
-      if (error) {
-        throw new Error(error.message);
+      if (repairError) {
+        throw new Error(repairError.message);
       }
 
       return NextResponse.json({
-        campaign,
-        winners: winners || [],
-        participants,
+        ...(await getAdminPayload(supabase)),
+        repair_result: repairResult || [],
+        message:
+          "Cierre mensual revisado. Si ya existía, se conservaron exactamente los mismos ganadores.",
       });
     }
 
@@ -378,32 +405,31 @@ export async function POST(request) {
       const fortniteName = String(body.fortnite_name || "").trim();
 
       if (!fortniteName) {
-        return jsonError("Falta el nombre de Fortnite.", 400);
+        return jsonError("Falta el nombre del jugador.", 400);
       }
 
-      const { error: deleteError } = await supabase
+      const { error: deleteEntriesError } = await supabase
         .from("giveaway_entries")
         .delete()
         .eq("campaign_id", campaign.id)
         .ilike("fortnite_name", fortniteName);
 
-      if (deleteError) {
-        throw new Error(deleteError.message);
+      if (deleteEntriesError) {
+        throw new Error(deleteEntriesError.message);
       }
 
-      const [participants, { data: winners }] = await Promise.all([
-        getParticipants(supabase, campaign.id),
-        supabase
-          .from("giveaway_winners")
-          .select("*")
-          .eq("campaign_id", campaign.id)
-          .order("selected_at", { ascending: false }),
-      ]);
+      const { error: deleteManualError } = await supabase
+        .from("giveaway_manual_participants")
+        .delete()
+        .eq("month_key", current.monthKey)
+        .ilike("fortnite_name", fortniteName);
+
+      if (deleteManualError) {
+        throw new Error(deleteManualError.message);
+      }
 
       return NextResponse.json({
-        campaign,
-        participants,
-        winners: winners || [],
+        ...(await getAdminPayload(supabase)),
         message: "Registro borrado correctamente.",
       });
     }
