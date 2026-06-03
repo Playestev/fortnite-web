@@ -1,73 +1,36 @@
-const CACHE_NAME = "gankergames-static-v1";
-const STATIC_ASSETS = [
-  "/login",
-  "/icon-192x192.png",
-  "/icon-512x512.png",
-  "/icon-512x512-maskable.png",
-];
+const CACHE_PREFIX = "gankergames-";
+const CACHE_VERSION = "gankergames-v4";
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
-      .catch(() => undefined)
-  );
-
+self.addEventListener("install", () => {
+  // Activa inmediatamente la versión nueva.
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key !== CACHE_NAME)
-            .map((key) => caches.delete(key))
-        )
-      )
-      .then(() => self.clients.claim())
+    (async () => {
+      // Elimina las versiones anteriores del caché de Ganker Games.
+      const cacheNames = await caches.keys();
+
+      await Promise.all(
+        cacheNames
+          .filter(
+            (cacheName) =>
+              cacheName.startsWith(CACHE_PREFIX) &&
+              cacheName !== CACHE_VERSION
+          )
+          .map((cacheName) => caches.delete(cacheName))
+      );
+
+      // Toma el control de las pestañas abiertas.
+      await self.clients.claim();
+    })()
   );
 });
 
-self.addEventListener("fetch", (event) => {
-  const request = event.request;
+/*
+  No agregues un evento "fetch" por ahora.
 
-  if (request.method !== "GET") return;
-
-  const url = new URL(request.url);
-
-  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) {
-    return;
-  }
-
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request).catch(() => caches.match("/login"))
-    );
-    return;
-  }
-
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
-
-      return fetch(request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200) {
-          return networkResponse;
-        }
-
-        const responseClone = networkResponse.clone();
-
-        caches
-          .open(CACHE_NAME)
-          .then((cache) => cache.put(request, responseClone))
-          .catch(() => undefined);
-
-        return networkResponse;
-      });
-    })
-  );
-});
+  Así el navegador siempre solicita la versión actualizada
+  de las páginas, componentes y archivos de tu app.
+*/
