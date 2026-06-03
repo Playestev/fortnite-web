@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -207,6 +207,109 @@ async function promiseWithTimeout(promise, timeoutMs, errorMessage) {
   } finally {
     window.clearTimeout(timeoutId);
   }
+}
+
+
+function PwaInstallButton() {
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [isIos, setIsIos] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const standaloneMode =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true;
+
+    setIsInstalled(standaloneMode);
+    setIsIos(/iphone|ipad|ipod/i.test(window.navigator.userAgent));
+
+    async function registerServiceWorker() {
+      if (!("serviceWorker" in navigator)) return;
+
+      try {
+        await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+      } catch (error) {
+        console.warn("No se pudo registrar el service worker:", error);
+      }
+    }
+
+    function handleBeforeInstallPrompt(event) {
+      event.preventDefault();
+      setInstallPrompt(event);
+    }
+
+    function handleAppInstalled() {
+      setInstallPrompt(null);
+      setShowInstructions(false);
+      setIsInstalled(true);
+    }
+
+    registerServiceWorker();
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    return () => {
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt
+      );
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  async function handleInstallClick() {
+    if (!installPrompt) {
+      setShowInstructions((current) => !current);
+      return;
+    }
+
+    await installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+  }
+
+  if (isInstalled) {
+    return (
+      <div className="mt-4 rounded-2xl border border-[#1eff7a]/25 bg-[#07140f] px-4 py-3 text-center text-sm font-black text-[#67ff9a]">
+        ✅ App de Ganker Games instalada
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4">
+      <button
+        type="button"
+        onClick={handleInstallClick}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#1eff7a]/45 bg-[#1eff7a]/10 px-4 py-3 font-black text-[#67ff9a] transition hover:border-[#67ff9a] hover:bg-[#1eff7a]/15 hover:text-white"
+      >
+        <span aria-hidden="true">📲</span>
+        {isIos ? "Cómo instalar la app en iPhone" : "Instalar app de Ganker Games"}
+      </button>
+
+      {showInstructions && (
+        <div className="mt-3 rounded-2xl border border-[#1eff7a]/25 bg-[#07140f] p-4 text-xs leading-5 text-slate-300">
+          {isIos ? (
+            <p>
+              Abre esta página en Safari, presiona el botón de compartir y elige
+              <strong className="text-white"> “Agregar a pantalla de inicio”</strong>.
+            </p>
+          ) : (
+            <p>
+              En Chrome, abre el menú de los tres puntos y selecciona
+              <strong className="text-white"> “Instalar app”</strong> o
+              <strong className="text-white"> “Agregar a pantalla principal”</strong>.
+              Si la opción todavía no aparece, actualiza la página después del despliegue.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function LoginPage() {
@@ -977,6 +1080,8 @@ export default function LoginPage() {
             ? "No tengo cuenta, registrarme"
             : "Ya tengo cuenta, iniciar sesión"}
         </button>
+
+        {mode === "login" && <PwaInstallButton />}
 
         {mode === "login" && (
           <Link
