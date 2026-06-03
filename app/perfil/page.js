@@ -5788,9 +5788,9 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
         <div className="grid auto-rows-fr gap-4 md:grid-cols-3">
           {podiumWinners.map((item) => {
             const winnerName =
-              item.winner?.display_name ||
-              item.winner?.fortnite_name ||
               item.winner?.ganker_user ||
+              item.winner?.profile_fortnite_user ||
+              item.winner?.fortnite_name ||
               "Pendiente de listado";
             const avatar = item.winner?.avatar_url || item.winner?.profile_avatar || "";
 
