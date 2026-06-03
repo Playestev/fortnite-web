@@ -5181,7 +5181,7 @@ const GIVEAWAY_COPY = {
     resultsTitle: "Resultados y páginas oficiales",
     rouletteTitle: "Ejemplo de ruleta del sorteo",
     rouletteDesc:
-      "La ruleta es una representación visual. Sorteo 1: todos los participantes. Sorteo 2: usuarios con 2 o más registros. Sorteo 3: únicamente VIP.",
+      "La ruleta es una representación visual. Sorteo 1: todos los participantes. Sorteo 2: usuarios con 2 o más participaciones ponderadas. Sorteo 3: únicamente VIP.",
     everyone: "Sorteo 1 · Todos",
     frequent: "Sorteo 2 · Frecuentes",
     vipOnly: "Sorteo 3 · Solo VIP",
@@ -5204,10 +5204,10 @@ const GIVEAWAY_COPY = {
       "Tendrás una participación diaria si realizas compra diaria; se borran si hay compras duplicadas en un día.",
     card1Prize: "1 Bundle/Lote (hasta 2400 paVos) y 1 mes de GKG VIP.",
     card2Req:
-      "Si realizas dos o más compras al mes, podrás participar en este sorteo.",
+      "Necesitas 2 o más participaciones ponderadas durante el mes. Un registro VIP cuenta como 2 participaciones.",
     card2Prize: "1 Skin (hasta 1800 paVos) y 15 días de GKG VIP.",
     card3Req:
-      "Si realizas dos o más compras al mes, podrás participar en este sorteo.",
+      "Debes tener membresía GKG VIP activa durante el mes. Cada registro VIP cuenta doble.",
     card3Prize: "2,400 paVos a su cuenta o vía regalo.",
     extra1:
       "Los registros terminarán dentro de los primeros 10 días del mes siguiente.",
@@ -5253,7 +5253,7 @@ const GIVEAWAY_COPY = {
     resultsTitle: "Results and official pages",
     rouletteTitle: "Giveaway roulette example",
     rouletteDesc:
-      "The roulette is a visual example. Giveaway 1: everyone. Giveaway 2: users with 2+ records. Giveaway 3: VIP only.",
+      "The roulette is a visual example. Giveaway 1: everyone. Giveaway 2: users with 2+ weighted entries. Giveaway 3: VIP only.",
     everyone: "Giveaway 1 · Everyone",
     frequent: "Giveaway 2 · Frequent",
     vipOnly: "Giveaway 3 · VIP only",
@@ -5276,10 +5276,10 @@ const GIVEAWAY_COPY = {
       "You get one daily entry if you make a daily purchase; duplicated same-day purchases are removed.",
     card1Prize: "1 Bundle/Pack up to 2400 V-Bucks and 1 month of GKG VIP.",
     card2Req:
-      "If you make two or more purchases during the month, you can join this giveaway.",
+      "You need 2 or more weighted entries during the month. One VIP record counts as 2 entries.",
     card2Prize: "1 Skin up to 1800 V-Bucks and 15 days of GKG VIP.",
     card3Req:
-      "If you make two or more purchases during the month, you can join this giveaway.",
+      "You need an active GKG VIP membership during the month. Each VIP record counts double.",
     card3Prize: "2,400 V-Bucks to the account or via gift.",
     extra1:
       "Registrations close within the first 10 days of the following month.",
@@ -5294,258 +5294,6 @@ const GIVEAWAY_COPY = {
   },
 };
 
-
-const APRIL_2026_PARTICIPANTS = [
-  {
-    "fortnite_name": "Gabo_656",
-    "is_vip": true,
-    "registros": 6,
-    "participaciones": 12
-  },
-  {
-    "fortnite_name": "Elcapitanred",
-    "is_vip": true,
-    "registros": 4,
-    "participaciones": 8
-  },
-  {
-    "fortnite_name": "Saamlopezz",
-    "is_vip": false,
-    "registros": 5,
-    "participaciones": 5
-  },
-  {
-    "fortnite_name": "EjGarnica",
-    "is_vip": true,
-    "registros": 2,
-    "participaciones": 4
-  },
-  {
-    "fortnite_name": "Alejandro_rmz4",
-    "is_vip": false,
-    "registros": 3,
-    "participaciones": 3
-  },
-  {
-    "fortnite_name": "Alrago",
-    "is_vip": false,
-    "registros": 3,
-    "participaciones": 3
-  },
-  {
-    "fortnite_name": "Choco-latit06",
-    "is_vip": false,
-    "registros": 3,
-    "participaciones": 3
-  },
-  {
-    "fortnite_name": "Orly_dsm97",
-    "is_vip": false,
-    "registros": 3,
-    "participaciones": 3
-  },
-  {
-    "fortnite_name": "Pepe_aldebaran",
-    "is_vip": false,
-    "registros": 3,
-    "participaciones": 3
-  },
-  {
-    "fortnite_name": "Angelblackswan",
-    "is_vip": false,
-    "registros": 2,
-    "participaciones": 2
-  },
-  {
-    "fortnite_name": "Elcesar1814",
-    "is_vip": true,
-    "registros": 1,
-    "participaciones": 2
-  },
-  {
-    "fortnite_name": "GatoGordo805",
-    "is_vip": false,
-    "registros": 2,
-    "participaciones": 2
-  },
-  {
-    "fortnite_name": "Goldo-_-PR",
-    "is_vip": false,
-    "registros": 2,
-    "participaciones": 2
-  },
-  {
-    "fortnite_name": "Guardinz",
-    "is_vip": false,
-    "registros": 2,
-    "participaciones": 2
-  },
-  {
-    "fortnite_name": "SAFŁØ",
-    "is_vip": false,
-    "registros": 2,
-    "participaciones": 2
-  },
-  {
-    "fortnite_name": "xladyhorrorx",
-    "is_vip": false,
-    "registros": 2,
-    "participaciones": 2
-  },
-  {
-    "fortnite_name": "Alrago7",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "Charles Blaze",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "CJ 2003",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "Céfiro777",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "Eltrazo69",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "Estradagirl_uwu / OscarIssacGF",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "JeanLoui23",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "KRK-ENRIQUE",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "Leche_uwu1",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "Maryaleso",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "MontyBurns08",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "Orly_DSM7",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "Rev_vOoO",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "ThePotatoDealer",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "TLZlaley2002",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "tucompaJavi",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "Witzzi",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "XenoBroco",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "XTR_Jeffersxn",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "Yumeko7968",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  },
-  {
-    "fortnite_name": "zoftcore-GrawMishi",
-    "is_vip": false,
-    "registros": 1,
-    "participaciones": 1
-  }
-];
-
-const APRIL_2026_WINNERS = {
-  "monthly": {
-    "fortnite_name": "Gabo_656",
-    "is_vip": true,
-    "registros": 6,
-    "participaciones": 12,
-    "prize_type": "monthly",
-    "prize_name": "1 Bundle/Lote (hasta 2,400 paVos) y 1 mes de GKG VIP (beneficios limitados)."
-  },
-  "frequent": {
-    "fortnite_name": "Pepe_aldebaran",
-    "is_vip": false,
-    "registros": 3,
-    "participaciones": 3,
-    "prize_type": "frequent",
-    "prize_name": "1 Skin (hasta 1,800 paVos) y 15 días de GKG VIP (beneficios limitados)."
-  },
-  "vip": {
-    "fortnite_name": "Elcapitanred",
-    "is_vip": true,
-    "registros": 4,
-    "participaciones": 8,
-    "prize_type": "vip",
-    "prize_name": "$2,400 paVos a su cuenta o vía regalo."
-  }
-};
 
 function normalizeGiveawayName(value) {
   return String(value || "")
@@ -5601,69 +5349,6 @@ function getPreviousMonthInfo(lang = "es") {
     year: previous.getFullYear(),
     monthKey: `${previous.getFullYear()}-${String(previous.getMonth() + 1).padStart(2, "0")}`,
   };
-}
-
-function weightedPick(rows, seed, filterFn = () => true, usedNames = new Set()) {
-  const eligible = rows.filter((row) => filterFn(row) && !usedNames.has(normalizeGiveawayName(row.fortnite_name)));
-
-  if (!eligible.length) return null;
-
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  }
-
-  const total = eligible.reduce((sum, row) => sum + Math.max(1, Number(row.participaciones || 1)), 0);
-  let pointer = hash % total;
-
-  for (const row of eligible) {
-    pointer -= Math.max(1, Number(row.participaciones || 1));
-
-    if (pointer < 0) return row;
-  }
-
-  return eligible[0];
-}
-
-function drawGiveawayWinnersFromRows(rows, monthKey = "actual") {
-  const mergedRows = mergeGiveawayParticipants(rows, []);
-  const used = new Set();
-
-  const monthly = weightedPick(mergedRows, `${monthKey}-monthly`, () => true, used);
-  if (monthly) used.add(normalizeGiveawayName(monthly.fortnite_name));
-
-  const frequent = weightedPick(
-    mergedRows,
-    `${monthKey}-frequent`,
-    (row) => Number(row.registros || 0) >= 2 || Number(row.participaciones || 0) >= 2,
-    used
-  );
-  if (frequent) used.add(normalizeGiveawayName(frequent.fortnite_name));
-
-  const vip = weightedPick(
-    mergedRows,
-    `${monthKey}-vip`,
-    (row) => Boolean(row.is_vip),
-    used
-  );
-
-  return [
-    monthly && {
-      ...monthly,
-      prize_type: "monthly",
-      prize_name: "1 Bundle/Lote (hasta 2,400 paVos) y 1 mes de GKG VIP (beneficios limitados).",
-    },
-    frequent && {
-      ...frequent,
-      prize_type: "frequent",
-      prize_name: "1 Skin (hasta 1,800 paVos) y 15 días de GKG VIP (beneficios limitados).",
-    },
-    vip && {
-      ...vip,
-      prize_type: "vip",
-      prize_name: "$2,400 paVos a su cuenta o vía regalo.",
-    },
-  ].filter(Boolean);
 }
 
 
@@ -5731,6 +5416,10 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
   const [formMessage, setFormMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [participants, setParticipants] = useState([]);
+  const [campaign, setCampaign] = useState(null);
+  const [previousMonthPayload, setPreviousMonthPayload] = useState(null);
+  const [previousWinners, setPreviousWinners] = useState([]);
+  const [previousParticipants, setPreviousParticipants] = useState([]);
   const [loadingRows, setLoadingRows] = useState(true);
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
   const [extraModalOpen, setExtraModalOpen] = useState(false);
@@ -5742,7 +5431,11 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
     comment: "",
   });
 
+  const fallbackPreviousMonth = useMemo(() => getPreviousMonthInfo(lang), [lang]);
+
   const monthLabel = useMemo(() => {
+    if (campaign?.month_label) return campaign.month_label;
+
     try {
       const value = new Intl.DateTimeFormat(lang === "es" ? "es-MX" : "en-US", {
         month: "long",
@@ -5752,17 +5445,25 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
     } catch (error) {
       return g.monthResults;
     }
-  }, [g.monthResults, lang]);
+  }, [campaign?.month_label, g.monthResults, lang]);
 
-  const previousMonth = useMemo(() => getPreviousMonthInfo(lang), [lang]);
-  const isApril2026 = previousMonth.monthKey === "2026-04";
+  const previousMonth = useMemo(() => {
+    const monthKey = previousMonthPayload?.month_key || fallbackPreviousMonth.monthKey;
+
+    return {
+      monthKey,
+      label: previousMonthPayload?.month_label || fallbackPreviousMonth.label,
+      year: Number(String(monthKey).slice(0, 4)) || fallbackPreviousMonth.year,
+    };
+  }, [fallbackPreviousMonth, previousMonthPayload]);
+
   const displayParticipants = participants;
-  const historicalParticipantMonths = isApril2026
+  const historicalParticipantMonths = previousParticipants.length
     ? [
         {
-          key: "2026-04",
-          label: "Abril 2026",
-          rows: APRIL_2026_PARTICIPANTS,
+          key: previousMonth.monthKey,
+          label: `${previousMonth.label} ${previousMonth.year}`,
+          rows: previousParticipants,
         },
       ]
     : [];
@@ -5828,16 +5529,21 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
 
         if (error) throw error;
 
-        if (data?.is_used) {
+        const inviteState = Array.isArray(data) ? data[0] : data;
+
+        if (inviteState?.is_used) {
           setInviteStatus("used");
           return;
         }
 
-        // Si el RPC no encuentra el token, no bloqueamos la pantalla:
-        // el route de participación validará el enlace al registrar.
+        if (!inviteState?.is_valid) {
+          setInviteStatus("invalid");
+          return;
+        }
+
         setInviteStatus("valid");
       } catch (error) {
-        setInviteStatus("valid");
+        setInviteStatus("invalid");
       }
     }
 
@@ -5845,7 +5551,7 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
   }, [inviteToken, supabase]);
 
   useEffect(() => {
-    if (inviteToken && inviteStatus !== "used") {
+    if (inviteToken && inviteStatus === "valid") {
       setRegistrationModalOpen(true);
     }
   }, [inviteStatus, inviteToken]);
@@ -5856,6 +5562,7 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
     try {
       const response = await fetch("/api/giveaways/public", {
         method: "GET",
+        cache: "no-store",
       });
 
       const result = await readJsonResponse(response);
@@ -5864,12 +5571,19 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
         throw new Error(result.error || "No se pudieron cargar los participantes.");
       }
 
-      setParticipants(result.participants || []);
+      setCampaign(result.current_month || result.campaign || null);
+      setParticipants(result.current_participants || result.participants || []);
+      setPreviousMonthPayload(result.previous_month || null);
+      setPreviousWinners(result.previous_month_winners || []);
+      setPreviousParticipants(result.previous_month_participants || []);
     } catch (error) {
+      console.warn("Giveaways public load error:", error);
       setParticipants([]);
+      setPreviousWinners([]);
+      setPreviousParticipants([]);
+    } finally {
+      setLoadingRows(false);
     }
-
-    setLoadingRows(false);
   }
 
   useEffect(() => {
@@ -5891,8 +5605,8 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
       return;
     }
 
-    if (!inviteToken || inviteStatus === "used") {
-      setFormMessage("Este enlace no es válido o ya fue utilizado.");
+    if (!inviteToken || inviteStatus !== "valid") {
+      setFormMessage("Este enlace no es válido, ya fue utilizado o pertenece a otro mes.");
       return;
     }
 
@@ -5930,10 +5644,6 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
         throw new Error(result.error || "No se pudo registrar la participación.");
       }
 
-      await supabase.rpc("mark_giveaway_invite_used", {
-        token_input: inviteToken,
-      });
-
       setInviteStatus("used");
       setFormMessage(result.message || g.success);
       setForm((prev) => ({
@@ -5950,57 +5660,47 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
   }
 
   const podiumWinners = useMemo(() => {
-    if (isApril2026) {
-      return [
-        {
-          key: "frequent",
-          title: `Usuario frecuente de ${previousMonth.label} ${previousMonth.year}`,
-          winner: APRIL_2026_WINNERS.frequent,
-          prize: APRIL_2026_WINNERS.frequent.prize_name,
-          glow: "shadow-[0_0_28px_rgba(250,204,21,.10)]",
-        },
-        {
-          key: "monthly",
-          title: `Usuario de ${previousMonth.label} ${previousMonth.year}`,
-          winner: APRIL_2026_WINNERS.monthly,
-          prize: APRIL_2026_WINNERS.monthly.prize_name,
-          glow: "shadow-[0_0_35px_rgba(250,204,21,.18)]",
-        },
-        {
-          key: "vip",
-          title: `Usuario VIP de ${previousMonth.label} ${previousMonth.year}`,
-          winner: APRIL_2026_WINNERS.vip,
-          prize: APRIL_2026_WINNERS.vip.prize_name,
-          glow: "shadow-[0_0_28px_rgba(250,204,21,.10)]",
-        },
-      ];
-    }
+    const winnerByType = new Map(
+      (previousWinners || []).map((winner) => [winner.prize_type, winner])
+    );
 
-    const drawn = drawGiveawayWinnersFromRows(displayParticipants, previousMonth.monthKey);
+    const frequentWinner = winnerByType.get("frequent") || null;
+    const monthlyWinner = winnerByType.get("monthly") || null;
+    const vipWinner = winnerByType.get("vip") || null;
+
     return [
       {
         key: "frequent",
         title: `Usuario frecuente de ${previousMonth.label} ${previousMonth.year}`,
-        winner: drawn.find((item) => item.prize_type === "frequent") || null,
-        prize: "1 Skin (hasta 1,800 paVos) y 15 días de GKG VIP (beneficios limitados).",
+        winner: frequentWinner,
+        prize:
+          frequentWinner?.reward_name ||
+          frequentWinner?.prize_name ||
+          "1 Skin (hasta 1,800 paVos) y 15 días de GKG VIP (beneficios limitados).",
         glow: "shadow-[0_0_28px_rgba(250,204,21,.10)]",
       },
       {
         key: "monthly",
         title: `Usuario de ${previousMonth.label} ${previousMonth.year}`,
-        winner: drawn.find((item) => item.prize_type === "monthly") || null,
-        prize: "1 Bundle/Lote (hasta 2,400 paVos) y 1 mes de GKG VIP (beneficios limitados).",
+        winner: monthlyWinner,
+        prize:
+          monthlyWinner?.reward_name ||
+          monthlyWinner?.prize_name ||
+          "1 Bundle/Lote (hasta 2,400 paVos) y 1 mes de GKG VIP (beneficios limitados).",
         glow: "shadow-[0_0_35px_rgba(250,204,21,.18)]",
       },
       {
         key: "vip",
         title: `Usuario VIP de ${previousMonth.label} ${previousMonth.year}`,
-        winner: drawn.find((item) => item.prize_type === "vip") || null,
-        prize: "$2,400 paVos a su cuenta o vía regalo.",
+        winner: vipWinner,
+        prize:
+          vipWinner?.reward_name ||
+          vipWinner?.prize_name ||
+          "$2,400 paVos a su cuenta o vía regalo.",
         glow: "shadow-[0_0_28px_rgba(250,204,21,.10)]",
       },
     ];
-  }, [displayParticipants, isApril2026, previousMonth.label, previousMonth.monthKey, previousMonth.year]);
+  }, [previousMonth.label, previousMonth.year, previousWinners]);
 
   return (
     <section className="mx-auto max-w-6xl space-y-6 px-4 py-8">
@@ -6092,7 +5792,7 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
               item.winner?.fortnite_name ||
               item.winner?.ganker_user ||
               "Pendiente de listado";
-            const avatar = isApril2026 ? "" : item.winner?.avatar_url || item.winner?.profile_avatar || "";
+            const avatar = item.winner?.avatar_url || item.winner?.profile_avatar || "";
 
             return (
               <div
@@ -6141,7 +5841,7 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
             </p>
           </div>
 
-          {inviteToken && user && inviteStatus !== "used" && (
+          {inviteToken && user && inviteStatus === "valid" && (
             <button
               type="button"
               onClick={() => setRegistrationModalOpen(true)}
@@ -6179,6 +5879,18 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
               Este enlace personalizado ya fue utilizado. Solicita otro enlace para participar nuevamente.
             </p>
           </div>
+        ) : inviteStatus === "invalid" ? (
+          <div className="mt-4 rounded-3xl border border-red-500/25 bg-red-500/10 p-5">
+            <p className="text-sm leading-6 text-red-100">
+              Este enlace no es válido para el mes vigente. Solicita un enlace nuevo para participar.
+            </p>
+          </div>
+        ) : inviteStatus === "checking" ? (
+          <div className="mt-4 rounded-3xl border border-yellow-300/25 bg-yellow-300/10 p-5">
+            <p className="text-sm leading-6 text-yellow-100">
+              Validando enlace personalizado...
+            </p>
+          </div>
         ) : (
           <div className="mt-4 rounded-3xl border border-[#1eff7a]/20 bg-[#04140b]/80 p-5">
             <p className="text-sm leading-6 text-zinc-300">
@@ -6188,7 +5900,7 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
         )}
       </Card>
 
-      {registrationModalOpen && inviteToken && user && inviteStatus !== "used" && (
+      {registrationModalOpen && inviteToken && user && inviteStatus === "valid" && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[32px] border border-[#1eff7a]/25 bg-[#020804] p-6 text-white shadow-[0_0_45px_rgba(30,255,122,.18)]">
             <div className="mb-5 flex items-start justify-between gap-4">
@@ -6364,7 +6076,7 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
             <div>
               <h3 className="text-2xl font-black">Participantes de {history.label}</h3>
               <p className="mt-2 text-sm leading-6 text-zinc-400">
-                Historial del mes anterior. Se conservarán hasta 3 meses anteriores y después se irán limpiando.
+                Aquí se muestra únicamente el mes anterior. Los demás meses se conservan internamente en Supabase para auditoría.
               </p>
             </div>
 
@@ -6534,11 +6246,11 @@ const CREATOR_COPY = {
     latestLinks: "Últimos enlaces generados",
     copy: "Copiar",
     copied: "Copiado",
-    drawTitle: "Sortear automáticamente",
+    drawTitle: "Recuperar cierre mensual",
     drawDesc:
-      "El sistema selecciona ganadores reales con base en las participaciones registradas del mes.",
-    drawButton: "Realizar sorteo",
-    drawing: "Sorteando...",
+      "Revisa y recupera el cierre del mes anterior sin reemplazar ganadores ya guardados.",
+    drawButton: "Recuperar cierre mensual",
+    drawing: "Revisando cierre...",
     winners: "Ganadores",
     noWinners: "Todavía no hay ganadores seleccionados.",
     participants: "Resumen de participantes",
@@ -6560,10 +6272,10 @@ const CREATOR_COPY = {
     vipOnly: "GKG VIP del Mes",
     everyoneRule: "Sorteo 1: todos los participantes. VIP cuenta doble.",
     frequentRule:
-      "Sorteo 2: solo usuarios con 2 o más participaciones/registros en el mes.",
+      "Sorteo 2: solo usuarios con 2 o más participaciones ponderadas en el mes. Un registro VIP cuenta doble.",
     vipRule: "Sorteo 3: únicamente usuarios VIP.",
     confirmDraw:
-      "¿Seguro que quieres realizar el sorteo? Esto reemplazará los ganadores actuales de la campaña.",
+      "¿Revisar y recuperar el cierre mensual? Si ya existen ganadores, se conservarán exactamente los mismos.",
     errorAuth: "No se encontró sesión activa para validar permisos.",
   },
   en: {
@@ -6583,11 +6295,11 @@ const CREATOR_COPY = {
     latestLinks: "Latest generated links",
     copy: "Copy",
     copied: "Copied",
-    drawTitle: "Automatic draw",
+    drawTitle: "Recover monthly close",
     drawDesc:
-      "The system selects real winners based on the monthly registered entries.",
-    drawButton: "Run draw",
-    drawing: "Drawing...",
+      "Review and recover the previous monthly close without replacing saved winners.",
+    drawButton: "Recover monthly close",
+    drawing: "Reviewing close...",
     winners: "Winners",
     noWinners: "No winners selected yet.",
     participants: "Participants summary",
@@ -6609,10 +6321,10 @@ const CREATOR_COPY = {
     vipOnly: "VIP GKG of the Month",
     everyoneRule: "Giveaway 1: all participants. VIP counts double.",
     frequentRule:
-      "Giveaway 2: only users with 2 or more monthly entries/records.",
+      "Giveaway 2: only users with 2 or more weighted monthly entries. One VIP record counts double.",
     vipRule: "Giveaway 3: VIP users only.",
     confirmDraw:
-      "Are you sure you want to run the draw? This will replace current campaign winners.",
+      "Review and recover the monthly close? Existing winners will be preserved exactly.",
     errorAuth: "No active session found to validate permissions.",
   },
 };
@@ -6627,6 +6339,8 @@ function CreatorPanel({ lang, supabase, accountRole }) {
   const [invites, setInvites] = useState([]);
   const [winners, setWinners] = useState([]);
   const [participants, setParticipants] = useState([]);
+  const [previousMonthPayload, setPreviousMonthPayload] = useState(null);
+  const [historicalParticipants, setHistoricalParticipants] = useState([]);
   const [inviteCount, setInviteCount] = useState(10);
   const [copiedToken, setCopiedToken] = useState("");
   const [deletingParticipant, setDeletingParticipant] = useState("");
@@ -6684,32 +6398,14 @@ function CreatorPanel({ lang, supabase, accountRole }) {
         throw new Error(result.error || "No se pudo cargar el panel.");
       }
 
-      const activeCampaign = result.campaign || null;
-      const baseParticipants = result.participants || [];
-      let manualParticipants = [];
-
-      try {
-        const monthKey =
-          activeCampaign?.month_key ||
-          activeCampaign?.month_label ||
-          new Date().toISOString().slice(0, 7);
-
-        const { data: manualRows, error: manualError } = await supabase.rpc(
-          "admin_get_manual_giveaway_participants",
-          { month_key_input: monthKey }
-        );
-
-        if (!manualError) {
-          manualParticipants = manualRows || [];
-        }
-      } catch (manualError) {
-        manualParticipants = [];
-      }
+      const activeCampaign = result.current_month || result.campaign || null;
 
       setCampaign(activeCampaign);
       setInvites(result.invites || []);
-      setWinners(result.winners || []);
-      setParticipants(mergeGiveawayParticipants(baseParticipants, manualParticipants));
+      setWinners(result.previous_month_winners || result.winners || []);
+      setParticipants(result.current_participants || result.participants || []);
+      setPreviousMonthPayload(result.previous_month || null);
+      setHistoricalParticipants(result.previous_month_participants || []);
 
       const { data: vipUserRows, error: vipUserError } = await supabase.rpc(
         "admin_get_vip_users"
@@ -6832,66 +6528,20 @@ function CreatorPanel({ lang, supabase, accountRole }) {
     }
   }
 
-  async function drawWinners() {
-    const confirmed =
-      typeof window === "undefined" ? true : window.confirm(c.confirmDraw);
+  async function repairMonthlyClose() {
+    const targetMonthKey = previousMonthPayload?.month_key;
 
-    if (!confirmed) return;
-
-    setWorking(true);
-    setMessage("");
-
-    try {
-      const monthKey =
-        campaign?.month_key ||
-        campaign?.month_label ||
-        new Date().toISOString().slice(0, 7);
-      const drawnWinners = drawGiveawayWinnersFromRows(participants, monthKey);
-
-      if (!drawnWinners.length) {
-        throw new Error("No hay participantes suficientes para realizar el sorteo.");
-      }
-
-      setWinners(drawnWinners);
-
-      for (const winner of drawnWinners) {
-        const prizeName =
-          winner.prize_type === "monthly"
-            ? "PREMIO SORTEO · Usuario del mes · 1 Bundle/Lote hasta 2,400 paVos y 1 mes GKG VIP"
-            : winner.prize_type === "frequent"
-              ? "PREMIO SORTEO · Usuario frecuente · 1 Skin hasta 1,800 paVos y 15 días GKG VIP"
-              : "PREMIO SORTEO · Usuario VIP · $2,400 paVos a su cuenta o vía regalo";
-
-        const { error: rewardError } = await supabase.rpc("admin_add_profile_reward_by_identifier", {
-          user_identifier: winner.profile_id || winner.user_id || winner.ganker_user || winner.fortnite_name,
-          reward_name_input: prizeName,
-          reward_type_input: "sorteo",
-        });
-
-        if (rewardError) {
-          console.warn("No se pudo agregar premio de sorteo:", rewardError.message);
-        }
-      }
-
-      await loadAdminData();
-
-      setMessage(
-        lang === "es"
-          ? "Sorteo realizado correctamente. Los premios de usuarios registrados se agregaron en Premios."
-          : "Draw completed successfully."
-      );
-    } catch (error) {
-      setMessage(error.message || "Error.");
-    } finally {
-      setWorking(false);
+    if (!targetMonthKey) {
+      setMessage("No se pudo identificar el mes anterior.");
+      return;
     }
-  }
 
-  async function importApril2026Participants() {
     const confirmed =
       typeof window === "undefined"
         ? true
-        : window.confirm("¿Importar la lista de Abril 2026? Esto reemplazará la lista manual de abril.");
+        : window.confirm(
+            `¿Revisar y recuperar el cierre de ${targetMonthKey}? Si ya existen ganadores, se conservarán exactamente los mismos.`
+          );
 
     if (!confirmed) return;
 
@@ -6899,14 +6549,31 @@ function CreatorPanel({ lang, supabase, accountRole }) {
     setMessage("");
 
     try {
-      const { error } = await supabase.rpc("admin_import_april_2026_participants");
+      const headers = await getAuthHeaders();
 
-      if (error) throw error;
+      const response = await fetch("/api/giveaways/admin", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          action: "repair_monthly_close",
+          month_key: targetMonthKey,
+        }),
+      });
 
-      setMessage("Lista de Abril 2026 importada correctamente.");
+      const result = await readJsonResponse(response);
+
+      if (!response.ok) {
+        throw new Error(result.error || "No se pudo revisar el cierre mensual.");
+      }
+
+      setMessage(
+        result.message ||
+          "Cierre mensual revisado correctamente. Los ganadores existentes se conservaron."
+      );
+
       await loadAdminData();
     } catch (error) {
-      setMessage(error.message || "No se pudo importar la lista de abril.");
+      setMessage(error.message || "No se pudo revisar el cierre mensual.");
     } finally {
       setWorking(false);
     }
@@ -6964,37 +6631,24 @@ function CreatorPanel({ lang, supabase, accountRole }) {
     setMessage("");
 
     try {
-      const monthKey =
-        campaign?.month_key ||
-        campaign?.month_label ||
-        new Date().toISOString().slice(0, 7);
+      const headers = await getAuthHeaders();
 
-      await supabase.rpc("admin_delete_manual_giveaway_participant", {
-        month_key_input: monthKey,
-        fortnite_name_input: fortniteName,
+      const response = await fetch("/api/giveaways/admin", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          action: "delete_participant",
+          fortnite_name: fortniteName,
+        }),
       });
 
-      try {
-        const headers = await getAuthHeaders();
+      const result = await readJsonResponse(response);
 
-        const response = await fetch("/api/giveaways/admin", {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            action: "delete_participant",
-            fortnite_name: fortniteName,
-          }),
-        });
-
-        if (response.ok) {
-          await readJsonResponse(response);
-        }
-      } catch (apiError) {
-        console.warn("Participante eliminado de lista manual. API no respondió:", apiError);
+      if (!response.ok) {
+        throw new Error(result.error || "No se pudo borrar el registro.");
       }
 
-      setWinners([]);
-      setMessage(c.deleteSuccess);
+      setMessage(result.message || c.deleteSuccess);
       await loadAdminData();
     } catch (error) {
       setMessage(error.message || "Error.");
@@ -7986,26 +7640,17 @@ function CreatorPanel({ lang, supabase, accountRole }) {
         <Card>
           <h3 className="text-2xl font-black">{c.drawTitle}</h3>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            El sistema selecciona ganadores reales con base en la tabla de participantes. VIP cuenta doble, frecuente requiere 2+ registros/participaciones y VIP solo participa en el sorteo VIP.
+            Revisa el cierre del mes anterior sin reemplazar ganadores guardados. VIP cuenta doble, frecuente requiere 2+ participaciones ponderadas y VIP solo participa en el sorteo VIP.
           </p>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="mt-5 grid gap-3">
             <button
               type="button"
-              onClick={drawWinners}
+              onClick={repairMonthlyClose}
               disabled={working}
               className="rounded-2xl bg-[#1eff7a] px-5 py-4 font-black text-black hover:brightness-110 disabled:opacity-60"
             >
-              {working ? c.drawing : c.drawButton}
-            </button>
-
-            <button
-              type="button"
-              onClick={importApril2026Participants}
-              disabled={working}
-              className="rounded-2xl border border-yellow-300/35 bg-yellow-300/10 px-5 py-4 font-black text-yellow-100 hover:border-yellow-200 disabled:opacity-60"
-            >
-              Importar Abril 2026
+              {working ? "Revisando cierre..." : "Recuperar cierre mensual"}
             </button>
           </div>
         </Card>
@@ -8127,12 +7772,13 @@ function CreatorPanel({ lang, supabase, accountRole }) {
           <div>
             <h3 className="text-2xl font-black">Historial de participantes</h3>
             <p className="mt-1 text-sm text-zinc-400">
-              Aquí se conservan hasta 3 meses anteriores. Abril 2026 queda como histórico y Mayo queda listo para nuevos registros.
+              Aquí se muestra el mes anterior. Los registros anteriores se conservan internamente en Supabase para auditoría.
             </p>
           </div>
 
           <span className="rounded-full border border-yellow-300/30 bg-yellow-300/10 px-4 py-2 text-sm font-black text-yellow-100">
-            Abril 2026
+            {previousMonthPayload?.month_label || "Mes anterior"}{" "}
+            {String(previousMonthPayload?.month_key || "").slice(0, 4)}
           </span>
         </div>
 
@@ -8148,27 +7794,35 @@ function CreatorPanel({ lang, supabase, accountRole }) {
             </thead>
 
             <tbody>
-              {APRIL_2026_PARTICIPANTS.map((row) => (
-                <tr
-                  key={`creator-history-april-${row.fortnite_name}`}
-                  className="border-t border-yellow-300/10 bg-[#080f05]/70"
-                >
-                  <td className="px-4 py-3 font-bold text-white">{row.fortnite_name}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex w-24 justify-center rounded-full px-3 py-1 text-xs font-black ${
-                        row.is_vip
-                          ? "bg-cyan-300/15 text-cyan-100"
-                          : "bg-zinc-800 text-zinc-300"
-                      }`}
-                    >
-                      {row.is_vip ? "VIP" : "Normal"}
-                    </span>
+              {historicalParticipants.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-zinc-400">
+                    No hay participantes históricos para mostrar.
                   </td>
-                  <td className="px-4 py-3 text-zinc-300">{row.registros}</td>
-                  <td className="px-4 py-3 font-black text-yellow-200">{row.participaciones}</td>
                 </tr>
-              ))}
+              ) : (
+                historicalParticipants.map((row) => (
+                  <tr
+                    key={`creator-history-${previousMonthPayload?.month_key || "previous"}-${row.fortnite_name}`}
+                    className="border-t border-yellow-300/10 bg-[#080f05]/70"
+                  >
+                    <td className="px-4 py-3 font-bold text-white">{row.fortnite_name}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex w-24 justify-center rounded-full px-3 py-1 text-xs font-black ${
+                          row.is_vip
+                            ? "bg-cyan-300/15 text-cyan-100"
+                            : "bg-zinc-800 text-zinc-300"
+                        }`}
+                      >
+                        {row.is_vip ? "VIP" : "Normal"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-300">{row.registros}</td>
+                    <td className="px-4 py-3 font-black text-yellow-200">{row.participaciones}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
