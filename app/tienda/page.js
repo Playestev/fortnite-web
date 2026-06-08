@@ -1846,12 +1846,12 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
 
   return (
     <div
-      className={`fixed inset-0 z-[125] overflow-y-auto bg-black/80 p-3 sm:p-6 transition-opacity duration-200 ${modalVisible ? "opacity-100" : "opacity-0"}`}
+      className={`fixed inset-0 z-[125] overflow-y-auto bg-black/80 p-3 transition-opacity duration-200 sm:flex sm:items-center sm:justify-center sm:p-6 ${modalVisible ? "opacity-100" : "opacity-0"}`}
       onClick={handleModalClose}
     >
       <div
         onClick={(event) => event.stopPropagation()}
-        className={`mx-auto w-full max-w-6xl rounded-[32px] bg-[#04120d] shadow-[0_0_60px_rgba(0,255,120,0.08)] transition-all duration-200 ${modalVisible ? "translate-y-0 scale-100 opacity-100" : "translate-y-5 scale-[0.96] opacity-0"} ${
+        className={`gkg-item-modal-box mx-auto w-full max-w-[820px] overflow-hidden rounded-[24px] bg-[#04120d] shadow-[0_0_60px_rgba(0,255,120,0.08)] transition-all duration-200 sm:max-h-[calc(100dvh-2rem)] sm:overflow-y-auto ${modalVisible ? "translate-y-0 scale-100 opacity-100" : "translate-y-5 scale-[0.96] opacity-0"} ${
           leavingSoon && isFreshNew
             ? "border-2 border-red-500 ring-2 ring-yellow-400/60"
             : leavingSoon
@@ -1861,26 +1861,26 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
                 : "border border-[#124633]"
         }`}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[#103c2c] p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-3 border-b border-[#103c2c] p-4 sm:p-5">
           <div>
             <div className="text-xs font-black uppercase tracking-[0.35em] text-[#59ffbd]">{item._section}</div>
-            <h2 className="mt-2 text-4xl font-black italic leading-none text-white sm:text-5xl">
+            <h2 className="mt-2 text-3xl font-black italic leading-none text-white sm:text-4xl">
               {getDisplayName(currentDetail)}
             </h2>
-            <div className="mt-2 text-lg text-slate-300">{displayType}</div>
+            <div className="mt-2 text-base text-slate-300">{displayType}</div>
           </div>
 
           <button
             type="button"
             onClick={handleModalClose}
-            className="rounded-2xl border border-[#1a4e3a] bg-[#08140f] px-5 py-3 text-xl font-black text-white"
+            className="rounded-2xl border border-[#1a4e3a] bg-[#08140f] px-4 py-2.5 text-base font-black text-white sm:text-lg"
           >
             {labels.close}
           </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 p-4 sm:p-6 lg:grid-cols-[0.95fr_1.05fr]">
-          <div>
+        <div className="gkg-item-modal-grid grid min-w-0 grid-cols-1 gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
+          <div className="min-w-0">
             <div className="relative overflow-hidden rounded-[28px] border border-[#124f39]" style={currentImageStyle}>
               {leavingSoon && (
                 <div className="absolute left-3 top-3 z-20 rounded-full bg-red-500 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-lg sm:text-xs">
@@ -1909,20 +1909,20 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
               </button>
 
               <div
-                className="aspect-[4/5] sm:aspect-[4/3] overflow-hidden"
+                className="gkg-item-modal-main-image aspect-[4/5] overflow-hidden sm:h-[300px] sm:aspect-auto lg:h-[280px]"
                 onTouchStart={handleImageTouchStart}
                 onTouchEnd={handleImageTouchEnd}
               >
                 <img
                   src={images[imageIndex] || "/ganker-logo.png"}
                   alt={getDisplayName(currentDetail)}
-                  className="h-full w-full object-contain object-center p-10 sm:p-12 transition-all duration-500 ease-out scale-[0.72]"
+                  className="gkg-item-modal-main-image-content h-full w-full object-contain object-center p-4 transition-all duration-500 ease-out scale-[0.70] sm:p-5 lg:p-5"
                 />
               </div>
             </div>
 
             {images.length > 1 && (
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+              <div className="gkg-item-modal-thumbs mt-3 flex max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-2">
                 {images.map((img, idx) => {
                   const thumbTheme = getCardTheme(`${currentDetail._section || item._section || item.id}-${idx}`);
                   return (
@@ -1930,7 +1930,7 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
                       type="button"
                       key={`${img}-${idx}`}
                       onClick={() => setImageIndex(idx)}
-                      className={`h-20 w-20 shrink-0 overflow-hidden rounded-2xl border ${
+                      className={`gkg-item-modal-thumb h-14 w-14 shrink-0 overflow-hidden rounded-xl border sm:h-[58px] sm:w-[58px] ${
                         idx === imageIndex ? "border-[#59ffbd]" : "border-[#184231]"
                       }`}
                       style={{
@@ -1945,13 +1945,13 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
             )}
           </div>
 
-          <div className="space-y-4">
-            <div className="rounded-[28px] border border-[#154636] bg-[#07140f] p-5">
+          <div className="gkg-item-modal-info min-w-0 space-y-3">
+            <div className="rounded-[22px] border border-[#154636] bg-[#07140f] p-4">
               <div className="rounded-2xl border border-[#144d38] bg-[linear-gradient(90deg,#082018,#0c2d1f)] px-5 py-4 text-center shadow-[0_0_18px_rgba(21,216,99,0.07)]">
                 <div className="text-base font-black leading-none text-[#67ff9a] sm:text-lg">
                   {item.price || 0} {labels.vbucks}
                 </div>
-                <div className="mt-2 text-[1.55rem] font-black leading-none text-white sm:text-[1.8rem]">
+                <div className="mt-2 text-[1.4rem] font-black leading-none text-white sm:text-[1.65rem]">
                   {localPrice(language, item.price)}
                 </div>
               </div>
@@ -1978,7 +1978,7 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
                 <button
                   type="button"
                   onClick={() => onAddToCart(currentDetail)}
-                  className="w-full rounded-2xl bg-[#19df6c] px-4 py-4 text-base font-black text-black"
+                  className="w-full rounded-2xl bg-[#19df6c] px-4 py-3.5 text-sm font-black text-black sm:text-base"
                 >
                   {labels.addToCart}
                 </button>
@@ -1986,11 +1986,11 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
             </div>
 
             {includedItems.length > 0 && (
-              <div className="rounded-[28px] border border-[#154636] bg-[#07140f] p-5">
+              <div className="rounded-[22px] border border-[#154636] bg-[#07140f] p-4">
                 <div className="mb-4 text-base text-center font-black uppercase tracking-[0.35em] text-[#67ff9a]">
                   {labels.includes} {includedItems.length}
                 </div>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {includedItems.map((entry, index) => {
                     const active = selectedIncludedId === entry.id;
                     const entryImages = getGalleryImages(entry);
@@ -2002,7 +2002,7 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
                         type="button"
                         key={`${entry.id || entry.name || index}`}
                         onClick={() => setSelectedIncludedId((prev) => (prev === entry.id ? "" : entry.id))}
-                        className={`rounded-2xl border p-3 text-center transition ${
+                        className={`min-w-0 rounded-xl border p-2 text-center transition ${
                           active ? "border-[#59ffbd] bg-[#0b1712]" : "border-[#154636] bg-[#08140f]"
                         }`}
                       >
@@ -2014,7 +2014,7 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
                         >
                           <img src={entryImage} alt={getDisplayName(entry)} className="h-full w-full object-contain object-center p-2 scale-[0.88]" />
                         </div>
-                        <div className="mt-3 line-clamp-2 text-sm font-black uppercase leading-tight text-white">
+                        <div className="mt-2 line-clamp-2 text-xs font-black uppercase leading-tight text-white sm:text-sm">
                           {getDisplayName(entry)}
                         </div>
                         <div className="mt-1 text-xs uppercase tracking-wide text-slate-300">
@@ -2050,7 +2050,7 @@ function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
 
   if (isLargeBundle) {
     return (
-      <article className="col-span-2 h-full">
+      <article className="col-span-2 h-full min-w-0 w-full">
         <div
           role="button"
           tabIndex={0}
@@ -2061,7 +2061,7 @@ function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
               onOpen(item);
             }
           }}
-          className="group block h-full w-full cursor-pointer text-left transition active:scale-[0.985]"
+          className="group block h-full min-w-0 w-full cursor-pointer text-left transition active:scale-[0.985]"
         >
           <div
             className={`relative h-full overflow-hidden rounded-[18px] shadow-[0_10px_24px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 ${borderClass}`}
@@ -2130,7 +2130,7 @@ function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
   }
 
   return (
-    <article className="h-full">
+    <article className="h-full min-w-0 w-full">
       <div
         role="button"
         tabIndex={0}
@@ -2141,7 +2141,7 @@ function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
             onOpen(item);
           }
         }}
-        className="group block h-full w-full cursor-pointer text-left transition active:scale-[0.985]"
+        className="group block h-full min-w-0 w-full cursor-pointer text-left transition active:scale-[0.985]"
       >
         <div
           className={`relative h-full overflow-hidden rounded-[18px] shadow-[0_10px_24px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 ${borderClass}`}
@@ -2149,7 +2149,7 @@ function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
             background: `linear-gradient(180deg, ${theme.middle} 0%, ${theme.top} 100%)`,
           }}
         >
-          <div className="relative min-h-[235px] overflow-hidden aspect-[0.88/1]">
+          <div className="relative min-h-[208px] overflow-hidden aspect-[0.88/1] sm:min-h-[235px]">
             <div className="relative z-10 flex h-full w-full items-end justify-center px-2 pb-11 pt-2 transition-transform duration-300 group-hover:scale-[1.02]">
               <RotatingImage
                 images={item._galleryImages}
@@ -2924,7 +2924,7 @@ export default function Home() {
   const authLabel = sessionUser?.id ? labels.myProfile : labels.login;
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_20%),linear-gradient(180deg,_#000000_0%,_#021106_45%,_#000000_100%)] text-white">
+    <main className="min-h-screen w-full overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_20%),linear-gradient(180deg,_#000000_0%,_#021106_45%,_#000000_100%)] text-white">
       <style jsx global>{`
         @keyframes slideInRight {
           from { transform: translateX(100%); opacity: 0.65; }
@@ -2934,6 +2934,53 @@ export default function Home() {
           from { transform: translateX(0); opacity: 1; }
           to { transform: translateX(100%); opacity: 0.65; }
         }
+        .gkg-item-modal-thumbs::-webkit-scrollbar {
+          height: 6px;
+        }
+
+        .gkg-item-modal-thumbs::-webkit-scrollbar-track {
+          background: rgba(7, 20, 15, 0.9);
+          border-radius: 999px;
+        }
+
+        .gkg-item-modal-thumbs::-webkit-scrollbar-thumb {
+          background: rgba(89, 255, 189, 0.48);
+          border-radius: 999px;
+        }
+
+        @media (min-width: 1024px) {
+          .gkg-item-modal-box {
+            width: min(92vw, 820px) !important;
+            max-width: 820px !important;
+            max-height: calc(100dvh - 32px) !important;
+          }
+
+          .gkg-item-modal-grid {
+            grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr) !important;
+            gap: 12px !important;
+            padding: 12px !important;
+          }
+
+          .gkg-item-modal-main-image {
+            height: 280px !important;
+            aspect-ratio: auto !important;
+          }
+
+          .gkg-item-modal-main-image-content {
+            padding: 16px !important;
+            transform: scale(0.70) !important;
+          }
+
+          .gkg-item-modal-thumb {
+            width: 54px !important;
+            height: 54px !important;
+          }
+
+          .gkg-item-modal-info {
+            gap: 12px !important;
+          }
+        }
+
         @keyframes cartPop {
           0% { transform: scale(1); }
           35% { transform: scale(1.18) rotate(-6deg); }
@@ -3132,7 +3179,7 @@ export default function Home() {
         )}
       </button>
 
-      <div className="mx-auto max-w-[1600px] px-4 pb-4 pt-[92px] md:px-6 md:pb-6 md:pt-[104px]">
+      <div className="mx-auto w-full max-w-[1600px] px-3 pb-4 pt-[92px] sm:px-4 md:px-6 md:pb-6 md:pt-[104px]">
         <section className="mb-5 overflow-hidden rounded-[22px] border border-[#1d4a2d] bg-[linear-gradient(120deg,_rgba(0,255,102,0.10)_0%,_rgba(5,14,8,0.96)_35%,_rgba(2,7,3,0.96)_100%)] p-3 shadow-[0_16px_45px_rgba(0,0,0,0.32)] md:rounded-[26px] md:p-4">
           <div className="rounded-[20px] border border-[#255239] bg-[#040804]/80 p-4 text-center backdrop-blur md:p-5">
             <p className="text-center text-sm font-black uppercase tracking-[0.34em] text-[#7dffae] drop-shadow-[0_0_12px_rgba(103,255,154,0.36)] md:text-base">{labels.objectsFortnite}</p>
@@ -3247,7 +3294,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  <div className="mx-auto grid w-full grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-5">
                     {group.items.map((item) => (
                       <ShopCard
                         key={item.id}

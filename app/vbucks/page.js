@@ -90,7 +90,7 @@ const LABELS = {
     clear: "Quitar",
     shareLink: "Copiar enlace",
     copied: "Enlace copiado",
-    sendWhatsApp: "Mandar por WhatsApp",
+    sendWhatsApp: "Mandar directo por WhatsApp",
     giftData: "Datos de regalo",
     giftHelp: "Debes poner los datos de regalo para continuar.",
     mainUser: "Usuario principal a enviar",
@@ -146,7 +146,7 @@ const LABELS = {
     clear: "Remove",
     shareLink: "Copy link",
     copied: "Link copied",
-    sendWhatsApp: "Send by WhatsApp",
+    sendWhatsApp: "Send directly by WhatsApp",
     giftData: "Gift data",
     giftHelp: "You must add gift data to continue.",
     mainUser: "Main username",
@@ -455,13 +455,7 @@ export default function VbucksPage() {
   const labels = LABELS[language];
   const [cart, setCart] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const [giftModalOpen, setGiftModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [recipientUsername, setRecipientUsername] = useState("");
-  const [splitEnabled, setSplitEnabled] = useState(false);
-  const [secondaryUser, setSecondaryUser] = useState("");
-  const [primaryIds, setPrimaryIds] = useState([]);
-  const [secondaryIds, setSecondaryIds] = useState([]);
   const [message, setMessage] = useState("");
   const [sessionUser, setSessionUser] = useState(null);
   const [cartPulse, setCartPulse] = useState(false);
@@ -487,7 +481,6 @@ export default function VbucksPage() {
     })
     .filter(Boolean);
 
-  const detailIds = details.map((item) => item.id);
   const totalVbucks = details.reduce((sum, item) => sum + item.amount * item.qty, 0);
   const totalMx = details.reduce((sum, item) => sum + item.price * item.qty, 0);
   const cartCount = details.reduce((sum, item) => sum + item.qty, 0);
@@ -537,11 +530,6 @@ export default function VbucksPage() {
       window.localStorage.setItem(VBUCKS_CART_KEY, JSON.stringify(cart));
     }
   }, [cart]);
-
-  useEffect(() => {
-    setPrimaryIds((current) => syncIds(current, detailIds));
-    setSecondaryIds((current) => syncIds(current, detailIds));
-  }, [detailIds.join("|")]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return undefined;
@@ -625,40 +613,6 @@ export default function VbucksPage() {
     setCart((current) => current.map((item) => (item.id === id ? { ...item, qty } : item)));
   }
 
-  function toggleSelected(setter, id) {
-    setter((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
-    );
-  }
-
-  function selectAll(setter) {
-    setter(detailIds);
-  }
-
-  function selectNone(setter) {
-    setter([]);
-  }
-
-  function renderAssignedItems(ids) {
-    return details.filter((item) => ids.includes(item.id));
-  }
-
-  function buildUserLines(title, username, ids) {
-    const assigned = renderAssignedItems(ids);
-
-    return [
-      `${title}: ${username}`,
-      "",
-      "🎮 Objetos del carrito",
-      ...assigned.flatMap((item, index) => [
-        `${index + 1}. ${item.title} x${item.qty}`,
-        `   ${formatVbucks(item.amount * item.qty)}`,
-        `   ${formatMx(item.price * item.qty)}`,
-      ]),
-      "",
-    ];
-  }
-
   async function shareCart() {
     try {
       const ids = cart.map((item) => `${item.id}:${item.qty}`).join(",");
@@ -673,43 +627,19 @@ export default function VbucksPage() {
     }
   }
 
-  function openGiftModal() {
+  function sendCartToWhatsApp() {
     if (!details.length) return;
-    setPrimaryIds((current) => syncIds(current, detailIds));
-    setSecondaryIds((current) => syncIds(current, detailIds));
-    setGiftModalOpen(true);
-  }
-
-  function confirmWhatsApp() {
-    const mainUser = recipientUsername.trim();
-    const extraUser = secondaryUser.trim();
-
-    if (!mainUser) {
-      setMessage(labels.mainUserError);
-      return;
-    }
-
-    if (!primaryIds.length) {
-      setMessage(labels.primarySelectionError);
-      return;
-    }
-
-    if (splitEnabled && !extraUser) {
-      setMessage(labels.secondUserError);
-      return;
-    }
-
-    if (splitEnabled && !secondaryIds.length) {
-      setMessage(labels.secondarySelectionError);
-      return;
-    }
 
     const lines = [
       "🛒 Cotización de paVos GKG",
       "",
-      "🎁 Datos de entrega",
-      ...buildUserLines(labels.mainUser, mainUser, primaryIds),
-      ...(splitEnabled ? buildUserLines(labels.secondUser, extraUser, secondaryIds) : []),
+      "🎮 Paquetes seleccionados",
+      ...details.flatMap((item, index) => [
+        `${index + 1}. ${item.title} x${item.qty}`,
+        `   ${formatVbucks(item.amount * item.qty)}`,
+        `   ${formatMx(item.price * item.qty)}`,
+      ]),
+      "",
       `${labels.totalVbucks}: ${formatVbucks(totalVbucks)}`,
       `${labels.total}: ${formatMx(totalMx)}`,
       "",
@@ -717,12 +647,12 @@ export default function VbucksPage() {
     ];
 
     window.open(
-      `https://wa.me/${GKG_WHATSAPP_NUMBER}?text=${encodeURIComponent(lines.join("\n"))}`,
+      `https://wa.me/${GKG_WHATSAPP_NUMBER}?text=${encodeURIComponent(
+        lines.join("\n")
+      )}`,
       "_blank",
       "noopener,noreferrer"
     );
-
-    setGiftModalOpen(false);
   }
 
   function renderCartDrawer() {
@@ -834,7 +764,7 @@ export default function VbucksPage() {
               <div className="mt-4 grid gap-3">
                 <button
                   type="button"
-                  onClick={openGiftModal}
+                  onClick={sendCartToWhatsApp}
                   className="rounded-2xl bg-[#15d863] px-4 py-3 text-sm font-black text-[#06110a] shadow-[0_0_18px_rgba(21,216,99,0.18)] transition hover:brightness-110"
                 >
                   {labels.sendWhatsApp}
@@ -863,151 +793,9 @@ export default function VbucksPage() {
     );
   }
 
-  function Selector({ title, ids, setIds }) {
-    return (
-      <div className="mt-4 rounded-2xl bg-[#06110c] p-3 shadow-[inset_0_0_0_1px_rgba(30,255,122,.18)]">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#63ff9b]">{title}</p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => selectAll(setIds)}
-              className="rounded-lg border border-[#1eff7a]/35 px-2 py-1 text-[10px] font-black text-[#63ff9b]"
-            >
-              {labels.all}
-            </button>
-            <button
-              type="button"
-              onClick={() => selectNone(setIds)}
-              className="rounded-lg border border-red-400/35 px-2 py-1 text-[10px] font-black text-red-200"
-            >
-              {labels.none}
-            </button>
-          </div>
-        </div>
 
-        <div className="space-y-2">
-          {details.map((item) => (
-            <label
-              key={item.id}
-              className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#1a4e3a]/70 bg-[#08140f] p-3"
-            >
-              <input
-                type="checkbox"
-                checked={ids.includes(item.id)}
-                onChange={() => toggleSelected(setIds, item.id)}
-                className="h-5 w-5 accent-[#15d863]"
-              />
-              <span className="min-w-0">
-                <span className="block text-sm font-black text-white">
-                  {item.title} x{item.qty}
-                </span>
-                <span className="block text-xs text-slate-400">
-                  {formatVbucks(item.amount * item.qty)} · {formatMx(item.price * item.qty)}
-                </span>
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-    );
-  }
 
-  function GiftModal() {
-    if (!giftModalOpen) return null;
 
-    return (
-      <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/72 p-0 backdrop-blur-[3px] sm:items-center sm:p-4">
-        <div className="flex h-[100dvh] w-full flex-col overflow-hidden bg-[rgba(4,18,13,0.98)] shadow-[0_0_60px_rgba(21,216,99,0.16)] sm:h-auto sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-[30px] sm:border sm:border-[#124633]/70">
-          <div className="shrink-0 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.25em] text-[#63ff9b]">{labels.giftData}</p>
-                <h3 className="mt-1 text-2xl font-black text-white">{labels.sendWhatsApp}</h3>
-                <p className="mt-1 text-xs leading-5 text-slate-400">{labels.giftHelp}</p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setGiftModalOpen(false)}
-                className="shrink-0 rounded-xl border border-[#1a4e3a]/70 bg-[#08140f] px-4 py-2 text-sm font-black text-white"
-              >
-                {labels.close}
-              </button>
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-6 [-webkit-overflow-scrolling:touch] [touch-action:pan-y] [&::-webkit-scrollbar]:hidden">
-            <div className="rounded-2xl bg-[#06110c] p-3 shadow-[inset_0_0_0_1px_rgba(30,255,122,.18)]">
-              <label className="block">
-                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-white">
-                  {labels.mainUser} *
-                </span>
-                <input
-                  type="text"
-                  value={recipientUsername}
-                  onChange={(event) => setRecipientUsername(event.target.value)}
-                  placeholder="Ej. GankerGames"
-                  className="w-full rounded-2xl border border-[#1a4e3a]/70 bg-[#08140f] px-4 py-3 text-sm font-bold text-white outline-none transition placeholder:text-slate-500 focus:border-[#67ff9a]"
-                />
-              </label>
-
-              <Selector title={labels.selectItems} ids={primaryIds} setIds={setPrimaryIds} />
-            </div>
-
-            <div className="rounded-2xl bg-[#06110c] p-3 shadow-[inset_0_0_0_1px_rgba(30,255,122,.18)]">
-              <label className="flex cursor-pointer items-center justify-between gap-3">
-                <span>
-                  <span className="block text-sm font-black text-white">{labels.addSecondUser}</span>
-                  <span className="block text-xs leading-5 text-slate-400">{labels.splitHelp}</span>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={splitEnabled}
-                  onChange={(event) => setSplitEnabled(event.target.checked)}
-                  className="h-5 w-5 accent-[#15d863]"
-                />
-              </label>
-
-              {splitEnabled && (
-                <div className="mt-3 rounded-2xl bg-[#04120d] p-3 shadow-[inset_0_0_0_1px_rgba(30,255,122,.16)]">
-                  <label className="block">
-                    <span className="mb-2 block text-xs font-black uppercase tracking-wide text-white">
-                      {labels.secondUser}
-                    </span>
-                    <input
-                      type="text"
-                      value={secondaryUser}
-                      onChange={(event) => setSecondaryUser(event.target.value)}
-                      placeholder="Nombre del usuario adicional"
-                      className="w-full rounded-xl border border-[#1a4e3a]/70 bg-[#08140f] px-3 py-2 text-sm font-bold text-white outline-none transition placeholder:text-slate-500 focus:border-[#67ff9a]"
-                    />
-                  </label>
-
-                  <Selector title={labels.selectItems} ids={secondaryIds} setIds={setSecondaryIds} />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="shrink-0 bg-[rgba(4,18,13,0.98)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-18px_30px_rgba(4,18,13,.92)]">
-            {message && (
-              <p className="mb-3 rounded-xl border border-[#1eff7a]/25 bg-[#1eff7a]/10 px-3 py-2 text-sm font-bold text-[#63ff9b]">
-                {message}
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={confirmWhatsApp}
-              className="w-full rounded-2xl bg-[#15d863] px-4 py-4 text-sm font-black text-[#06110a] shadow-[0_0_18px_rgba(21,216,99,0.18)] transition hover:brightness-110"
-            >
-              {labels.confirmWhatsApp}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
 
   return (
@@ -1164,7 +952,6 @@ export default function VbucksPage() {
         onCartOpen={() => setCartOpen(true)}
       />
       {renderCartDrawer()}
-      <GiftModal />
 
       <style jsx global>{`
         @keyframes slideInRight {
