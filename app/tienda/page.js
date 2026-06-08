@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const LANG_STORAGE_KEY = "gkg-lang";
 const CART_STORAGE_KEY = "gkg-cart";
@@ -10,6 +11,7 @@ const SHOP_SNAPSHOT_KEY = "gkg-shop-snapshot-v2";
 const SHOP_RECENT_GONE_KEY = "gkg-shop-recent-gone-v2";
 const VB_TO_LOCAL_RATE = 0.09;
 const AUTO_ROTATE_MS = 10000;
+const CLIENT_GKG_TUTORIAL_SKIP_KEY = "gkg-client-skip-tutorial-v1";
 
 const STAR_POINTS = [
   { top: "6%", left: "8%", size: 2, delay: "0s", duration: "3.4s" },
@@ -2329,6 +2331,298 @@ function SparkleBackground() {
   );
 }
 
+function TutorialPreviewModal({ open, onClose, onSkipClient }) {
+  const [mounted, setMounted] = useState(false);
+  const [hasPlayed, setHasPlayed] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(10);
+  const iframeRef = useRef(null);
+  const playerRef = useRef(null);
+  const hasPlayedRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open || !mounted || typeof document === "undefined") return undefined;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverscroll = document.body.style.overscrollBehavior;
+    const previousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.documentElement.style.overscrollBehavior = "none";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overscrollBehavior = previousBodyOverscroll;
+      document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
+    };
+  }, [open, mounted]);
+
+  useEffect(() => {
+    if (!open || !mounted || typeof window === "undefined") return undefined;
+
+    hasPlayedRef.current = false;
+    setHasPlayed(false);
+    setSecondsLeft(10);
+
+    const startedAt = Date.now();
+
+    const intervalId = window.setInterval(() => {
+      if (hasPlayedRef.current) {
+        window.clearInterval(intervalId);
+        return;
+      }
+
+      const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000);
+      const remainingSeconds = Math.max(0, 10 - elapsedSeconds);
+
+      setSecondsLeft(remainingSeconds);
+
+      if (remainingSeconds <= 0) {
+        window.clearInterval(intervalId);
+
+        if (!hasPlayedRef.current) {
+          onCloseRef.current?.();
+        }
+      }
+    }, 250);
+
+    return () => window.clearInterval(intervalId);
+  }, [open, mounted]);
+
+  useEffect(() => {
+    if (!open || !mounted || typeof window === "undefined") return undefined;
+
+    let disposed = false;
+    let previousReadyHandler;
+
+    function markAsPlayed() {
+      if (disposed || hasPlayedRef.current) return;
+
+      hasPlayedRef.current = true;
+      setHasPlayed(true);
+    }
+
+    function initializePlayer() {
+      if (
+        disposed ||
+        !iframeRef.current ||
+        !window.YT ||
+        typeof window.YT.Player !== "function"
+      ) {
+        return;
+      }
+
+      try {
+        playerRef.current?.destroy?.();
+      } catch {}
+
+      try {
+        playerRef.current = new window.YT.Player(iframeRef.current, {
+          events: {
+            onStateChange(event) {
+              if (event?.data === 1) {
+                markAsPlayed();
+              }
+            },
+          },
+        });
+      } catch {}
+    }
+
+    if (window.YT && typeof window.YT.Player === "function") {
+      initializePlayer();
+    } else {
+      previousReadyHandler = window.onYouTubeIframeAPIReady;
+
+      window.onYouTubeIframeAPIReady = () => {
+        if (typeof previousReadyHandler === "function") {
+          previousReadyHandler();
+        }
+
+        initializePlayer();
+      };
+
+      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+        const script = document.createElement("script");
+        script.src = "https://www.youtube.com/iframe_api";
+        script.async = true;
+        document.body.appendChild(script);
+      }
+    }
+
+    return () => {
+      disposed = true;
+
+      try {
+        playerRef.current?.destroy?.();
+      } catch {}
+
+      playerRef.current = null;
+    };
+  }, [open, mounted]);
+
+  if (!open || !mounted || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Tutorial de compra"
+      className="gkg-tutorial-overlay"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2147483647,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflowY: "auto",
+        overscrollBehavior: "contain",
+        padding: "12px",
+        backgroundColor: "#010604",
+        isolation: "isolate",
+      }}
+    >
+      <style>{`
+        .gkg-tutorial-card {
+          display: flex;
+          width: min(92vw, 336px);
+          max-height: calc(100dvh - 24px);
+          flex-direction: column;
+          overflow: hidden;
+          border: 1px solid rgba(30, 255, 122, 0.48);
+          border-radius: 26px;
+          background: #031109;
+          box-shadow: 0 0 58px rgba(21, 216, 99, 0.24);
+        }
+
+        .gkg-tutorial-header,
+        .gkg-tutorial-footer {
+          flex-shrink: 0;
+          background: #04150d;
+        }
+
+        .gkg-tutorial-header {
+          border-bottom: 1px solid #124633;
+          padding: 14px 16px 12px;
+          text-align: center;
+        }
+
+        .gkg-tutorial-content {
+          min-height: 0;
+          flex: 1;
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          padding: 14px;
+          background: #031109;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .gkg-tutorial-short {
+          position: relative;
+          width: min(62vw, 218px);
+          aspect-ratio: 9 / 16;
+          margin: 0 auto;
+          overflow: hidden;
+          border: 1px solid rgba(30, 255, 122, 0.38);
+          border-radius: 20px;
+          background: #000;
+          box-shadow: 0 0 24px rgba(21, 216, 99, 0.16);
+        }
+
+        .gkg-tutorial-footer {
+          border-top: 1px solid #124633;
+          padding: 14px 14px max(14px, env(safe-area-inset-bottom));
+        }
+
+        @media (min-width: 768px) {
+          .gkg-tutorial-card {
+            width: 292px;
+            max-height: min(88vh, 680px);
+          }
+
+          .gkg-tutorial-short {
+            width: 176px;
+          }
+        }
+      `}</style>
+
+      <section className="gkg-tutorial-card">
+        <div className="gkg-tutorial-header">
+          <p className="text-[10px] font-black uppercase tracking-[0.34em] text-[#67ff9a]">
+            GKG Tienda
+          </p>
+
+          <h2 className="mt-1 text-xl font-black italic text-white">
+            Tutorial de compra
+          </h2>
+
+          <p className="mt-2 text-xs leading-5 text-slate-300">
+            Revisa este Short antes de continuar en la tienda.
+          </p>
+
+          <p className="mt-2 text-[11px] font-bold leading-4 text-[#8effb5]">
+            {hasPlayed
+              ? "Video en reproducción."
+              : `Si no reproduces el video, se cerrará automáticamente en ${secondsLeft} s.`}
+          </p>
+        </div>
+
+        <div className="gkg-tutorial-content">
+          <div className="gkg-tutorial-short">
+            <iframe
+              ref={iframeRef}
+              title="Tutorial de compra Ganker Games"
+              src="https://www.youtube.com/embed/A0SAjcySAsc?rel=0&modestbranding=1&playsinline=1&enablejsapi=1"
+              loading="lazy"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                border: 0,
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="gkg-tutorial-footer">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-2xl bg-[#15d863] px-4 py-3.5 text-sm font-black text-[#06110a] shadow-[0_0_20px_rgba(21,216,99,0.22)] transition hover:brightness-110"
+          >
+            Continuar con la tienda
+          </button>
+
+          <button
+            type="button"
+            onClick={onSkipClient}
+            className="mt-3 w-full rounded-2xl border border-[#1eff7a]/35 bg-[#07140f] px-4 py-3 text-xs font-black text-[#67ff9a] transition hover:border-[#8cff9f] hover:bg-[#0b1f15]"
+          >
+            Soy Cliente GKG: omitir video
+          </button>
+        </div>
+      </section>
+    </div>,
+    document.body
+  );
+}
+
 export default function Home() {
   const [language, setLanguage] = useState("es-419");
   const labels = LABELS[language];
@@ -2362,6 +2656,7 @@ export default function Home() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [languageChanging, setLanguageChanging] = useState(false);
   const [nextLanguage, setNextLanguage] = useState(null);
+  const [tutorialPreviewOpen, setTutorialPreviewOpen] = useState(false);
   const groupsRef = useRef(null);
 
   const handleLanguageChange = (targetLang) => {
@@ -2383,6 +2678,15 @@ export default function Home() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    try {
+      const shouldSkipTutorial =
+        window.localStorage.getItem(CLIENT_GKG_TUTORIAL_SKIP_KEY) === "1";
+
+      setTutorialPreviewOpen(!shouldSkipTutorial);
+    } catch {
+      setTutorialPreviewOpen(true);
+    }
 
     const savedLang = window.localStorage.getItem(LANG_STORAGE_KEY);
     if (savedLang === "es-419" || savedLang === "en") setLanguage(savedLang);
@@ -2548,12 +2852,6 @@ export default function Home() {
     return groupItemsBySection(visibleItems);
   }, [visibleItems, selectedSection, sortMode, labels.recentlyGone, labels.showAllSections]);
 
-  useEffect(() => {
-    if (!loading && groupsRef.current) {
-      groupsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [selectedSection, sortMode, search, loading]);
-
   const cartCount = useMemo(
     () => cart.reduce((sum, item) => sum + Number(item.qty || 0), 0),
     [cart]
@@ -2657,7 +2955,7 @@ export default function Home() {
               {labels.brand}
             </span>
             <span className="hidden text-[10px] font-black uppercase tracking-[0.28em] text-[#67ff9a] drop-shadow-[0_0_10px_rgba(103,255,154,0.42)] min-[360px]:inline sm:text-xs sm:tracking-[0.35em]">
-              {language === "es-419" ? "Página" : "Web"}
+              {language === "es-419" ? "Tienda" : "Shop"}
             </span>
           </Link>
 
@@ -2672,28 +2970,33 @@ export default function Home() {
                 {language === "es-419" ? "ESP" : "ENG"}
               </span>
               <svg
-                viewBox="0 0 64 64"
+                viewBox="0 0 24 24"
                 className="h-4 w-4 sm:h-5 sm:w-5"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2.5"
+                strokeWidth="1.9"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 aria-hidden="true"
               >
-                <circle cx="32" cy="32" r="18" />
-                <path d="M14 32h36" />
-                <path d="M32 14c5 5.4 8 11.3 8 18s-3 12.6-8 18c-5-5.4-8-11.3-8-18s3-12.6 8-18Z" />
-                <path d="M8 18h12v12H8Z" />
-                <path d="M44 34h12v12H44Z" />
+                <circle cx="12" cy="12" r="8.5" />
+                <path d="M3.8 12h16.4" />
+                <path d="M12 3.5c2.8 2.4 4.3 5.4 4.3 8.5S14.8 18.1 12 20.5" />
+                <path d="M12 3.5C9.2 5.9 7.7 8.9 7.7 12S9.2 18.1 12 20.5" />
               </svg>
             </button>
 
             <Link
               href={authHref}
-              className="hidden rounded-2xl border border-cyan-300/35 bg-cyan-300/10 px-4 py-3 text-sm font-black text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.10)] transition hover:border-cyan-200 hover:bg-cyan-300/15 lg:inline-flex"
+              aria-label={authLabel}
+              title={authLabel}
+              className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border border-[#1eff7a]/35 bg-[#07140f] p-1.5 text-[#67ff9a] shadow-[0_0_18px_rgba(21,216,99,0.10)] transition hover:scale-105 hover:border-[#67ff9a] hover:bg-[#0b1f15] md:h-12 md:w-12"
             >
-              {authLabel}
+              <img
+                src="/gankergames-profile-icon.png"
+                alt={authLabel}
+                className="h-full w-full object-contain"
+              />
             </Link>
 
             <button
@@ -2722,83 +3025,47 @@ export default function Home() {
         onCartOpen={() => setCartOpen(true)}
       />
 
-      {showScrollTop && (
-        <button
-          type="button"
-          onClick={() => setFilterModalOpen(true)}
-          aria-label={labels.filterButton}
-          className="fixed left-4 top-[86px] z-[61] flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_24px_rgba(21,255,98,0.32),0_10px_22px_rgba(0,0,0,0.40)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white md:left-6 md:top-[98px] md:h-14 md:w-14"
-        >
-          <span className="relative block h-5 w-5 md:h-6 md:w-6">
-            <span className="absolute left-0 top-0 h-[2px] w-full rounded-full bg-current" />
-            <span className="absolute left-0 top-[7px] h-[2px] w-[82%] rounded-full bg-current md:top-[8px]" />
-            <span className="absolute left-0 top-[14px] h-[2px] w-[62%] rounded-full bg-current md:top-[16px]" />
-            <span className="absolute right-0 top-[-2px] h-1.5 w-1.5 rounded-full bg-current md:h-2 md:w-2" />
-            <span className="absolute right-1 top-[5px] h-1.5 w-1.5 rounded-full bg-current md:top-[6px] md:h-2 md:w-2" />
-            <span className="absolute right-2 top-[12px] h-1.5 w-1.5 rounded-full bg-current md:top-[14px] md:h-2 md:w-2" />
-          </span>
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => setFilterModalOpen(true)}
+        aria-label={labels.filterButton}
+        className="fixed left-4 top-[86px] z-[61] flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_24px_rgba(21,255,98,0.32),0_10px_22px_rgba(0,0,0,0.40)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white md:left-6 md:top-[98px] md:h-14 md:w-14"
+      >
+        <span className="relative block h-5 w-5 md:h-6 md:w-6">
+          <span className="absolute left-0 top-0 h-[2px] w-full rounded-full bg-current" />
+          <span className="absolute left-0 top-[7px] h-[2px] w-[82%] rounded-full bg-current md:top-[8px]" />
+          <span className="absolute left-0 top-[14px] h-[2px] w-[62%] rounded-full bg-current md:top-[16px]" />
+          <span className="absolute right-0 top-[-2px] h-1.5 w-1.5 rounded-full bg-current md:h-2 md:w-2" />
+          <span className="absolute right-1 top-[5px] h-1.5 w-1.5 rounded-full bg-current md:top-[6px] md:h-2 md:w-2" />
+          <span className="absolute right-2 top-[12px] h-1.5 w-1.5 rounded-full bg-current md:top-[14px] md:h-2 md:w-2" />
+        </span>
+      </button>
 
-      {showScrollTop && (
-        <button
-          type="button"
-          onClick={() => setSortModalOpen(true)}
-          aria-label={labels.sortButton}
-          className="fixed left-4 top-[146px] z-[61] flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_24px_rgba(21,255,98,0.32),0_10px_22px_rgba(0,0,0,0.40)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white md:left-6 md:top-[166px] md:h-14 md:w-14"
+      <button
+        type="button"
+        onClick={() => setSortModalOpen(true)}
+        aria-label={labels.sortButton}
+        className="fixed left-4 top-[146px] z-[61] flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_24px_rgba(21,255,98,0.32),0_10px_22px_rgba(0,0,0,0.40)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white md:left-6 md:top-[166px] md:h-14 md:w-14"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="h-7 w-7 md:h-8 md:w-8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
         >
-          <svg
-            viewBox="0 0 24 24"
-            className="h-7 w-7 md:h-8 md:w-8"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M4 6h7" />
-            <path d="M4 12h5" />
-            <path d="M4 18h3" />
-            <path d="M15 19V5" />
-            <path d="m11 9 4-4 4 4" />
-            <path d="M21 5v14" />
-            <path d="m17 15 4 4 4-4" />
-          </svg>
-        </button>
-      )}
-
-      {showScrollTop && (
-        <Link
-          href="/vbucks"
-          aria-label={labels.navVbucks}
-          title={labels.navVbucks}
-          className="fixed left-4 top-[266px] z-[61] flex h-12 w-12 items-center justify-center rounded-full border-2 border-cyan-200 bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,.95),rgba(124,249,255,.85)_32%,rgba(22,184,205,.85)_62%,rgba(7,57,78,1)_100%)] text-white shadow-[0_0_0_2px_rgba(34,211,238,0.16),0_0_26px_rgba(34,211,238,0.42),0_10px_22px_rgba(0,0,0,0.40)] transition hover:scale-105 hover:border-white md:left-6 md:top-[302px] md:h-14 md:w-14"
-        >
-          <span className="text-2xl font-black italic leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,.45)] md:text-3xl">
-            V
-          </span>
-        </Link>
-      )}
-
-      {showScrollTop && (
-        <a
-          href="https://youtube.com/shorts/A0SAjcySAsc?feature=share"
-          target="_blank"
-          rel="noreferrer"
-          aria-label="Tutorial de compra"
-          className="fixed left-4 top-[206px] z-[61] flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_24px_rgba(21,255,98,0.32),0_10px_22px_rgba(0,0,0,0.40)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white md:left-6 md:top-[234px] md:h-14 md:w-14"
-        >
-          <span className="absolute left-[calc(100%+0.32rem)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-red-300/40 bg-[linear-gradient(135deg,#ff2f2f_0%,#980000_100%)] px-1.5 py-[2px] text-[6px] font-black uppercase leading-none tracking-[0.05em] text-white shadow-[0_0_10px_rgba(255,0,0,0.30)] md:text-[7px]">
-            Tuto de compra
-          </span>
-          <svg viewBox="0 0 24 24" className="h-6 w-6 md:h-7 md:w-7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <rect x="3" y="5" width="13" height="14" rx="3" />
-            <path d="m10 10 4 2-4 2v-4Z" fill="currentColor" stroke="none" />
-            <path d="m16 10 5-3v10l-5-3" />
-          </svg>
-        </a>
-      )}
+          <path d="M4 6h7" />
+          <path d="M4 12h5" />
+          <path d="M4 18h3" />
+          <path d="M15 19V5" />
+          <path d="m11 9 4-4 4 4" />
+          <path d="M21 5v14" />
+          <path d="m17 15 4 4 4-4" />
+        </svg>
+      </button>
 
       {!showScrollTop && (
         <button
@@ -2907,67 +3174,22 @@ export default function Home() {
               </div>
 
               <div className="flex flex-wrap items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFilterModalOpen(true)}
-                  aria-label={labels.filterButton}
-                  title={labels.filterButton}
-                  className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_22px_rgba(21,255,98,0.26),0_8px_18px_rgba(0,0,0,0.30)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white"
-                >
-                  <span className="relative block h-5 w-5">
-                    <span className="absolute left-0 top-0 h-[2px] w-5 rounded-full bg-current" />
-                    <span className="absolute left-0 top-[7px] h-[2px] w-4 rounded-full bg-current" />
-                    <span className="absolute left-0 top-[14px] h-[2px] w-3 rounded-full bg-current" />
-                    <span className="absolute right-0 top-[-1px] h-1.5 w-1.5 rounded-full bg-current" />
-                    <span className="absolute right-1 top-[6px] h-1.5 w-1.5 rounded-full bg-current" />
-                    <span className="absolute right-2 top-[13px] h-1.5 w-1.5 rounded-full bg-current" />
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSortModalOpen(true)}
-                  aria-label={labels.sortButton}
-                  title={labels.sortButton}
-                  className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_22px_rgba(21,255,98,0.26),0_8px_18px_rgba(0,0,0,0.30)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-6 w-6"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M4 6h7" />
-                    <path d="M4 12h5" />
-                    <path d="M4 18h3" />
-                    <path d="M15 19V5" />
-                    <path d="m11 9 4-4 4 4" />
-                    <path d="M21 5v14" />
-                    <path d="m17 15 4 4 4-4" />
-                  </svg>
-                </button>
-
                 <Link
                   href="/vbucks"
-                  aria-label={labels.navVbucks}
-                  title={labels.navVbucks}
-                  className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-cyan-200 bg-[radial-gradient(circle_at_35%_25%,rgba(255,255,255,.95),rgba(124,249,255,.85)_32%,rgba(22,184,205,.85)_62%,rgba(7,57,78,1)_100%)] text-white shadow-[0_0_0_2px_rgba(34,211,238,0.16),0_0_22px_rgba(34,211,238,0.34),0_8px_18px_rgba(0,0,0,0.30)] transition hover:scale-105 hover:border-white"
+                  aria-label="paVos"
+                  title="paVos"
+                  className="flex h-12 w-[112px] items-center justify-center overflow-hidden rounded-2xl border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] px-3 text-white shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_22px_rgba(21,255,98,0.26),0_8px_18px_rgba(0,0,0,0.30)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white"
                 >
-                  <span className="text-2xl font-black italic leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,.45)]">
-                    V
+                  <span className="text-[21px] font-black leading-none tracking-[-0.04em] text-white drop-shadow-[0_2px_3px_rgba(0,0,0,.32)]">
+                    PaVos
                   </span>
                 </Link>
 
-                <a
-                  href="https://youtube.com/shorts/A0SAjcySAsc?feature=share"
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label="Tutorial de compra"
-                  title="Tutorial de compra"
+                <button
+                  type="button"
+                  onClick={() => setTutorialPreviewOpen(true)}
+                  aria-label="Abrir tutorial de compra"
+                  title="Abrir tutorial de compra"
                   className="relative flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-[#8cff9f] bg-[linear-gradient(135deg,#0d2418_0%,#0a1c12_100%)] text-[#67ff9a] shadow-[0_0_0_2px_rgba(21,255,98,0.14),0_0_22px_rgba(21,255,98,0.26),0_8px_18px_rgba(0,0,0,0.30)] transition hover:scale-105 hover:border-[#b4ffc0] hover:text-white"
                 >
                   <span className="absolute left-[calc(100%+0.32rem)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-red-300/40 bg-[linear-gradient(135deg,#ff2f2f_0%,#980000_100%)] px-1.5 py-[2px] text-[7px] font-black uppercase tracking-[0.08em] leading-none text-white shadow-[0_0_10px_rgba(255,0,0,0.30)]">
@@ -2978,7 +3200,7 @@ export default function Home() {
                     <path d="m10 10 4 2-4 2v-4Z" fill="currentColor" stroke="none" />
                     <path d="m16 10 5-3v10l-5-3" />
                   </svg>
-                </a>
+                </button>
               </div>
             </div>
           </div>
@@ -3044,6 +3266,18 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      <TutorialPreviewModal
+        open={tutorialPreviewOpen}
+        onClose={() => setTutorialPreviewOpen(false)}
+        onSkipClient={() => {
+          try {
+            window.localStorage.setItem(CLIENT_GKG_TUTORIAL_SKIP_KEY, "1");
+          } catch {}
+
+          setTutorialPreviewOpen(false);
+        }}
+      />
 
       {languageChanging && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/72 backdrop-blur-sm">
