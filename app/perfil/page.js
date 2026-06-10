@@ -6365,9 +6365,10 @@ function CreatorPanel({ lang, supabase, accountRole }) {
   const [invites, setInvites] = useState([]);
   const [winners, setWinners] = useState([]);
   const [participants, setParticipants] = useState([]);
+  const [participantFeedback, setParticipantFeedback] = useState([]);
   const [previousMonthPayload, setPreviousMonthPayload] = useState(null);
   const [historicalParticipants, setHistoricalParticipants] = useState([]);
-  const [inviteCount, setInviteCount] = useState(10);
+  const [inviteCount, setInviteCount] = useState(1);
   const [copiedToken, setCopiedToken] = useState("");
   const [deletingParticipant, setDeletingParticipant] = useState("");
   const [vipIdentifier, setVipIdentifier] = useState("");
@@ -6384,6 +6385,7 @@ function CreatorPanel({ lang, supabase, accountRole }) {
   const [manualRewardType, setManualRewardType] = useState("sorteo");
   const [manualRewardMessage, setManualRewardMessage] = useState("");
   const [participantModalOpen, setParticipantModalOpen] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState(null);
   const [manualParticipant, setManualParticipant] = useState({
     fortnite_name: "",
     is_vip: false,
@@ -6433,6 +6435,10 @@ function CreatorPanel({ lang, supabase, accountRole }) {
       setPreviousMonthPayload(result.previous_month || null);
       setHistoricalParticipants(result.previous_month_participants || []);
 
+      setParticipantFeedback(
+        result.participant_feedback || result.feedback || []
+      );
+
       const { data: vipUserRows, error: vipUserError } = await supabase.rpc(
         "admin_get_vip_users"
       );
@@ -6458,6 +6464,15 @@ function CreatorPanel({ lang, supabase, accountRole }) {
   useEffect(() => {
     loadAdminData();
   }, [lang]);
+
+  function getParticipantFeedbackRows(fortniteName) {
+    const normalizedName = normalizeGiveawayName(fortniteName);
+
+    return participantFeedback.filter(
+      (feedback) =>
+        normalizeGiveawayName(feedback.fortnite_name) === normalizedName
+    );
+  }
 
   function getFullInviteLink(token) {
     if (typeof window === "undefined") {
@@ -7571,14 +7586,6 @@ function CreatorPanel({ lang, supabase, accountRole }) {
             <p className="mt-4 text-zinc-400">{c.noCampaign}</p>
           )}
 
-          <div className="mt-6 space-y-3 rounded-2xl border border-[#1eff7a]/15 bg-[#04140b] p-4 text-sm text-zinc-300">
-            <p>{c.everyoneRule}</p>
-            <p>{c.frequentRule}</p>
-            <p>{c.vipRule}</p>
-            <p className="text-yellow-100">
-              El sorteo automático corresponde al día 1 del mes siguiente. También puedes ejecutarlo manualmente desde este panel.
-            </p>
-          </div>
         </Card>
 
         <Card>
@@ -7731,7 +7738,35 @@ function CreatorPanel({ lang, supabase, accountRole }) {
           </button>
         </div>
 
-        <div className="mt-5 overflow-x-auto rounded-3xl border border-[#1eff7a]/15">
+        <div className="mt-5 space-y-3 md:hidden">
+          {participants.length === 0 ? (
+            <div className="rounded-3xl border border-[#1eff7a]/15 bg-[#021109]/60 px-4 py-8 text-center text-sm text-zinc-400">
+              Sin participantes.
+            </div>
+          ) : (
+            participants.map((row) => (
+              <button
+                key={`mobile-participant-${row.fortnite_name}`}
+                type="button"
+                onClick={() => setSelectedParticipant(row)}
+                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[#1eff7a]/15 bg-[#021109]/70 px-4 py-4 text-left transition hover:border-[#1eff7a]/45 hover:bg-[#052013]"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-black text-white">
+                    {row.fortnite_name}
+                  </span>
+                  <span className="mt-1 block text-xs text-zinc-400">
+                    Toca el nombre para ver detalles
+                  </span>
+                </span>
+
+                <ChevronRight className="shrink-0 text-[#63ff9b]" size={20} />
+              </button>
+            ))
+          )}
+        </div>
+
+        <div className="mt-5 hidden overflow-x-auto rounded-3xl border border-[#1eff7a]/15 md:block">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-[#05180d] text-zinc-300">
               <tr>
@@ -7739,6 +7774,9 @@ function CreatorPanel({ lang, supabase, accountRole }) {
                 <th className="px-4 py-3 font-black">{c.type}</th>
                 <th className="px-4 py-3 font-black">{c.records}</th>
                 <th className="px-4 py-3 font-black">{c.entries}</th>
+                <th className="min-w-[340px] px-4 py-3 font-black">
+                  Calificación y comentarios
+                </th>
                 <th className="px-4 py-3 font-black">{c.actions}</th>
               </tr>
             </thead>
@@ -7746,12 +7784,15 @@ function CreatorPanel({ lang, supabase, accountRole }) {
             <tbody>
               {participants.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-zinc-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-400">
                     Sin participantes.
                   </td>
                 </tr>
               ) : (
-                participants.map((row) => (
+                participants.map((row) => {
+                  const feedbackRows = getParticipantFeedbackRows(row.fortnite_name);
+
+                  return (
                   <tr
                     key={row.fortnite_name}
                     className="border-t border-[#1eff7a]/10 bg-[#021109]/60"
@@ -7774,6 +7815,48 @@ function CreatorPanel({ lang, supabase, accountRole }) {
                     <td className="px-4 py-3 font-black text-[#63ff9b]">
                       {row.participaciones}
                     </td>
+                    <td className="min-w-[340px] px-4 py-3 align-top">
+                      {feedbackRows.length === 0 ? (
+                        <span className="text-xs text-zinc-500">
+                          Sin calificación o comentario guardado.
+                        </span>
+                      ) : (
+                        <div className="max-h-44 space-y-2 overflow-y-auto pr-1">
+                          {feedbackRows.map((feedback) => {
+                            const rating = Math.max(
+                              0,
+                              Math.min(5, Number(feedback.service_rating || 0))
+                            );
+
+                            return (
+                              <div
+                                key={feedback.id || `${feedback.invite_token}-${feedback.created_at}`}
+                                className="rounded-2xl border border-yellow-300/15 bg-yellow-300/5 p-3"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="font-black text-yellow-200">
+                                    {"★".repeat(rating)}
+                                    <span className="text-zinc-600">
+                                      {"★".repeat(5 - rating)}
+                                    </span>
+                                  </span>
+
+                                  <span className="text-[11px] text-zinc-500">
+                                    {feedback.created_at
+                                      ? new Date(feedback.created_at).toLocaleDateString("es-MX")
+                                      : "Sin fecha"}
+                                  </span>
+                                </div>
+
+                                <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-5 text-zinc-300">
+                                  {feedback.comment}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         type="button"
@@ -7787,7 +7870,8 @@ function CreatorPanel({ lang, supabase, accountRole }) {
                       </button>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -7853,6 +7937,121 @@ function CreatorPanel({ lang, supabase, accountRole }) {
           </table>
         </div>
       </Card>
+
+      {selectedParticipant && (
+        <div className="fixed inset-0 z-[115] flex items-center justify-center bg-black/80 px-4 py-6 backdrop-blur-sm md:hidden">
+          <div className="max-h-full w-full max-w-md overflow-y-auto rounded-[28px] border border-[#1eff7a]/25 bg-[#020804] p-5 text-white shadow-[0_0_45px_rgba(30,255,122,.18)]">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#63ff9b]">
+                  Participante
+                </p>
+                <h3 className="mt-2 break-words text-2xl font-black">
+                  {selectedParticipant.fortnite_name}
+                </h3>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedParticipant(null)}
+                className="shrink-0 rounded-2xl border border-[#1eff7a]/30 px-4 py-2 text-sm font-black text-[#63ff9b]"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509] p-3 text-center">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                  Tipo
+                </p>
+                <p className="mt-2 text-sm font-black text-white">
+                  {selectedParticipant.is_vip ? c.vip : c.normal}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509] p-3 text-center">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                  Registros
+                </p>
+                <p className="mt-2 text-sm font-black text-white">
+                  {selectedParticipant.registros}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509] p-3 text-center">
+                <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">
+                  Participaciones
+                </p>
+                <p className="mt-2 text-sm font-black text-[#63ff9b]">
+                  {selectedParticipant.participaciones}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <h4 className="text-sm font-black text-white">
+                Calificación y comentarios
+              </h4>
+
+              <div className="mt-3 space-y-3">
+                {getParticipantFeedbackRows(selectedParticipant.fortnite_name).length === 0 ? (
+                  <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509] p-4 text-sm text-zinc-500">
+                    Sin calificación o comentario guardado.
+                  </div>
+                ) : (
+                  getParticipantFeedbackRows(selectedParticipant.fortnite_name).map((feedback) => {
+                    const rating = Math.max(
+                      0,
+                      Math.min(5, Number(feedback.service_rating || 0))
+                    );
+
+                    return (
+                      <div
+                        key={`mobile-feedback-${feedback.id || `${feedback.fortnite_name}-${feedback.created_at}`}`}
+                        className="rounded-2xl border border-yellow-300/15 bg-yellow-300/5 p-4"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-black text-yellow-200">
+                            {"★".repeat(rating)}
+                            <span className="text-zinc-600">
+                              {"★".repeat(5 - rating)}
+                            </span>
+                          </span>
+
+                          <span className="text-[11px] text-zinc-500">
+                            {feedback.created_at
+                              ? new Date(feedback.created_at).toLocaleDateString("es-MX")
+                              : "Sin fecha"}
+                          </span>
+                        </div>
+
+                        <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-300">
+                          {feedback.comment || "Sin comentario."}
+                        </p>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={async () => {
+                await deleteParticipant(selectedParticipant.fortnite_name);
+                setSelectedParticipant(null);
+              }}
+              disabled={deletingParticipant === selectedParticipant.fortnite_name}
+              className="mt-5 w-full rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 transition hover:bg-red-500/20 disabled:opacity-60"
+            >
+              {deletingParticipant === selectedParticipant.fortnite_name
+                ? c.deletingRecord
+                : c.deleteRecord}
+            </button>
+          </div>
+        </div>
+      )}
 
       {participantModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">

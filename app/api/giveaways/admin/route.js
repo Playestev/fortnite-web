@@ -269,6 +269,24 @@ async function getInvites(supabase, campaignId) {
   return data || [];
 }
 
+async function getParticipantFeedback(supabase, campaignId) {
+  const { data, error } = await supabase
+    .from("giveaway_entries")
+    .select("id, fortnite_name, service_rating, comment, created_at")
+    .eq("campaign_id", campaignId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data || []).filter(
+    (row) =>
+      Number(row.service_rating || 0) > 0 ||
+      String(row.comment || "").trim()
+  );
+}
+
 async function getAdminPayload(supabase) {
   const current = getCurrentMonthInfo();
   const previous = getPreviousMonthInfo(current.monthKey);
@@ -276,11 +294,18 @@ async function getAdminPayload(supabase) {
 
   await ensurePreviousMonthClosed(supabase, previous.monthKey);
 
-  const [invites, participants, previousParticipants, previousWinners] = await Promise.all([
+  const [
+    invites,
+    participants,
+    previousParticipants,
+    previousWinners,
+    participantFeedback,
+  ] = await Promise.all([
     getInvites(supabase, campaign.id),
     getMonthParticipants(supabase, current.monthKey),
     getMonthSnapshot(supabase, previous.monthKey),
     getMonthWinners(supabase, previous.monthKey),
+    getParticipantFeedback(supabase, campaign.id),
   ]);
 
   return {
@@ -296,6 +321,7 @@ async function getAdminPayload(supabase) {
     },
     previous_month_winners: previousWinners,
     previous_month_participants: previousParticipants,
+    participant_feedback: participantFeedback,
   };
 }
 
