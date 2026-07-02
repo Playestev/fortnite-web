@@ -17,6 +17,11 @@ import {
   Gift,
   Globe2,
   LogOut,
+  Menu,
+  X,
+  Crown,
+  Settings,
+  ChevronRight,
   Star,
   Ticket,
   Trophy,
@@ -268,6 +273,98 @@ function InfoRow({ icon: Icon, label, value }) {
   );
 }
 
+function PublicProfileTabsDrawer({ open, items, activeTab = "Perfil", onSelect, onClose }) {
+  const [shouldRender, setShouldRender] = useState(open);
+  const [isClosing, setIsClosing] = useState(false);
+
+  useEffect(() => {
+    let timeoutId;
+
+    if (open) {
+      setShouldRender(true);
+      setIsClosing(false);
+    } else if (shouldRender) {
+      setIsClosing(true);
+      timeoutId = setTimeout(() => {
+        setShouldRender(false);
+        setIsClosing(false);
+      }, 220);
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [open, shouldRender]);
+
+  if (!shouldRender) return null;
+
+  return (
+    <div className="fixed inset-0 z-[140] md:hidden">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px]" onClick={onClose} />
+
+      <div
+        className={`absolute right-0 top-0 h-full w-[86%] max-w-sm border-l border-[#1eff7a]/30 bg-[rgba(3,16,9,0.92)] p-5 shadow-[0_0_45px_rgba(21,216,99,0.16)] backdrop-blur-xl ${
+          isClosing ? "animate-[slideOutRight_220ms_ease-in]" : "animate-[slideInRight_220ms_ease-out]"
+        }`}
+      >
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <img
+              src="/gankergames-header-logo.png"
+              alt="Logo de Ganker Games"
+              className="h-12 w-auto max-w-[180px] object-contain drop-shadow-[0_0_12px_rgba(30,255,122,.40)]"
+            />
+
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#67ff9a]">
+              Perfil
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-2xl border border-[#1eff7a]/35 bg-[#07140f]/86 px-4 py-3 text-sm font-black text-white shadow-[0_0_18px_rgba(21,216,99,0.10)] transition hover:border-[#67ff9a] hover:text-[#67ff9a]"
+            aria-label="Cerrar menú"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="grid gap-3">
+          {items.map((item) => {
+            const Icon = item.icon;
+            const active = activeTab === item.key;
+
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => {
+                  onSelect(item.key);
+                  onClose();
+                  if (typeof window !== "undefined") {
+                    window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 60);
+                  }
+                }}
+                className={`flex items-center justify-between rounded-2xl px-4 py-4 text-left text-base font-black transition ${
+                  active
+                    ? "border border-[#1eff7a] bg-[#1eff7a] text-black shadow-[0_0_22px_rgba(21,216,99,0.22)]"
+                    : "border border-[#1eff7a]/20 bg-[#07140f]/88 text-white hover:border-[#67ff9a] hover:text-[#67ff9a]"
+                }`}
+              >
+                <span className="flex items-center gap-3">
+                  <Icon size={20} />
+                  {item.name}
+                </span>
+
+                <ChevronRight size={18} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PublicProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -275,6 +372,7 @@ export default function PublicProfilePage() {
 
   const [profile, setProfile] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [blockMessage, setBlockMessage] = useState("");
@@ -289,6 +387,20 @@ export default function PublicProfilePage() {
     following: 0,
   });
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [publicMenuOpen, setPublicMenuOpen] = useState(false);
+
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    document.body.style.overflow = "";
+    document.documentElement.style.overflow = "";
+
+    return () => {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflow = "";
+    };
+  }, []);
 
   useEffect(() => {
     function handleScroll() {
@@ -309,7 +421,10 @@ export default function PublicProfilePage() {
       return;
     }
 
-    window.scrollTo({ top: Math.min(window.innerHeight * 0.95, document.body.scrollHeight), behavior: "smooth" });
+    window.scrollTo({
+      top: document.documentElement.scrollHeight || document.body.scrollHeight,
+      behavior: "smooth",
+    });
   }
 
   async function handleHeaderSessionAction() {
@@ -337,7 +452,24 @@ export default function PublicProfilePage() {
     async function loadPublicProfile() {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
-      setCurrentUser(sessionData.session?.user || null);
+        const sessionUser = sessionData.session?.user || null;
+        setCurrentUser(sessionUser);
+
+        if (sessionUser?.id) {
+          try {
+            const { data: myProfile } = await supabase
+              .from("profiles")
+              .select("id, account_role")
+              .eq("id", sessionUser.id)
+              .maybeSingle();
+
+            if (active) setCurrentUserProfile(myProfile || null);
+          } catch (myProfileError) {
+            if (active) setCurrentUserProfile(null);
+          }
+        } else if (active) {
+          setCurrentUserProfile(null);
+        }
 
       const slug = decodeURIComponent(String(params?.slug || "")).trim();
 
@@ -520,17 +652,28 @@ export default function PublicProfilePage() {
   const showCountry = profile.show_country !== false && profile.country;
   const showBirthday = profile.show_birthday !== false && profile.birthday;
   const vipUntilDate = profile.vip_until ? new Date(profile.vip_until) : null;
+  const vipGraceDate = profile.vip_grace_until ? new Date(profile.vip_grace_until) : null;
+  const vipUntilMs = vipUntilDate && !Number.isNaN(vipUntilDate.getTime()) ? vipUntilDate.getTime() : null;
+  const vipGraceMs = vipGraceDate && !Number.isNaN(vipGraceDate.getTime()) ? vipGraceDate.getTime() : null;
   const publicIsVip = Boolean(
     profile.is_vip &&
-    vipUntilDate &&
-    !Number.isNaN(vipUntilDate.getTime()) &&
-    vipUntilDate.getTime() >= Date.now()
+    (vipUntilMs === null || vipUntilMs >= Date.now() || (vipGraceMs !== null && vipGraceMs >= Date.now()))
   );
   const vipMonths = publicIsVip
     ? Math.max(1, Number(profile.vip_streak_months || profile.vip_cycle_months || 1))
     : 0;
   const vipBadgeLabel = getVipBadgeLabelFromMonths(vipMonths);
   const publicIsCreator = isCreatorAccount(profile.account_role);
+  const currentUserCanAccessCreator = isCreatorAccount(currentUserProfile?.account_role);
+  const publicMenuItems = [
+    { name: "Perfil", key: "Perfil", icon: User },
+    { name: "Comunidad", key: "Comunidad", icon: UsersRound },
+    { name: "VIP", key: "VIP", icon: Crown },
+    { name: "Premios", key: "Premios", icon: Trophy },
+    { name: "Sorteos", key: "Sorteos", icon: Gift },
+    { name: "Configuración", key: "Configuración", icon: Settings },
+    ...(currentUserCanAccessCreator ? [{ name: "Creador", key: "Creador", icon: ShieldCheck }] : []),
+  ];
   const overrideByKey = new Map(
     (customInterests || [])
       .filter((item) => item.default_key)
@@ -573,13 +716,24 @@ export default function PublicProfilePage() {
           0%, 100% { opacity: 0.16; transform: translate3d(0, 0, 0); }
           50% { opacity: 0.36; transform: translate3d(0, -12px, 0); }
         }
+        @keyframes mobileMenuDrop {
+          from { transform: translateY(-14px) scale(0.94); opacity: 0; }
+          to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0.65; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOutRight {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(100%); opacity: 0.65; }
+        }
       `}</style>
       <GkgTwinkleBackground />
       <header className="sticky top-0 z-[100] w-full max-w-[100vw] overflow-hidden border-b border-[#0f3d22] bg-[#020804]/95 supports-[backdrop-filter]:bg-[#020804]/90 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3">
-          <a
-            href="/"
-            aria-label="Ir al inicio de GankerGames"
+          <div
+            aria-label="Logo de GankerGames"
             className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3"
           >
             <img
@@ -591,7 +745,7 @@ export default function PublicProfilePage() {
             <span className="inline shrink-0 text-[8px] font-black uppercase tracking-[0.14em] text-[#63ff9b] sm:text-xs sm:tracking-[0.28em]">
               Perfil público
             </span>
-          </a>
+          </div>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <button
@@ -645,6 +799,32 @@ export default function PublicProfilePage() {
         </div>
       </header>
 
+      <button
+        type="button"
+        onClick={() => setPublicMenuOpen(true)}
+        aria-label="Abrir menú del perfil"
+        title="Abrir menú del perfil"
+        className="fixed right-3 top-[64px] z-[120] flex h-12 w-12 translate-y-1 items-center justify-center rounded-2xl border border-[#1eff7a]/35 bg-[#07140f]/95 text-[#67ff9a] shadow-[0_0_18px_rgba(21,216,99,0.16)] transition-all duration-300 hover:border-[#67ff9a] hover:bg-[#0b1f15] md:hidden"
+        style={{ animation: "mobileMenuDrop 260ms ease-out" }}
+      >
+        <span className="flex flex-col gap-1.5">
+          <span className="block h-0.5 w-5 rounded-full bg-current" />
+          <span className="block h-0.5 w-5 rounded-full bg-current" />
+          <span className="block h-0.5 w-5 rounded-full bg-current" />
+        </span>
+      </button>
+
+      <PublicProfileTabsDrawer
+        open={publicMenuOpen}
+        items={publicMenuItems}
+        activeTab="Perfil"
+        onSelect={(key) => {
+          setPublicMenuOpen(false);
+          router.push(`/perfil?tab=${encodeURIComponent(key)}`);
+        }}
+        onClose={() => setPublicMenuOpen(false)}
+      />
+
       <section className="relative overflow-hidden border-b border-[#0f3d22]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_25%,rgba(30,255,122,0.22),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(0,255,102,0.12),transparent_25%),linear-gradient(180deg,#06240f_0%,#001808_100%)]" />
         <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(rgba(30,255,122,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(30,255,122,.08)_1px,transparent_1px)] [background-size:42px_42px]" />
@@ -665,8 +845,18 @@ export default function PublicProfilePage() {
                 </span>
 
                 {(publicIsCreator || publicIsVip) && (
-                  <div className="flex flex-col items-start gap-2">
-                    {publicIsCreator && <CreatorBadge size="xs" />}
+                  <div className="ml-7 flex flex-col items-start gap-2.5">
+                    {publicIsCreator && (
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck
+                          className="text-zinc-300 drop-shadow-[0_0_12px_rgba(212,212,216,.45)]"
+                          size={24}
+                        />
+                        <span className="rounded-lg border border-zinc-300/45 bg-zinc-300/10 px-3 py-1 text-xs font-bold text-zinc-200 shadow-[0_0_16px_rgba(212,212,216,.16)]">
+                          GKG Creador
+                        </span>
+                      </div>
+                    )}
 
                     {publicIsVip && (
                       <div className="flex flex-wrap items-center gap-2">
@@ -700,16 +890,28 @@ export default function PublicProfilePage() {
                   #{profile.public_profile_number || profile.ganker_user || "GKG"}
                 </span>
 
-                {publicIsCreator && (
-                  <CreatorBadge className="hidden lg:inline-flex" />
-                )}
+                {(publicIsCreator || publicIsVip) && (
+                  <div className="ml-6 hidden shrink-0 flex-col items-start gap-2.5 lg:flex">
+                    {publicIsCreator && (
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck
+                          className="text-zinc-300 drop-shadow-[0_0_12px_rgba(212,212,216,.45)]"
+                          size={28}
+                        />
+                        <span className="rounded-lg border border-zinc-300/45 bg-zinc-300/10 px-3 py-1 text-sm font-bold text-zinc-200 shadow-[0_0_16px_rgba(212,212,216,.16)]">
+                          GKG Creador
+                        </span>
+                      </div>
+                    )}
 
-                {publicIsVip && (
-                  <div className="hidden items-center gap-2 lg:flex">
-                    <BadgeCheck className="text-cyan-300 drop-shadow-[0_0_12px_rgba(103,232,249,.55)]" size={28} />
-                    <span className="rounded-lg border border-cyan-300/45 bg-cyan-300/10 px-3 py-1 text-sm font-bold text-cyan-200 shadow-[0_0_16px_rgba(34,211,238,.18)]">
-                      {vipBadgeLabel}
-                    </span>
+                    {publicIsVip && (
+                      <div className="flex items-center gap-2">
+                        <BadgeCheck className="text-cyan-300 drop-shadow-[0_0_12px_rgba(103,232,249,.55)]" size={28} />
+                        <span className="rounded-lg border border-cyan-300/45 bg-cyan-300/10 px-3 py-1 text-sm font-bold text-cyan-200 shadow-[0_0_16px_rgba(34,211,238,.18)]">
+                          {vipBadgeLabel}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

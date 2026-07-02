@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ProfileNotificationCenter from "@/components/ProfileNotificationCenter";
@@ -107,6 +108,7 @@ const translations = {
     communitySectionDesc: "Perfiles de la comunidad con foto, nombre, usuario Ganker Games y estado actual.",
     communitySearchPlaceholder: "Buscar usuario de Ganker Games...",
     communitySearchEmpty: "No encontramos usuarios con ese nombre.",
+    privateProfileLabel: "Perfil privado",
     activityFollowers: "Actividad seguidores",
     noFollowedActivity: "Sigue a jugadores para ver su actividad aquí.",
     communityEmpty: "Aún no hay perfiles visibles en la comunidad.",
@@ -137,7 +139,7 @@ const translations = {
     privacyDesc: "Controla qué datos opcionales aparecen en tu perfil principal.",
     showCountry: "Mostrar país en mi perfil",
     showBirthday: "Mostrar cumpleaños en mi perfil",
-    allowProfileSearch: "Permitir que mi perfil aparezca en la comunidad",
+    allowProfileSearch: "Perfil privado",
     privacySaved: "Privacidad actualizada correctamente.",
     notificationsTitle: "Notificaciones",
     notificationsDesc: "Elige cómo quieres recibir avisos de Ganker Games.",
@@ -303,6 +305,7 @@ const translations = {
     communitySectionDesc: "Community profiles with photo, name, Ganker Games username and current status.",
     communitySearchPlaceholder: "Search Ganker Games username...",
     communitySearchEmpty: "We could not find users with that name.",
+    privateProfileLabel: "Private profile",
     activityFollowers: "Followers activity",
     noFollowedActivity: "Follow players to see their activity here.",
     communityEmpty: "There are no visible community profiles yet.",
@@ -333,7 +336,7 @@ const translations = {
     privacyDesc: "Control which optional details appear on your main profile.",
     showCountry: "Show country on my profile",
     showBirthday: "Show birthday on my profile",
-    allowProfileSearch: "Allow my profile to appear in the community",
+    allowProfileSearch: "Private profile",
     privacySaved: "Privacy updated successfully.",
     notificationsTitle: "Notifications",
     notificationsDesc: "Choose how you want to receive Ganker Games alerts.",
@@ -704,6 +707,115 @@ const games = [
   },
 ];
 
+
+function normalizeAccountRole(role) {
+  return String(role || "user").trim().toLowerCase();
+}
+
+function isTruthyValue(value) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+  if (typeof value === "string") {
+    return ["true", "1", "yes", "si", "sí", "vip", "active", "activo"].includes(
+      value.trim().toLowerCase()
+    );
+  }
+
+  return Boolean(value);
+}
+
+function getBestAccountRole(profileData = {}, mirrorProfileData = {}) {
+  const directRole =
+    profileData?.account_role ||
+    profileData?.role ||
+    profileData?.user_role ||
+    profileData?.profile_role ||
+    "";
+
+  const mirrorRole =
+    mirrorProfileData?.account_role ||
+    mirrorProfileData?.role ||
+    mirrorProfileData?.user_role ||
+    mirrorProfileData?.profile_role ||
+    "";
+
+  if (isCreatorAccount(directRole)) return normalizeAccountRole(directRole);
+  if (isCreatorAccount(mirrorRole)) return normalizeAccountRole(mirrorRole);
+
+  return normalizeAccountRole(directRole || mirrorRole || "user");
+}
+
+function getActiveVipBadgeState(profile = {}) {
+  if (!isTruthyValue(profile?.is_vip)) return false;
+
+  const vipUntilDate = profile?.vip_until ? new Date(profile.vip_until) : null;
+  const vipGraceDate = profile?.vip_grace_until ? new Date(profile.vip_grace_until) : null;
+  const vipUntilMs = vipUntilDate && !Number.isNaN(vipUntilDate.getTime()) ? vipUntilDate.getTime() : null;
+  const vipGraceMs = vipGraceDate && !Number.isNaN(vipGraceDate.getTime()) ? vipGraceDate.getTime() : null;
+
+  return vipUntilMs === null || vipUntilMs >= Date.now() || (vipGraceMs !== null && vipGraceMs >= Date.now());
+}
+
+async function loadCurrentProfilePublicMirror(supabase, profileData, currentUser) {
+  const slugCandidates = [
+    profileData?.public_profile_number,
+    profileData?.ganker_user,
+    profileData?.fortnite_user,
+    currentUser?.id,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  for (const slugInput of slugCandidates) {
+    try {
+      const { data, error } = await supabase.rpc("get_public_profile_by_slug", {
+        slug_input: slugInput,
+      });
+
+      if (error) continue;
+
+      const publicProfile = Array.isArray(data) ? data[0] : data;
+
+      if (publicProfile?.id && String(publicProfile.id) === String(currentUser?.id || "")) {
+        return publicProfile;
+      }
+    } catch (error) {
+      // Este respaldo solo completa insignias. Si falla, el perfil normal sigue cargando.
+    }
+  }
+
+  return null;
+}
+
+function getVipBadgeMonthsForHeader(profile = {}, isVipActive = false) {
+  if (!isVipActive) return 0;
+
+  const explicitBadgeLevel = Number(
+    profile?.vip_badge_level ||
+      profile?.vip_level ||
+      profile?.vip_cycle_number ||
+      0
+  );
+
+  if (Number.isFinite(explicitBadgeLevel) && explicitBadgeLevel > 1) {
+    return (explicitBadgeLevel - 1) * 12 + 1;
+  }
+
+  const streakMonths = Number(profile?.vip_streak_months || 0);
+  if (Number.isFinite(streakMonths) && streakMonths > 0) return streakMonths;
+
+  const calendarMonths = Number(getVipTotalMonthsSinceStart(profile) || 0);
+  if (Number.isFinite(calendarMonths) && calendarMonths > 0) return calendarMonths;
+
+  const totalMonths = Number(profile?.vip_total_months || 0);
+  if (Number.isFinite(totalMonths) && totalMonths > 0) return totalMonths;
+
+  const cycleMonths = Number(profile?.vip_cycle_months || 0);
+  if (Number.isFinite(cycleMonths) && cycleMonths > 0) return cycleMonths;
+
+  return 1;
+}
+
 function daysLeftFromDate(dateValue, limitDays = 20) {
   if (!dateValue) return 0;
 
@@ -715,17 +827,104 @@ function daysLeftFromDate(dateValue, limitDays = 20) {
   return Math.max(0, Math.ceil(limitDays - diffDays));
 }
 
-function formatDateForVip(dateValue) {
-  if (!dateValue) return "Sin fecha registrada";
+function parseVipDate(value) {
+  if (!value) return null;
 
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) return "Sin fecha registrada";
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const text = String(value).trim();
+  const dateOnlyMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (dateOnlyMatch) {
+    const [, year, month, day] = dateOnlyMatch;
+    const parsed = new Date(Number(year), Number(month) - 1, Number(day), 12, 0, 0, 0);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDateForVip(dateValue) {
+  const date = parseVipDate(dateValue);
+  if (!date) return "Sin fecha registrada";
 
   return new Intl.DateTimeFormat("es-MX", {
     day: "numeric",
     month: "long",
     year: "numeric",
   }).format(date);
+}
+
+function formatVipDateInput(value) {
+  const date = parseVipDate(value);
+  if (!date) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getDaysInMonth(year, monthIndex) {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function addCalendarMonths(dateValue, monthsToAdd) {
+  const date = parseVipDate(dateValue);
+  if (!date) return null;
+
+  const targetMonthIndex = date.getMonth() + Number(monthsToAdd || 0);
+  const targetYear = date.getFullYear() + Math.floor(targetMonthIndex / 12);
+  const cleanTargetMonthIndex = ((targetMonthIndex % 12) + 12) % 12;
+  const targetDay = Math.min(
+    date.getDate(),
+    getDaysInMonth(targetYear, cleanTargetMonthIndex)
+  );
+
+  return new Date(targetYear, cleanTargetMonthIndex, targetDay, 12, 0, 0, 0);
+}
+
+function getCompletedCalendarMonthsFromStart(startDateValue, nowValue = new Date()) {
+  const startDate = parseVipDate(startDateValue);
+  const nowDate = parseVipDate(nowValue) || new Date();
+
+  if (!startDate || Number.isNaN(nowDate.getTime()) || nowDate < startDate) return 0;
+
+  let months =
+    (nowDate.getFullYear() - startDate.getFullYear()) * 12 +
+    (nowDate.getMonth() - startDate.getMonth());
+
+  const anniversaryThisMonth = addCalendarMonths(startDate, months);
+
+  if (anniversaryThisMonth && nowDate < anniversaryThisMonth) {
+    months -= 1;
+  }
+
+  return Math.max(0, months);
+}
+
+function formatVipDuration(totalMonths) {
+  const months = Math.max(0, Number(totalMonths || 0));
+
+  if (months <= 0) return "Menos de 1 mes";
+
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+
+  if (years <= 0) {
+    return `${months} ${months === 1 ? "mes" : "meses"}`;
+  }
+
+  const yearText = `${years} ${years === 1 ? "año" : "años"}`;
+  const monthText = remainingMonths
+    ? ` y ${remainingMonths} ${remainingMonths === 1 ? "mes" : "meses"}`
+    : "";
+
+  return `${yearText}${monthText}`;
 }
 
 
@@ -764,22 +963,9 @@ function getVipMonths(profile) {
   if (!profile?.is_vip) return 0;
 
   const startDateValue = getVipStartDate(profile);
-  if (!startDateValue) return 0;
+  if (!startDateValue) return Math.max(0, Number(profile?.vip_streak_months || 0));
 
-  const startDate = new Date(startDateValue);
-  const now = new Date();
-
-  if (Number.isNaN(startDate.getTime())) return 0;
-
-  let months =
-    (now.getFullYear() - startDate.getFullYear()) * 12 +
-    (now.getMonth() - startDate.getMonth());
-
-  if (now.getDate() >= startDate.getDate()) {
-    months += 1;
-  }
-
-  return Math.max(1, months);
+  return getCompletedCalendarMonthsFromStart(startDateValue);
 }
 
 function getVipTotalMonthsSinceStart(profile) {
@@ -790,22 +976,10 @@ function getVipTotalMonthsSinceStart(profile) {
 
   if (!startDateValue) return Math.max(0, storedMonths);
 
-  const startDate = new Date(startDateValue);
-  const now = new Date();
+  const calculatedMonths = getCompletedCalendarMonthsFromStart(startDateValue);
 
-  if (Number.isNaN(startDate.getTime())) {
-    return Math.max(0, storedMonths);
-  }
-
-  let months =
-    (now.getFullYear() - startDate.getFullYear()) * 12 +
-    (now.getMonth() - startDate.getMonth());
-
-  if (now.getDate() >= startDate.getDate()) {
-    months += 1;
-  }
-
-  return Math.max(1, months, storedMonths);
+  // La antigüedad visible se calcula por días calendario desde la fecha real de inicio.
+  return Math.max(0, calculatedMonths);
 }
 
 function getVipLevelFromMonths(months) {
@@ -849,7 +1023,7 @@ function getTagColorClasses(tag, index = 0) {
 }
 
 function isCreatorAccount(role) {
-  return ["admin", "creator", "creador"].includes(String(role || "").toLowerCase());
+  return ["admin", "creator", "creador"].includes(normalizeAccountRole(role));
 }
 
 function CreatorBadge({ className = "", size = "sm" }) {
@@ -909,19 +1083,7 @@ function isVipRewardEarned(reward, totalVipMonths, fallbackCycleNumber = 1) {
 function calculateVipMonthsFromDate(dateValue) {
   if (!dateValue) return "";
 
-  const startDate = new Date(`${dateValue}T12:00:00`);
-  const now = new Date();
-
-  if (Number.isNaN(startDate.getTime())) return "";
-
-  let months =
-    (now.getFullYear() - startDate.getFullYear()) * 12 +
-    (now.getMonth() - startDate.getMonth());
-
-  if (now.getDate() >= startDate.getDate()) {
-    months += 1;
-  }
-
+  const months = getCompletedCalendarMonthsFromStart(dateValue);
   return String(Math.max(1, months));
 }
 
@@ -933,6 +1095,63 @@ function getVipDaysRemaining(profile) {
 
   const diffMs = endDate.getTime() - Date.now();
   return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+}
+
+function getVipAccessState(profile) {
+  if (!profile?.is_vip) {
+    return {
+      active: false,
+      inGrace: false,
+      expired: false,
+      daysRemaining: null,
+      graceDaysRemaining: null,
+    };
+  }
+
+  const nowMs = Date.now();
+  const vipUntilDate = profile?.vip_until ? new Date(profile.vip_until) : null;
+  const graceUntilDate = profile?.vip_grace_until ? new Date(profile.vip_grace_until) : null;
+  const vipUntilMs = vipUntilDate && !Number.isNaN(vipUntilDate.getTime()) ? vipUntilDate.getTime() : null;
+  const graceUntilMs = graceUntilDate && !Number.isNaN(graceUntilDate.getTime()) ? graceUntilDate.getTime() : null;
+  const daysRemaining = vipUntilMs === null ? null : Math.ceil((vipUntilMs - nowMs) / (1000 * 60 * 60 * 24));
+  const graceDaysRemaining = graceUntilMs === null ? null : Math.ceil((graceUntilMs - nowMs) / (1000 * 60 * 60 * 24));
+  const activeByPaidDate = vipUntilMs === null || vipUntilMs >= nowMs;
+  const inGrace = Boolean(vipUntilMs !== null && vipUntilMs < nowMs && graceUntilMs !== null && graceUntilMs >= nowMs);
+  const expired = Boolean(vipUntilMs !== null && vipUntilMs < nowMs && (graceUntilMs === null || graceUntilMs < nowMs));
+
+  return {
+    active: activeByPaidDate || inGrace,
+    inGrace,
+    expired,
+    daysRemaining: daysRemaining === null ? null : Math.max(0, daysRemaining),
+    graceDaysRemaining: graceDaysRemaining === null ? null : Math.max(0, graceDaysRemaining),
+  };
+}
+
+function getDaysUntilVipMilestone(vipStartDate, displayMonth) {
+  if (!vipStartDate || !displayMonth) return null;
+
+  const targetDate = addCalendarMonths(vipStartDate, Number(displayMonth || 0));
+  if (!targetDate) return null;
+
+  const today = new Date();
+  const todayNoon = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0, 0);
+  const diffMs = targetDate.getTime() - todayNoon.getTime();
+
+  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+}
+
+function getNextVipMilestone(months) {
+  const current = Math.max(0, Number(months || 0));
+  const cycleMonth = current > 0 ? ((current - 1) % 12) + 1 : 0;
+  const nextBase = [1, 3, 6, 12].find((milestone) => milestone > cycleMonth) || 1;
+  const cycleNumber = nextBase === 1 && cycleMonth >= 12 ? getVipCycleNumberFromMonths(current) + 1 : getVipCycleNumberFromMonths(Math.max(1, current));
+
+  return {
+    baseMonth: nextBase,
+    displayMonth: getVipDisplayMilestoneMonth(nextBase, cycleNumber),
+    cycleNumber,
+  };
 }
 
 function idsMatch(a, b) {
@@ -987,6 +1206,52 @@ function getFollowerActivityText(profile, t) {
   }
 
   return `${name} ${t.followerActiveNow}`;
+}
+
+function isSameCalendarDay(dateValue, now = new Date()) {
+  if (!dateValue) return false;
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return false;
+
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+}
+
+function getDailyActivityScore(profile) {
+  const now = new Date();
+  const nowMs = now.getTime();
+  const lastSeenMs = new Date(profile?.last_seen || 0).getTime() || 0;
+  const updatedMs = new Date(profile?.updated_at || profile?.created_at || 0).getTime() || 0;
+
+  let score = 0;
+
+  if ((profile?.presence_status || "offline") === "online") {
+    score += 5000;
+  } else if ((profile?.presence_status || "offline") === "away") {
+    score += 3000;
+  } else {
+    score += 1000;
+  }
+
+  if (isSameCalendarDay(profile?.last_seen, now)) {
+    const minutesAgo = Math.max(0, Math.floor((nowMs - lastSeenMs) / 60000));
+    score += Math.max(0, 2500 - Math.min(2500, minutesAgo));
+  }
+
+  if (isSameCalendarDay(profile?.updated_at || profile?.created_at, now)) {
+    const minutesAgo = Math.max(0, Math.floor((nowMs - updatedMs) / 60000));
+    score += Math.max(0, 1500 - Math.min(1500, minutesAgo));
+  }
+
+  if (lastSeenMs > 0) {
+    score += Math.max(0, 720 - Math.floor((nowMs - lastSeenMs) / 3600000));
+  }
+
+  return score;
 }
 
 function MobileProfileTabsDrawer({ open, tabs, activeTab, onSelect, onClose }) {
@@ -1134,6 +1399,9 @@ export default function PerfilPage() {
     vip_streak_months: 0,
     vip_cycle_months: 0,
     vip_total_months: 0,
+    vip_badge_level: 0,
+    vip_level: 0,
+    vip_cycle_number: 0,
   });
 
   const [profileEmail, setProfileEmail] = useState("");
@@ -1177,6 +1445,8 @@ export default function PerfilPage() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [communityProfiles, setCommunityProfiles] = useState([]);
   const [communitySearch, setCommunitySearch] = useState("");
+  const [communityPage, setCommunityPage] = useState(1);
+  const [communityPageSize, setCommunityPageSize] = useState(30);
   const [followingIds, setFollowingIds] = useState([]);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
@@ -1226,12 +1496,13 @@ export default function PerfilPage() {
   const emailDaysLeft = daysLeftFromDate(profile.email_updated_at, 20);
   const fortniteDaysLeft = daysLeftFromDate(profile.fortnite_user_updated_at, 20);
   const currentPresence = user ? presenceStatus : "offline";
-  const profileVipMonths = getVipTotalMonthsSinceStart(profile);
+  const profileVipBadgeActive = getActiveVipBadgeState(profile);
+  const profileVipMonths = getVipBadgeMonthsForHeader(profile, profileVipBadgeActive);
   const profileVipBadgeLabel = getVipBadgeLabelFromMonths(profileVipMonths);
 
-  const accountRole = profile.account_role || "user";
+  const accountRole = getBestAccountRole(profile);
   const isCreatorProfile = isCreatorAccount(accountRole);
-  const canManageGiveaways = accountRole === "admin" || accountRole === "creator";
+  const canManageGiveaways = isCreatorProfile;
   const tabs = canManageGiveaways
     ? [
         ...getTabs(t),
@@ -1245,7 +1516,7 @@ export default function PerfilPage() {
   const configMenu = getConfigMenu(t);
   const activeDraftProfile = draftProfile || profile;
   const isProfileDeleted = Boolean(profile.deleted_at);
-  const maxProfileTags = profile.is_vip ? 6 : 3;
+  const maxProfileTags = profileVipBadgeActive ? 6 : 3;
   const suggestedTags = [
     "Fortnite",
     "Juegos",
@@ -1341,10 +1612,10 @@ export default function PerfilPage() {
       },
       {
         title:
-          profile.is_vip
+          profileVipBadgeActive
             ? `tiene insignia ${profileVipBadgeLabel} activa`
             : "es Miembro GKG sin VIP activo",
-        time: profile.is_vip ? "VIP activo" : "Estado actual",
+        time: profileVipBadgeActive ? "VIP activo" : "Estado actual",
         icon: BadgeCheck,
       },
       {
@@ -1365,13 +1636,26 @@ export default function PerfilPage() {
       currentPresence,
       liveCounts.participaciones,
       liveCounts.premios,
-      profile.is_vip,
+      profileVipBadgeActive,
       profile.participaciones_count,
       profile.premios_count,
       profileVipBadgeLabel,
       t,
     ]
   );
+
+  useEffect(() => {
+    function updateCommunityPageSize() {
+      if (typeof window === "undefined") return;
+
+      setCommunityPageSize(window.innerWidth < 768 ? 20 : 30);
+    }
+
+    updateCommunityPageSize();
+    window.addEventListener("resize", updateCommunityPageSize);
+
+    return () => window.removeEventListener("resize", updateCommunityPageSize);
+  }, []);
 
   const communityProfilesSorted = useMemo(() => {
     const statusOrder = { online: 0, away: 1, offline: 2 };
@@ -1381,7 +1665,6 @@ export default function PerfilPage() {
       .filter((item) => {
         if (blockedIds.has(String(item.id))) return false;
         if (item.deleted_at) return false;
-        if (item.allow_profile_search === false) return false;
         return true;
       })
       .sort((a, b) => {
@@ -1431,6 +1714,95 @@ export default function PerfilPage() {
       return searchableText.includes(cleanSearch);
     });
   }, [communityProfilesSorted, communitySearch]);
+
+  useEffect(() => {
+    setCommunityPage(1);
+  }, [communitySearch, communityPageSize]);
+
+  const communityTotalPages = Math.max(
+    1,
+    Math.ceil(filteredCommunityProfiles.length / communityPageSize)
+  );
+
+  useEffect(() => {
+    setCommunityPage((currentPage) =>
+      Math.min(Math.max(1, currentPage), communityTotalPages)
+    );
+  }, [communityTotalPages]);
+
+  const paginatedCommunityProfiles = useMemo(() => {
+    const startIndex = (communityPage - 1) * communityPageSize;
+
+    return filteredCommunityProfiles.slice(
+      startIndex,
+      startIndex + communityPageSize
+    );
+  }, [communityPage, communityPageSize, filteredCommunityProfiles]);
+
+  const activeCommunityHighlights = useMemo(() => {
+    return [...communityProfilesSorted]
+      .sort((a, b) => {
+        const aVip = a.is_vip ? 0 : 1;
+        const bVip = b.is_vip ? 0 : 1;
+
+        if (aVip !== bVip) return aVip - bVip;
+
+        const activityDiff = getDailyActivityScore(b) - getDailyActivityScore(a);
+        if (activityDiff !== 0) return activityDiff;
+
+        const aDate = new Date(a.last_seen || a.updated_at || a.created_at || 0).getTime() || 0;
+        const bDate = new Date(b.last_seen || b.updated_at || b.created_at || 0).getTime() || 0;
+
+        if (aDate !== bDate) return bDate - aDate;
+
+        return getProfileDisplayName(a).localeCompare(getProfileDisplayName(b));
+      })
+      .slice(0, 10);
+  }, [communityProfilesSorted]);
+
+  const activeCommunityMarqueeProfiles = useMemo(
+    () => [
+      ...activeCommunityHighlights,
+      ...activeCommunityHighlights,
+      ...activeCommunityHighlights,
+    ],
+    [activeCommunityHighlights]
+  );
+
+  const communityPaginationItems = useMemo(() => {
+    if (communityTotalPages <= 7) {
+      return Array.from({ length: communityTotalPages }, (_, index) => index + 1);
+    }
+
+    const items = new Set([1, communityTotalPages, communityPage]);
+
+    if (communityPage > 1) items.add(communityPage - 1);
+    if (communityPage < communityTotalPages) items.add(communityPage + 1);
+
+    if (communityPage <= 3) {
+      items.add(2);
+      items.add(3);
+      items.add(4);
+    }
+
+    if (communityPage >= communityTotalPages - 2) {
+      items.add(communityTotalPages - 3);
+      items.add(communityTotalPages - 2);
+      items.add(communityTotalPages - 1);
+    }
+
+    return [...items]
+      .filter((item) => item >= 1 && item <= communityTotalPages)
+      .sort((a, b) => a - b)
+      .reduce((list, item, index, array) => {
+        if (index > 0 && item - array[index - 1] > 1) {
+          list.push("dots-" + item);
+        }
+
+        list.push(item);
+        return list;
+      }, []);
+  }, [communityPage, communityTotalPages]);
 
   const followedProfiles = useMemo(
     () =>
@@ -2295,7 +2667,14 @@ export default function PerfilPage() {
       }
 
       if (profileData) {
-        setPresenceStatus(profileData.presence_status || "online");
+        const badgeMirrorProfile = await loadCurrentProfilePublicMirror(
+          supabase,
+          profileData,
+          currentUser
+        );
+        const loadedPresenceStatus = profileData.presence_status || badgeMirrorProfile?.presence_status || "online";
+        setPresenceStatus(loadedPresenceStatus);
+        setManualPresence(loadedPresenceStatus !== "online");
 
         const normalizedProfile = {
           first_name: profileData.first_name || "",
@@ -2312,10 +2691,10 @@ export default function PerfilPage() {
           premios_count: Number(profileData.premios_count ?? 0),
           sorteos_ganados_count: Number(profileData.sorteos_ganados_count ?? 0),
           participaciones_count: Number(profileData.participaciones_count ?? 0),
-          is_vip: Boolean(profileData.is_vip ?? false),
-          account_role: profileData.account_role || "user",
-          public_profile_number: profileData.public_profile_number || null,
-          presence_status: profileData.presence_status || "offline",
+          is_vip: isTruthyValue(profileData.is_vip) || isTruthyValue(badgeMirrorProfile?.is_vip),
+          account_role: getBestAccountRole(profileData, badgeMirrorProfile),
+          public_profile_number: profileData.public_profile_number || badgeMirrorProfile?.public_profile_number || null,
+          presence_status: loadedPresenceStatus,
           last_seen: profileData.last_seen || null,
           fortnite_user_updated_at:
             profileData.fortnite_user_updated_at || null,
@@ -2327,13 +2706,16 @@ export default function PerfilPage() {
           allow_profile_search: profileData.allow_profile_search !== false,
           notify_email: profileData.notify_email !== false,
           notify_whatsapp: Boolean(profileData.notify_whatsapp),
-          vip_started_at: profileData.vip_started_at || null,
-          vip_until: profileData.vip_until || null,
-          vip_last_paid_at: profileData.vip_last_paid_at || null,
-          vip_grace_until: profileData.vip_grace_until || null,
-          vip_streak_months: Number(profileData.vip_streak_months ?? 0),
-          vip_cycle_months: Number(profileData.vip_cycle_months ?? 0),
-          vip_total_months: Number(profileData.vip_total_months ?? 0),
+          vip_started_at: profileData.vip_started_at || badgeMirrorProfile?.vip_started_at || null,
+          vip_until: profileData.vip_until || badgeMirrorProfile?.vip_until || null,
+          vip_last_paid_at: profileData.vip_last_paid_at || badgeMirrorProfile?.vip_last_paid_at || null,
+          vip_grace_until: profileData.vip_grace_until || badgeMirrorProfile?.vip_grace_until || null,
+          vip_streak_months: Number(profileData.vip_streak_months || badgeMirrorProfile?.vip_streak_months || 0),
+          vip_cycle_months: Number(profileData.vip_cycle_months || badgeMirrorProfile?.vip_cycle_months || 0),
+          vip_total_months: Number(profileData.vip_total_months || badgeMirrorProfile?.vip_total_months || 0),
+          vip_badge_level: Number(profileData.vip_badge_level || badgeMirrorProfile?.vip_badge_level || 0),
+          vip_level: Number(profileData.vip_level || badgeMirrorProfile?.vip_level || 0),
+          vip_cycle_number: Number(profileData.vip_cycle_number || badgeMirrorProfile?.vip_cycle_number || 0),
         };
 
         setProfile(normalizedProfile);
@@ -2362,7 +2744,9 @@ export default function PerfilPage() {
         setLoading(false);
 
         void Promise.allSettled([
-          updatePresenceStatus("online", currentUser.id),
+          !profileData?.presence_status
+            ? updatePresenceStatus("online", currentUser.id)
+            : Promise.resolve(),
           loadSocialData(currentUser.id),
           loadSettingsData(currentUser.id),
         ]);
@@ -2389,26 +2773,48 @@ export default function PerfilPage() {
   }, [router, supabase]);
 
   async function updatePresenceStatus(status, targetUserId = user?.id) {
-    setPresenceStatus(status);
+    const nowIso = new Date().toISOString();
+    const safeTargetUserId = targetUserId || user?.id;
 
-    if (!targetUserId) return;
+    setPresenceStatus(status);
+    setProfile((current) => ({
+      ...current,
+      presence_status: status,
+      last_seen: nowIso,
+    }));
+
+    if (safeTargetUserId) {
+      setCommunityProfiles((currentProfiles) =>
+        (currentProfiles || []).map((item) =>
+          idsMatch(item.id, safeTargetUserId)
+            ? { ...item, presence_status: status, last_seen: nowIso, updated_at: nowIso }
+            : item
+        )
+      );
+    }
+
+    if (!safeTargetUserId) return;
 
     try {
       await supabase
         .from("profiles")
         .update({
           presence_status: status,
-          last_seen: new Date().toISOString(),
+          last_seen: nowIso,
+          updated_at: nowIso,
         })
-        .eq("id", targetUserId);
+        .eq("id", safeTargetUserId);
     } catch (error) {
       console.error("Presence update error:", error);
     }
   }
 
   async function handlePresenceChange(status) {
-    setManualPresence(true);
+    setManualPresence(status !== "online");
     await updatePresenceStatus(status);
+    if (user?.id) {
+      void loadSocialData(user.id);
+    }
   }
 
   async function handleAvatarFileChange(event) {
@@ -2491,21 +2897,16 @@ export default function PerfilPage() {
       clearTimeout(awayTimer);
       clearTimeout(logoutTimer);
 
-      if (!manualPresence && presenceStatus !== "online") {
-        updatePresenceStatus("online");
-      }
-
       awayTimer = setTimeout(() => {
         if (!manualPresence) {
           updatePresenceStatus("away");
         }
       }, 5 * 60 * 1000);
 
-      logoutTimer = setTimeout(async () => {
-        await updatePresenceStatus("offline");
-        await supabase.auth.signOut();
-        router.push("/login");
-        router.refresh();
+      logoutTimer = setTimeout(() => {
+        if (!manualPresence) {
+          updatePresenceStatus("offline");
+        }
       }, 30 * 60 * 1000);
     };
 
@@ -2516,20 +2917,13 @@ export default function PerfilPage() {
     );
 
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        updatePresenceStatus("offline");
-      } else if (!manualPresence) {
+      if (!document.hidden && !manualPresence) {
         updatePresenceStatus("online");
         resetTimers();
       }
     };
 
-    const handleBeforeUnload = () => {
-      updatePresenceStatus("offline");
-    };
-
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("beforeunload", handleBeforeUnload);
 
     resetTimers();
 
@@ -2542,9 +2936,47 @@ export default function PerfilPage() {
       );
 
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [manualPresence, presenceStatus, router, supabase, user]);
+
+  async function getCompleteCommunityProfiles(apiProfiles = []) {
+    const communityProfileColumns =
+      "id, first_name, middle_name, last_name, display_name, ganker_user, fortnite_user, avatar_url, presence_status, last_seen, is_vip, account_role, public_profile_number, allow_profile_search, deleted_at, created_at";
+
+    const mergeProfiles = (primaryProfiles = [], secondaryProfiles = []) => {
+      const mergedProfiles = new Map();
+
+      (secondaryProfiles || []).forEach((item) => {
+        if (item?.id) mergedProfiles.set(String(item.id), item);
+      });
+
+      (primaryProfiles || []).forEach((item) => {
+        if (!item?.id) return;
+
+        const currentItem = mergedProfiles.get(String(item.id)) || {};
+        mergedProfiles.set(String(item.id), { ...currentItem, ...item });
+      });
+
+      return [...mergedProfiles.values()];
+    };
+
+    try {
+      const { data: directProfiles, error } = await supabase
+        .from("profiles")
+        .select(communityProfileColumns)
+        .order("created_at", { ascending: true })
+        .range(0, 9999);
+
+      if (error || !directProfiles?.length) {
+        return apiProfiles || [];
+      }
+
+      return mergeProfiles(directProfiles, apiProfiles || []);
+    } catch (error) {
+      console.error("Complete community load error:", error);
+      return apiProfiles || [];
+    }
+  }
 
   async function loadSocialData(currentUserId = user?.id) {
     if (!currentUserId) return;
@@ -2573,7 +3005,11 @@ export default function PerfilPage() {
         throw new Error(result.error || "No se pudo cargar la comunidad.");
       }
 
-      setCommunityProfiles(result.communityProfiles || []);
+      const completeCommunityProfiles = await getCompleteCommunityProfiles(
+        result.communityProfiles || []
+      );
+
+      setCommunityProfiles(completeCommunityProfiles);
       setFollowingIds((result.followingIds || []).map((id) => String(id)));
       setFollowersCount(result.followersCount || 0);
       setFollowingCount(result.followingCount || 0);
@@ -2670,7 +3106,11 @@ export default function PerfilPage() {
         String(id)
       );
 
-      setCommunityProfiles(result.communityProfiles || []);
+      const completeCommunityProfiles = await getCompleteCommunityProfiles(
+        result.communityProfiles || []
+      );
+
+      setCommunityProfiles(completeCommunityProfiles);
       setFollowingIds(() => {
         if (wasFollowing) {
           return returnedFollowingIds.filter((id) => !idsMatch(id, targetId));
@@ -3402,6 +3842,17 @@ export default function PerfilPage() {
           0%, 100% { opacity: 0.16; transform: translate3d(0, 0, 0); }
           50% { opacity: 0.36; transform: translate3d(0, -12px, 0); }
         }
+        @keyframes gkgCommunityMarquee {
+          from { transform: translateX(0); }
+          to { transform: translateX(-33.333%); }
+        }
+        .gkg-community-marquee-track {
+          width: max-content;
+          animation: gkgCommunityMarquee 30s linear infinite;
+        }
+        .gkg-community-marquee-track:hover {
+          animation-play-state: paused;
+        }
       `}</style>
 
       <input
@@ -3413,9 +3864,8 @@ export default function PerfilPage() {
       />
       <header className="sticky top-0 z-[100] w-full max-w-[100vw] overflow-hidden border-b border-[#0f3d22] bg-[#020804]/95 backdrop-blur-xl supports-[backdrop-filter]:bg-[#020804]/90">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3">
-          <a
-            href="/"
-            aria-label="Ir al inicio de GankerGames"
+          <div
+            aria-label="Logo de GankerGames"
             className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3"
           >
             <img
@@ -3427,7 +3877,7 @@ export default function PerfilPage() {
             <span className="inline shrink-0 text-[8px] font-black uppercase tracking-[0.18em] text-[#63ff9b] sm:text-xs sm:tracking-[0.35em]">
               {t.profileLabel}
             </span>
-          </a>
+          </div>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <button
@@ -3543,7 +3993,7 @@ export default function PerfilPage() {
 
         <div className="relative mx-auto w-full max-w-7xl px-4 py-6 sm:py-8">
           <div className="flex min-w-0 flex-col gap-5 lg:flex-row lg:items-end">
-            <div className="relative flex items-center gap-3 sm:block">
+            <div className="relative flex items-center gap-0 sm:block">
               <AvatarDisplay
                 src={avatarSrc}
                 alt="Perfil GKG"
@@ -3552,11 +4002,25 @@ export default function PerfilPage() {
                 uploading={avatarUploading}
               />
 
-              {(isCreatorProfile || profile.is_vip) && (
-                <div className="flex flex-col items-start gap-2 sm:hidden">
-                  {isCreatorProfile && <CreatorBadge size="xs" />}
+              {(isCreatorProfile || profileVipBadgeActive) && (
+                <div
+                  className="ml-0 flex flex-col items-start sm:hidden"
+                  style={{ marginLeft: "0.5cm", rowGap: "0.5cm" }}
+                >
+                  {isCreatorProfile && (
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck
+                        className="text-zinc-300 drop-shadow-[0_0_12px_rgba(212,212,216,.45)]"
+                        size={26}
+                      />
 
-                  {profile.is_vip && (
+                      <span className="whitespace-nowrap rounded-lg border border-zinc-300/45 bg-zinc-300/10 px-3 py-1 text-xs font-black text-zinc-200 shadow-[0_0_16px_rgba(212,212,216,.16)]">
+                        GKG Creador
+                      </span>
+                    </div>
+                  )}
+
+                  {profileVipBadgeActive && (
                     <div className="flex items-center gap-2">
                       <BadgeCheck
                         className="text-cyan-300 drop-shadow-[0_0_12px_rgba(103,232,249,.55)]"
@@ -3578,18 +4042,35 @@ export default function PerfilPage() {
                   {displayName}
                 </h1>
 
-                {isCreatorProfile && (
-                  <CreatorBadge className="hidden sm:inline-flex" />
-                )}
 
-                {profile.is_vip && (
-                  <>
-                    <BadgeCheck className="hidden text-cyan-300 drop-shadow-[0_0_12px_rgba(103,232,249,.55)] sm:block" size={28} />
+                {(isCreatorProfile || profileVipBadgeActive) && (
+                  <div
+                    className="ml-0 hidden shrink-0 flex-col items-start sm:flex"
+                    style={{ marginLeft: "0.5cm", rowGap: "0.5cm" }}
+                  >
+                    {isCreatorProfile && (
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck
+                          className="text-zinc-300 drop-shadow-[0_0_12px_rgba(212,212,216,.45)]"
+                          size={28}
+                        />
 
-                    <span className="hidden rounded-lg border border-cyan-300/45 bg-cyan-300/10 px-3 py-1 text-sm font-bold text-cyan-200 shadow-[0_0_16px_rgba(34,211,238,.18)] sm:inline-flex">
-                      {profileVipBadgeLabel}
-                    </span>
-                  </>
+                        <span className="rounded-lg border border-zinc-300/45 bg-zinc-300/10 px-3 py-1 text-sm font-bold text-zinc-200 shadow-[0_0_16px_rgba(212,212,216,.16)]">
+                          GKG Creador
+                        </span>
+                      </div>
+                    )}
+
+                    {profileVipBadgeActive && (
+                      <div className="flex items-center gap-2">
+                        <BadgeCheck className="text-cyan-300 drop-shadow-[0_0_12px_rgba(103,232,249,.55)]" size={28} />
+
+                        <span className="rounded-lg border border-cyan-300/45 bg-cyan-300/10 px-3 py-1 text-sm font-bold text-cyan-200 shadow-[0_0_16px_rgba(34,211,238,.18)]">
+                          {profileVipBadgeLabel}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -3611,59 +4092,63 @@ export default function PerfilPage() {
                 )}
               </div>
 
-              <div className="mt-6 grid w-full max-w-full grid-cols-[1.15fr_.85fr] gap-3 md:hidden">
-                <div className="overflow-hidden rounded-2xl border border-[#1eff7a]/20 bg-[#020804]/55 backdrop-blur">
-                  {stats.map((item) => {
-                    const Icon = item.icon;
+              {activeTab === "Perfil" && (
+                <>
+                  <div className="mt-6 grid w-full max-w-full grid-cols-[1.15fr_.85fr] gap-3 md:hidden">
+                    <div className="overflow-hidden rounded-2xl border border-[#1eff7a]/20 bg-[#020804]/55 backdrop-blur">
+                      {stats.map((item) => {
+                        const Icon = item.icon;
 
-                    return (
-                      <div
-                        key={item.label}
-                        className="flex items-center gap-3 border-b border-[#1eff7a]/12 p-3 last:border-b-0"
-                      >
-                        <Icon className="shrink-0 text-[#1eff7a]" size={24} />
-                        <div className="min-w-0">
-                          <p className="text-lg font-black">{item.value}</p>
-                          <p className="text-[11px] leading-tight text-zinc-400">{item.label}</p>
-                        </div>
+                        return (
+                          <div
+                            key={item.label}
+                            className="flex items-center gap-3 border-b border-[#1eff7a]/12 p-3 last:border-b-0"
+                          >
+                            <Icon className="shrink-0 text-[#1eff7a]" size={24} />
+                            <div className="min-w-0">
+                              <p className="text-lg font-black">{item.value}</p>
+                              <p className="text-[11px] leading-tight text-zinc-400">{item.label}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="overflow-hidden rounded-2xl border border-[#1eff7a]/20 bg-[#020804]/55 backdrop-blur">
+                      <div className="border-b border-[#1eff7a]/12 p-3 text-center">
+                        <UsersRound className="mx-auto mb-1 text-zinc-400" size={20} />
+                        <p className="text-[11px] leading-tight text-zinc-400">{t.followers}</p>
+                        <p className="text-lg font-black">{followersCount}</p>
                       </div>
-                    );
-                  })}
-                </div>
 
-                <div className="overflow-hidden rounded-2xl border border-[#1eff7a]/20 bg-[#020804]/55 backdrop-blur">
-                  <div className="border-b border-[#1eff7a]/12 p-3 text-center">
-                    <UsersRound className="mx-auto mb-1 text-zinc-400" size={20} />
-                    <p className="text-[11px] leading-tight text-zinc-400">{t.followers}</p>
-                    <p className="text-lg font-black">{followersCount}</p>
-                  </div>
-
-                  <div className="p-3 text-center">
-                    <UsersRound className="mx-auto mb-1 text-zinc-400" size={20} />
-                    <p className="text-[11px] leading-tight text-zinc-400">{t.following}</p>
-                    <p className="text-lg font-black">{followingCount}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 hidden w-full max-w-full grid-cols-3 overflow-hidden rounded-2xl border border-[#1eff7a]/20 bg-[#020804]/55 backdrop-blur md:grid">
-                {stats.map((item) => {
-                  const Icon = item.icon;
-
-                  return (
-                    <div
-                      key={item.label}
-                      className="flex items-center gap-3 border-r border-[#1eff7a]/12 p-4 last:border-r-0"
-                    >
-                      <Icon className="text-[#1eff7a]" size={28} />
-                      <div>
-                        <p className="text-xl font-black">{item.value}</p>
-                        <p className="text-xs text-zinc-400">{item.label}</p>
+                      <div className="p-3 text-center">
+                        <UsersRound className="mx-auto mb-1 text-zinc-400" size={20} />
+                        <p className="text-[11px] leading-tight text-zinc-400">{t.following}</p>
+                        <p className="text-lg font-black">{followingCount}</p>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+
+                  <div className="mt-6 hidden w-full max-w-full grid-cols-3 overflow-hidden rounded-2xl border border-[#1eff7a]/20 bg-[#020804]/55 backdrop-blur md:grid">
+                    {stats.map((item) => {
+                      const Icon = item.icon;
+
+                      return (
+                        <div
+                          key={item.label}
+                          className="flex items-center gap-3 border-r border-[#1eff7a]/12 p-4 last:border-r-0"
+                        >
+                          <Icon className="text-[#1eff7a]" size={28} />
+                          <div>
+                            <p className="text-xl font-black">{item.value}</p>
+                            <p className="text-xs text-zinc-400">{item.label}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -3790,72 +4275,6 @@ export default function PerfilPage() {
               </div>
             </Card>
 
-            <Card className="h-full">
-              <div className="mb-5 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.22em] text-[#63ff9b]">
-                    Ganker Games
-                  </p>
-                  <h2 className="mt-1 text-lg font-black">Actualizaciones de la página</h2>
-                </div>
-
-                <Bell className="text-[#63ff9b]" size={22} />
-              </div>
-
-              <div className="space-y-3">
-                {(gkgUpdates.length ? gkgUpdates : []).slice(0, 4).map((update, index) => (
-                  <button
-                    type="button"
-                    key={update.id || update.title}
-                    onClick={() => openGkgUpdateModal(update)}
-                    className={`${!showAllGkgUpdatesMobile && index >= 2 ? "hidden md:block" : ""} w-full rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/80 p-4 text-left transition hover:border-[#63ff9b]/60 hover:bg-[#06220f]`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1eff7a]/10 text-[#63ff9b]">
-                        <Zap size={18} />
-                      </span>
-
-                      <div className="min-w-0 flex-1">
-                        <h3 className="line-clamp-1 font-black text-white">
-                          {update.title || "Actualización Ganker Games"}
-                        </h3>
-                        <p className="mt-1 line-clamp-2 text-sm leading-5 text-zinc-400">
-                          {update.description || "Nueva mejora disponible dentro de la página."}
-                        </p>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <p className="text-xs font-bold text-[#63ff9b]">
-                            {formatDateForVip(update.created_at)}
-                          </p>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#1eff7a]/10 px-2 py-1 text-[11px] font-black text-[#63ff9b]">
-                            <Heart size={12} /> {Number(update.likes_count || 0)}
-                          </span>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-cyan-300/10 px-2 py-1 text-[11px] font-black text-cyan-100">
-                            <MessageCircle size={12} /> {Number(update.comments_count || 0)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-
-                {!gkgUpdates.length && (
-                  <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/80 p-4 text-sm text-zinc-400">
-                    Aún no hay actualizaciones publicadas.
-                  </div>
-                )}
-
-                {gkgUpdates.length > 2 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAllGkgUpdatesMobile((current) => !current)}
-                    className="mt-3 w-full rounded-2xl border border-[#1eff7a]/30 bg-[#1eff7a]/10 px-4 py-3 text-sm font-black text-[#63ff9b] md:hidden"
-                  >
-                    {showAllGkgUpdatesMobile ? "Mostrar menos" : "Mostrar más"}
-                  </button>
-                )}
-              </div>
-            </Card>
-
             <Card className="hidden h-full md:block">
               <h2 className="mb-5 text-lg font-black">{t.redGkg}</h2>
 
@@ -3881,7 +4300,7 @@ export default function PerfilPage() {
                 <h2 className="text-lg font-black">{t.interests}</h2>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {profile.is_vip && (
+                  {profileVipBadgeActive && (
                     <button
                       type="button"
                       onClick={() => openInterestModal()}
@@ -3892,7 +4311,7 @@ export default function PerfilPage() {
                     </button>
                   )}
 
-                  {profile.is_vip && hiddenDefaultInterestCount > 0 && (
+                  {profileVipBadgeActive && hiddenDefaultInterestCount > 0 && (
                     <button
                       type="button"
                       onClick={restoreDefaultInterests}
@@ -3947,7 +4366,7 @@ export default function PerfilPage() {
                       </div>
                     </a>
 
-                    {profile.is_vip && (
+                    {profileVipBadgeActive && (
                       <div className="flex gap-2 border-t border-[#1eff7a]/10 p-3">
                         <button
                           type="button"
@@ -3984,7 +4403,7 @@ export default function PerfilPage() {
                       key={item.title}
                       className="flex items-center justify-between rounded-2xl border border-[#1eff7a]/15 bg-[#020804]/65 p-4"
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1eff7a]/10 text-[#1eff7a]">
                           <Icon size={24} />
                         </div>
@@ -4016,7 +4435,6 @@ export default function PerfilPage() {
               <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <h2 className="text-2xl font-black">{t.communitySectionTitle}</h2>
-                  <p className="mt-2 text-sm text-zinc-400">{t.communitySectionDesc}</p>
                 </div>
 
                 <div className="w-full lg:max-w-md">
@@ -4034,11 +4452,76 @@ export default function PerfilPage() {
                     />
                   </label>
 
-                  {socialLoading && (
-                    <p className="mt-2 text-xs font-bold text-[#63ff9b]">{t.socialLoading}</p>
-                  )}
+
                 </div>
               </div>
+
+              {activeCommunityHighlights.length > 0 && (
+                <div className="mb-5 overflow-hidden rounded-2xl border border-[#1eff7a]/15 bg-[#020804]/50 px-2 py-3 shadow-[inset_0_0_18px_rgba(30,255,122,.05)]">
+                  <div className="mb-3 flex items-center justify-center px-2 text-center">
+                    <p className="text-center text-[11px] font-black uppercase tracking-[0.18em] text-[#63ff9b] sm:text-xs">
+                      TOP 10 DE PERFILES MÁS ACTIVOS
+                    </p>
+                  </div>
+
+                  <div className="gkg-community-marquee-track flex items-start gap-4 pr-0 sm:gap-5">
+                    {activeCommunityMarqueeProfiles.map((member, index) => {
+                      const isPrivateProfile = member.allow_profile_search === false;
+                      const isVipMember = Boolean(member.is_vip);
+                      const rankNumber = (index % activeCommunityHighlights.length) + 1;
+                      const rawMemberUserLabel = member.ganker_user || member.fortnite_user || t.noFortniteUser;
+                      const memberUserLabel = idsMatch(member.id, user?.id)
+                        ? profile.ganker_user || profile.fortnite_user || rawMemberUserLabel
+                        : rawMemberUserLabel;
+                      const profileHref = getPublicProfileHref(member, user?.id);
+                      const openPublicProfile = () => {
+                        if (isPrivateProfile) return;
+                        router.push(profileHref);
+                      };
+                      const labelTitle = `${rankNumber}. ${memberUserLabel}${isPrivateProfile ? ` · ${t.privateProfileLabel || "Perfil privado"}` : ""}`;
+
+                      const highlightContent = (
+                        <>
+                          <span className="absolute -left-1 -top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full border border-[#020804] bg-[#1eff7a] px-1 text-[10px] font-black text-black shadow-[0_0_12px_rgba(30,255,122,.32)]">
+                            {rankNumber}
+                          </span>
+                          <AvatarDisplay
+                            src={member.avatar_url || ""}
+                            alt={memberUserLabel}
+                            status={member.presence_status || "offline"}
+                            size="sm"
+                            vip={isVipMember}
+                          />
+                          <span className="mt-1.5 block w-14 break-all text-center text-[8px] font-black leading-[1.05] text-zinc-300 sm:w-16 sm:text-[9px]">
+                            {memberUserLabel}
+                          </span>
+                        </>
+                      );
+
+                      return isPrivateProfile ? (
+                        <div
+                          key={`${member.id}-highlight-${index}`}
+                          className="relative flex shrink-0 cursor-default flex-col items-center"
+                          title={labelTitle}
+                        >
+                          {highlightContent}
+                        </div>
+                      ) : (
+                        <button
+                          key={`${member.id}-highlight-${index}`}
+                          type="button"
+                          onClick={openPublicProfile}
+                          className="relative flex shrink-0 flex-col items-center rounded-2xl transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#63ff9b]/70"
+                          title={`Ver perfil público de ${labelTitle}`}
+                          aria-label={`Ver perfil público de ${labelTitle}`}
+                        >
+                          {highlightContent}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {socialMessage && (
                 <div className="mb-5 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -4047,13 +4530,45 @@ export default function PerfilPage() {
               )}
 
               {filteredCommunityProfiles.length ? (
+                <>
                 <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
-                  {filteredCommunityProfiles.map((member) => {
+                  {paginatedCommunityProfiles.map((member) => {
                     const isOwnProfile = idsMatch(member.id, user?.id);
                     const isFollowing = followingIds.some((id) =>
                       idsMatch(id, member.id)
                     );
                     const statusConfig = getPresenceConfig(member.presence_status || "offline");
+                    const isPrivateProfile = member.allow_profile_search === false;
+                    const isVipMember = Boolean(member.is_vip);
+                    const memberCardClasses = isVipMember
+                      ? "bg-[#07181c]/78"
+                      : "border-[#1eff7a]/15 bg-white/[0.03]";
+                    const memberCardStyle = isVipMember
+                      ? {
+                          borderColor: "rgba(103,232,249,.55)",
+                          boxShadow:
+                            "0 0 14px rgba(34,211,238,.26), 0 0 30px rgba(34,211,238,.10), inset 0 0 14px rgba(34,211,238,.05)",
+                        }
+                      : undefined;
+                    const memberAccentText = isVipMember ? "text-cyan-100 drop-shadow-[0_0_7px_rgba(103,232,249,.34)]" : "text-white";
+                    const memberHoverText = isVipMember ? "hover:text-white focus:text-white" : "hover:text-[#63ff9b] focus:text-[#63ff9b]";
+                    const memberFocusRing = isVipMember ? "focus:ring-cyan-300/70" : "focus:ring-[#1eff7a]/70";
+                    const followButtonClasses = isOwnProfile
+                      ? isVipMember
+                        ? "cursor-default border border-cyan-300/55 bg-cyan-300/10 text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,.16)]"
+                        : "cursor-default border border-[#1eff7a]/15 bg-[#1eff7a]/10 text-[#63ff9b]"
+                      : isFollowing
+                        ? isVipMember
+                          ? "border border-cyan-300/65 bg-cyan-300/10 text-cyan-100 shadow-[0_0_14px_rgba(34,211,238,.16)] hover:bg-cyan-300/16"
+                          : "border border-[#1eff7a] bg-[#1eff7a]/15 text-[#63ff9b] hover:bg-[#1eff7a]/22"
+                        : isVipMember
+                          ? "border border-cyan-300/45 bg-transparent text-cyan-100 hover:border-cyan-200 hover:text-white hover:bg-cyan-300/10"
+                          : "border border-[#1eff7a]/30 bg-transparent text-white hover:border-[#1eff7a] hover:text-[#63ff9b]";
+                    const profileHref = getPublicProfileHref(member, user?.id);
+                    const openPublicProfile = () => {
+                      if (isPrivateProfile) return;
+                      router.push(profileHref);
+                    };
                     const rawMemberUserLabel = member.ganker_user || member.fortnite_user || t.noFortniteUser;
                     const memberUserLabel = isOwnProfile
                       ? profile.ganker_user || profile.fortnite_user || rawMemberUserLabel
@@ -4062,43 +4577,87 @@ export default function PerfilPage() {
                     return (
                       <div
                         key={member.id}
-                        className="flex h-full min-w-0 flex-col justify-between rounded-2xl border border-[#1eff7a]/15 bg-white/[0.03] p-2.5 sm:p-4"
+                        style={memberCardStyle}
+                        className={`relative flex h-full min-w-0 flex-col justify-between rounded-2xl border p-2.5 transition duration-300 sm:p-4 ${memberCardClasses}`}
                       >
-                        <a
-                          href={getPublicProfileHref(member, user?.id)}
-                          className="flex flex-col items-center gap-3 rounded-xl text-center transition hover:text-[#63ff9b] sm:flex-row sm:items-start sm:text-left"
-                        >
-                          <AvatarDisplay
-                            src={member.avatar_url || ""}
-                            alt={memberUserLabel}
-                            status={member.presence_status || "offline"}
-                            size="md"
-                          />
+                        {isVipMember && (
+                          <span
+                            className="absolute left-2 top-2 text-[11px] font-black uppercase tracking-[0.22em] text-cyan-300 drop-shadow-[0_0_8px_rgba(34,211,238,.55)]"
+                          >
+                            VIP
+                          </span>
+                        )}
+                        {isPrivateProfile ? (
+                          <div
+                            className="flex cursor-default flex-col items-center gap-3 rounded-xl text-center sm:flex-row sm:items-start sm:text-left"
+                            title={t.privateProfileLabel || "Perfil privado"}
+                          >
+                            <AvatarDisplay
+                              src={member.avatar_url || ""}
+                              alt={memberUserLabel}
+                              status={member.presence_status || "offline"}
+                              size="md"
+                              vip={isVipMember}
+                            />
 
-                          <div className="min-w-0 flex-1">
-                            <p className="mx-auto max-w-[120px] truncate text-sm font-black text-white sm:mx-0 sm:max-w-none">
-                              {memberUserLabel}
-                            </p>
-                            <span
-                              className={`mt-2 hidden items-center gap-2 rounded-full border border-white/10 px-2 py-1 text-[11px] font-bold sm:inline-flex ${statusConfig.text}`}
-                            >
-                              <span className={`h-2 w-2 rounded-full ${statusConfig.dot}`} />
-                              {getStatusLabel(member.presence_status || "offline", t)}
-                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className={`mx-auto max-w-[120px] truncate text-sm font-black sm:mx-0 sm:max-w-none ${memberAccentText}`}>
+                                {memberUserLabel}
+                              </p>
+                              <span
+                                className={`mt-2 inline-flex items-center gap-2 rounded-full border border-white/10 px-2 py-1 text-[11px] font-bold ${statusConfig.text}`}
+                              >
+                                <span className={`h-2 w-2 rounded-full ${statusConfig.dot}`} />
+                                {getStatusLabel(member.presence_status || "offline", t)}
+                              </span>
+                              <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-zinc-400/30 bg-zinc-400/10 px-2 py-1 text-[10px] font-black text-zinc-200">
+                                <LockKeyhole size={11} />
+                                {t.privateProfileLabel || "Perfil privado"}
+                              </span>
+                            </div>
                           </div>
-                        </a>
+                        ) : (
+                          <div className="flex flex-col items-center gap-3 rounded-xl text-center sm:flex-row sm:items-start sm:text-left">
+                            <button
+                              type="button"
+                              onClick={openPublicProfile}
+                              className={`shrink-0 rounded-full text-left transition hover:scale-[1.03] focus:outline-none focus:ring-2 ${memberFocusRing}` }
+                              aria-label={`Ver perfil público de ${memberUserLabel}`}
+                              title={`Ver perfil público de ${memberUserLabel}`}
+                            >
+                              <AvatarDisplay
+                                src={member.avatar_url || ""}
+                                alt={memberUserLabel}
+                                status={member.presence_status || "offline"}
+                                size="md"
+                                vip={isVipMember}
+                              />
+                            </button>
+
+                            <div className="min-w-0 flex-1">
+                              <button
+                                type="button"
+                                onClick={openPublicProfile}
+                                className={`mx-auto block max-w-[120px] truncate text-sm font-black transition focus:outline-none sm:mx-0 sm:max-w-none ${memberAccentText} ${memberHoverText}`}
+                                title={`Ver perfil público de ${memberUserLabel}`}
+                              >
+                                {memberUserLabel}
+                              </button>
+                              <span
+                                className={`mt-2 inline-flex items-center gap-2 rounded-full border border-white/10 px-2 py-1 text-[11px] font-bold ${statusConfig.text}`}
+                              >
+                                <span className={`h-2 w-2 rounded-full ${statusConfig.dot}`} />
+                                {getStatusLabel(member.presence_status || "offline", t)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
 
                         <button
                           type="button"
                           onClick={() => !isOwnProfile && toggleFollow(member.id)}
                           disabled={isOwnProfile}
-                          className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${
-                            isOwnProfile
-                              ? "cursor-default border border-[#1eff7a]/15 bg-[#1eff7a]/10 text-[#63ff9b]"
-                              : isFollowing
-                                ? "border border-[#1eff7a] bg-[#1eff7a]/15 text-[#63ff9b] hover:bg-[#1eff7a]/22"
-                                : "border border-[#1eff7a]/30 bg-transparent text-white hover:border-[#1eff7a] hover:text-[#63ff9b]"
-                          }`}
+                          className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition ${followButtonClasses}`}
                         >
                           <span className="inline-flex items-center gap-2">
                             <UserCheck
@@ -4122,6 +4681,61 @@ export default function PerfilPage() {
                     );
                   })}
                 </div>
+
+                {communityTotalPages > 1 && (
+                  <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCommunityPage((page) => Math.max(1, page - 1))}
+                      disabled={communityPage === 1}
+                      className="rounded-xl border border-[#1eff7a]/25 bg-[#021509] px-3 py-2 text-xs font-black text-white transition hover:border-[#63ff9b] hover:text-[#63ff9b] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Anterior
+                    </button>
+
+                    {communityPaginationItems.map((item) =>
+                      typeof item === "string" ? (
+                        <span
+                          key={item}
+                          className="px-2 text-sm font-black text-zinc-500"
+                        >
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => setCommunityPage(item)}
+                          className={`h-10 min-w-10 rounded-xl border px-3 text-sm font-black transition ${
+                            communityPage === item
+                              ? "border-[#1eff7a] bg-[#1eff7a] text-black shadow-[0_0_18px_rgba(30,255,122,.20)]"
+                              : "border-[#1eff7a]/25 bg-[#021509] text-white hover:border-[#63ff9b] hover:text-[#63ff9b]"
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      )
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCommunityPage((page) => Math.min(communityTotalPages, page + 1))
+                      }
+                      disabled={communityPage === communityTotalPages}
+                      className="rounded-xl border border-[#1eff7a]/25 bg-[#021509] px-3 py-2 text-xs font-black text-white transition hover:border-[#63ff9b] hover:text-[#63ff9b] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                )}
+
+                {!socialLoading && filteredCommunityProfiles.length > 0 && (
+                  <p className="mt-4 text-center text-xs font-bold text-zinc-500">
+                    Mostrando {paginatedCommunityProfiles.length} de {filteredCommunityProfiles.length} perfiles
+                  </p>
+                )}
+                </>
               ) : (
                 <p className="text-sm text-zinc-400">
                   {communitySearch.trim() ? t.communitySearchEmpty : t.communityEmpty}
@@ -4134,7 +4748,7 @@ export default function PerfilPage() {
       {interestModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
           <div className="w-full max-w-xl rounded-[32px] border border-cyan-300/25 bg-[#020804] p-6 text-white shadow-[0_0_45px_rgba(34,211,238,.16)]">
-            <div className="flex items-start justify-between gap-4">
+            <div className="sticky -top-3 z-20 -mx-3 -mt-3 flex items-start justify-between gap-3 border-b border-cyan-300/15 bg-[#020804]/95 px-3 py-3 backdrop-blur-xl sm:static sm:mx-0 sm:mt-0 sm:border-b-0 sm:bg-transparent sm:p-0">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-cyan-200">
                   Interés VIP
@@ -4268,7 +4882,7 @@ export default function PerfilPage() {
       {selectedGkgUpdate && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[32px] border border-[#1eff7a]/25 bg-[#020804] p-5 text-white shadow-[0_0_45px_rgba(30,255,122,.18)] sm:p-6">
-            <div className="flex items-start justify-between gap-4">
+            <div className="sticky -top-3 z-20 -mx-3 -mt-3 flex items-start justify-between gap-3 border-b border-[#1eff7a]/15 bg-[#020804]/95 px-3 py-3 backdrop-blur-xl sm:static sm:mx-0 sm:mt-0 sm:border-b-0 sm:bg-transparent sm:p-0">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.24em] text-[#63ff9b]">
                   Actualización Ganker Games
@@ -4276,7 +4890,7 @@ export default function PerfilPage() {
                 <h3 className="mt-2 text-2xl font-black leading-tight">
                   {selectedGkgUpdate.title || "Actualización"}
                 </h3>
-                <p className="mt-2 text-xs font-bold text-[#63ff9b]">
+                <p className="mt-1 text-[10px] font-bold leading-4 text-[#63ff9b] sm:mt-2 sm:text-xs">
                   {formatDateForVip(selectedGkgUpdate.created_at)}
                 </p>
               </div>
@@ -4859,9 +5473,9 @@ export default function PerfilPage() {
 
                   <ToggleOption
                     label={t.allowProfileSearch}
-                    checked={privacyForm.allow_profile_search}
+                    checked={privacyForm.allow_profile_search === false}
                     onChange={(checked) =>
-                      setPrivacyForm({ ...privacyForm, allow_profile_search: checked })
+                      setPrivacyForm({ ...privacyForm, allow_profile_search: !checked })
                     }
                   />
 
@@ -4967,7 +5581,7 @@ export default function PerfilPage() {
                       {communityProfiles
                         .filter((member) => !idsMatch(member.id, user?.id))
                         .filter((member) => !isProtectedRole(member))
-                        .filter((member) => !member.deleted_at && member.allow_profile_search !== false)
+                        .filter((member) => !member.deleted_at)
                         .slice(0, 10)
                         .map((member) => {
                           const isBlocked = blockedProfiles.some((blocked) =>
@@ -5411,7 +6025,7 @@ function GiveawayInfoModal({ open, title, children, onClose }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/82 px-4 backdrop-blur-md">
       <div className="w-full max-w-2xl rounded-[32px] border border-[#1eff7a]/25 bg-[#020804] p-6 text-white shadow-[0_0_45px_rgba(30,255,122,.18)]">
         <div className="flex items-start justify-between gap-4">
           <h3 className="text-2xl font-black italic">{title}</h3>
@@ -5730,7 +6344,7 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
 
   return (
     <section className="mx-auto max-w-6xl space-y-6 px-4 py-8">
-      <Card className="flex h-full flex-col overflow-hidden">
+      <Card className="flex h-full flex-col overflow-hidden rounded-[2rem]">
         <div className="bg-[radial-gradient(circle_at_top,#1eff7a20,transparent_55%)] p-6 md:p-8">
           <div className="grid items-start gap-4 xl:grid-cols-[1fr_auto]">
             <div className="max-w-3xl">
@@ -5927,7 +6541,7 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
       </Card>
 
       {registrationModalOpen && inviteToken && user && inviteStatus === "valid" && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/88 px-3 py-4 backdrop-blur-xl" style={{ isolation: "isolate" }}>
           <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[32px] border border-[#1eff7a]/25 bg-[#020804] p-6 text-white shadow-[0_0_45px_rgba(30,255,122,.18)]">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
@@ -6169,7 +6783,7 @@ function GiveawaysTab({ t, lang, supabase, user, profile }) {
                 className="rounded-2xl border border-[#1eff7a]/15 bg-[#04140b]/80 p-4"
               >
                 <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl border border-[#1eff7a]/20 bg-[#1eff7a]/10 text-[#63ff9b]">
-                  <Icon size={22} />
+                  <Icon size={18} />
                 </div>
 
                 <h4 className="text-lg font-black leading-tight">{rule.title}</h4>
@@ -6408,12 +7022,66 @@ function CreatorPanel({ lang, supabase, accountRole }) {
     };
   }
 
+  async function applyGiveawayVipRewards(winnerRows = [], monthPayload = null, headers = null) {
+    const rows = Array.isArray(winnerRows) ? winnerRows : [];
+    const vipWinnerRows = rows.filter((winner) => {
+      const prizeType = String(winner?.prize_type || "").toLowerCase();
+      const prizeText = String(winner?.reward_name || winner?.prize_name || winner?.prize || "").toLowerCase();
+
+      return (
+        prizeType === "monthly" ||
+        prizeType === "frequent" ||
+        prizeText.includes("1 mes") ||
+        prizeText.includes("un mes") ||
+        prizeText.includes("15 días") ||
+        prizeText.includes("15 dias")
+      );
+    });
+
+    if (!vipWinnerRows.length) return;
+
+    try {
+      const authHeaders = headers || (await getAuthHeaders());
+      const response = await fetch("/api/vip/apply-giveaway-rewards", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          month_key: monthPayload?.month_key || previousMonthPayload?.month_key || "sin-mes",
+          winners: vipWinnerRows,
+        }),
+      });
+
+      const result = await readJsonResponse(response);
+
+      if (!response.ok) {
+        throw new Error(result.error || "No se pudo aplicar el VIP de sorteos.");
+      }
+
+      if (result.applied_count > 0) {
+        setVipAdminMessage(
+          `VIP de sorteos aplicado automáticamente a ${result.applied_count} ganador(es).`
+        );
+      }
+    } catch (error) {
+      console.warn("VIP giveaway reward apply error:", error);
+    }
+  }
+
   async function loadAdminData() {
     setLoadingAdmin(true);
     setMessage("");
 
     try {
       const headers = await getAuthHeaders();
+
+      try {
+        await fetch("/api/vip/expire-overdue", {
+          method: "POST",
+          headers,
+        });
+      } catch (vipExpireError) {
+        console.warn("No se pudo revisar VIP vencidos:", vipExpireError);
+      }
 
       const response = await fetch("/api/giveaways/admin", {
         method: "GET",
@@ -6427,17 +7095,21 @@ function CreatorPanel({ lang, supabase, accountRole }) {
       }
 
       const activeCampaign = result.current_month || result.campaign || null;
+      const winnerRows = result.previous_month_winners || result.winners || [];
+      const previousPayload = result.previous_month || null;
 
       setCampaign(activeCampaign);
       setInvites(result.invites || []);
-      setWinners(result.previous_month_winners || result.winners || []);
+      setWinners(winnerRows);
       setParticipants(result.current_participants || result.participants || []);
-      setPreviousMonthPayload(result.previous_month || null);
+      setPreviousMonthPayload(previousPayload);
       setHistoricalParticipants(result.previous_month_participants || []);
 
       setParticipantFeedback(
         result.participant_feedback || result.feedback || []
       );
+
+      await applyGiveawayVipRewards(winnerRows, previousPayload, headers);
 
       const { data: vipUserRows, error: vipUserError } = await supabase.rpc(
         "admin_get_vip_users"
@@ -6509,6 +7181,15 @@ function CreatorPanel({ lang, supabase, accountRole }) {
     try {
       const headers = await getAuthHeaders();
 
+      try {
+        await fetch("/api/vip/expire-overdue", {
+          method: "POST",
+          headers,
+        });
+      } catch (vipExpireError) {
+        console.warn("No se pudo revisar VIP vencidos:", vipExpireError);
+      }
+
       const response = await fetch("/api/giveaways/admin", {
         method: "POST",
         headers,
@@ -6539,6 +7220,15 @@ function CreatorPanel({ lang, supabase, accountRole }) {
 
     try {
       const headers = await getAuthHeaders();
+
+      try {
+        await fetch("/api/vip/expire-overdue", {
+          method: "POST",
+          headers,
+        });
+      } catch (vipExpireError) {
+        console.warn("No se pudo revisar VIP vencidos:", vipExpireError);
+      }
 
       const response = await fetch("/api/giveaways/admin", {
         method: "POST",
@@ -6591,6 +7281,15 @@ function CreatorPanel({ lang, supabase, accountRole }) {
 
     try {
       const headers = await getAuthHeaders();
+
+      try {
+        await fetch("/api/vip/expire-overdue", {
+          method: "POST",
+          headers,
+        });
+      } catch (vipExpireError) {
+        console.warn("No se pudo revisar VIP vencidos:", vipExpireError);
+      }
 
       const response = await fetch("/api/giveaways/admin", {
         method: "POST",
@@ -6673,6 +7372,15 @@ function CreatorPanel({ lang, supabase, accountRole }) {
 
     try {
       const headers = await getAuthHeaders();
+
+      try {
+        await fetch("/api/vip/expire-overdue", {
+          method: "POST",
+          headers,
+        });
+      } catch (vipExpireError) {
+        console.warn("No se pudo revisar VIP vencidos:", vipExpireError);
+      }
 
       const response = await fetch("/api/giveaways/admin", {
         method: "POST",
@@ -6852,19 +7560,18 @@ function CreatorPanel({ lang, supabase, accountRole }) {
   }
 
   function formatDateInput(value) {
-    if (!value) return "";
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
-
-    return date.toISOString().slice(0, 10);
+    return formatVipDateInput(value);
   }
 
   function getVipEdit(item) {
     const edit = vipUserEdits[item.id] || {};
 
+    const calendarMonths = item.vip_started_at
+      ? getCompletedCalendarMonthsFromStart(item.vip_started_at)
+      : Number(item.vip_streak_months || 0);
+
     return {
-      months: edit.months ?? String(Math.max(1, Number(item.vip_streak_months || 1))),
+      months: edit.months ?? String(Math.max(1, calendarMonths || Number(item.vip_streak_months || 1))),
       startDate: edit.startDate ?? formatDateInput(item.vip_started_at),
       note: edit.note ?? "",
     };
@@ -6888,7 +7595,7 @@ function CreatorPanel({ lang, supabase, accountRole }) {
     const edit = getVipEdit(item);
     const identifier = getVipIdentifier(item);
     const months = Math.max(1, Number(edit.months || 1));
-    const note = edit.note || "Ajuste VIP desde listado de usuarios";
+    const note = "Ajuste VIP desde listado de usuarios";
 
     setWorking(true);
     setVipAdminMessage("");
@@ -6915,7 +7622,7 @@ function CreatorPanel({ lang, supabase, accountRole }) {
 
         if (error) throw error;
 
-        setVipAdminMessage(`Renovación registrada para ${getVipRowName(item)}.`);
+        setVipAdminMessage(`Renovación registrada para ${getVipRowName(item)}. Se suma al vencimiento actual si todavía tiene membresía vigente.`);
       }
 
       if (action === "set") {
@@ -6923,12 +7630,12 @@ function CreatorPanel({ lang, supabase, accountRole }) {
           user_identifier: identifier,
           target_streak_months: months,
           vip_start_date_input: edit.startDate || null,
-          payment_note: note || "Ajuste de mes exacto VIP desde listado",
+          payment_note: "Activación VIP con fecha desde listado",
         });
 
         if (error) throw error;
 
-        setVipAdminMessage(`${getVipRowName(item)} quedó en el mes VIP ${months}. La fecha de inicio, premios y línea VIP fueron actualizados.`);
+        setVipAdminMessage(`${getVipRowName(item)} fue activado con fecha de inicio ${edit.startDate || "sin fecha"}. La vigencia y línea VIP fueron actualizadas.`);
       }
 
       if (action === "remove") {
@@ -7151,7 +7858,7 @@ function CreatorPanel({ lang, supabase, accountRole }) {
               type="button"
               onClick={loadAdminData}
               disabled={working}
-              className="rounded-2xl border border-[#1eff7a]/30 bg-[#020804] px-4 py-3 text-xs font-black text-[#63ff9b] hover:border-[#63ff9b] disabled:opacity-60"
+              className="rounded-2xl border border-[#1eff7a]/30 bg-[#020804] px-3 py-2 text-xs font-black text-[#63ff9b] hover:border-[#63ff9b] disabled:opacity-60"
             >
               Actualizar lista
             </button>
@@ -7178,8 +7885,11 @@ function CreatorPanel({ lang, supabase, accountRole }) {
               filteredVipUsers.map((item) => {
                 const rowName = getVipRowName(item);
                 const userLabel = item.ganker_user || item.fortnite_user || "Sin usuario GKG";
+                const calendarVipMonths = item.vip_started_at
+                  ? getCompletedCalendarMonthsFromStart(item.vip_started_at)
+                  : Number(item.vip_streak_months || 0);
                 const statusText = item.is_vip
-                  ? `VIP activo · ${item.vip_streak_months || 0} mes(es)`
+                  ? `VIP activo · ${formatVipDuration(calendarVipMonths)}`
                   : "Sin VIP activo";
                 const edit = getVipEdit(item);
 
@@ -7188,7 +7898,7 @@ function CreatorPanel({ lang, supabase, accountRole }) {
                     key={item.id}
                     className="rounded-3xl border border-[#1eff7a]/15 bg-[#020804]/75 p-4"
                   >
-                    <div className="grid gap-4 xl:grid-cols-[1fr_340px_auto]">
+                    <div className="grid gap-5 xl:grid-cols-[1fr_260px_150px] xl:items-center">
                       <div className="flex min-w-0 items-center gap-3">
                         <AvatarDisplay
                           src={item.avatar_url || ""}
@@ -7211,126 +7921,60 @@ function CreatorPanel({ lang, supabase, accountRole }) {
                                   : "bg-zinc-700/40 text-zinc-300"
                               }`}
                             >
-                              {statusText}
+                              Meses activo: {formatVipDuration(calendarVipMonths)}
                             </span>
 
-                            {item.vip_started_at && (
-                              <span className="rounded-full bg-cyan-300/10 px-3 py-1 text-xs font-black text-cyan-100">
-                                Inicio: {formatDateForVip(item.vip_started_at)}
-                              </span>
-                            )}
+                            <span className="rounded-full bg-cyan-300/10 px-3 py-1 text-xs font-black text-cyan-100">
+                              Inicio real VIP: {item.vip_started_at ? formatDateForVip(item.vip_started_at) : "Sin activar"}
+                            </span>
 
-                            {item.vip_until && (
-                              <span className="rounded-full bg-[#1eff7a]/10 px-3 py-1 text-xs font-black text-[#63ff9b]">
-                                Vence: {formatDateForVip(item.vip_until)}
-                              </span>
-                            )}
+                            <span className="rounded-full bg-[#1eff7a]/10 px-3 py-1 text-xs font-black text-[#63ff9b]">
+                              Vencimiento VIP: {item.vip_until ? formatDateForVip(item.vip_until) : "Sin fecha"}
+                            </span>
 
-                            {item.vip_grace_until && (
-                              <span className="rounded-full bg-yellow-300/10 px-3 py-1 text-xs font-black text-yellow-100">
-                                Gracia: {formatDateForVip(item.vip_grace_until)}
-                              </span>
-                            )}
+                            <span className="rounded-full bg-yellow-300/10 px-3 py-1 text-xs font-black text-yellow-100">
+                              Días de gracia: {item.vip_grace_until ? formatDateForVip(item.vip_grace_until) : "Sin fecha"}
+                            </span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <label className="block">
-                          <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-zinc-400">
-                            Meses
-                          </span>
-                          <input
-                            type="number"
-                            min="1"
-                            max="120"
-                            value={edit.months}
-                            onChange={(event) =>
-                              updateVipEdit(item.id, "months", event.target.value)
+                      <label className="block">
+                        <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-zinc-400">
+                          Fecha inicio VIP
+                        </span>
+                        <input
+                          type="date"
+                          value={edit.startDate}
+                          onChange={(event) => {
+                            const newDate = event.target.value;
+                            updateVipEdit(item.id, "startDate", newDate);
+
+                            const calculatedMonths = calculateVipMonthsFromDate(newDate);
+                            if (calculatedMonths) {
+                              updateVipEdit(item.id, "months", calculatedMonths);
                             }
-                            className="w-full rounded-2xl border border-[#1eff7a]/25 bg-[#021509] px-4 py-3 text-white outline-none focus:border-[#1eff7a]"
-                          />
-                        </label>
-
-                        <label className="block">
-                          <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-zinc-400">
-                            Fecha inicio VIP
-                          </span>
-                          <input
-                            type="date"
-                            value={edit.startDate}
-                            onChange={(event) => {
-                              const newDate = event.target.value;
-                              updateVipEdit(item.id, "startDate", newDate);
-
-                              const calculatedMonths = calculateVipMonthsFromDate(newDate);
-                              if (calculatedMonths) {
-                                updateVipEdit(item.id, "months", calculatedMonths);
-                              }
-                            }}
-                            className="w-full rounded-2xl border border-[#1eff7a]/25 bg-[#021509] px-4 py-3 text-white outline-none focus:border-[#1eff7a]"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => runVipAction(item, "set")}
-                            disabled={working}
-                            className="mt-2 w-full rounded-xl border border-cyan-300/35 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-100 transition hover:border-cyan-200 hover:bg-cyan-300/15 disabled:opacity-60"
-                          >
-                            Confirmar fecha y mes
-                          </button>
-                        </label>
-
-                        <label className="block sm:col-span-2">
-                          <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-zinc-400">
-                            Nota
-                          </span>
-                          <input
-                            type="text"
-                            value={edit.note}
-                            onChange={(event) =>
-                              updateVipEdit(item.id, "note", event.target.value)
-                            }
-                            placeholder="Ej. comprobante validado"
-                            className="w-full rounded-2xl border border-[#1eff7a]/25 bg-[#021509] px-4 py-3 text-white outline-none focus:border-[#1eff7a]"
-                          />
-                        </label>
-                      </div>
-
-                      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+                          }}
+                          className="w-full rounded-2xl border border-[#1eff7a]/25 bg-[#021509] px-4 py-3 text-white outline-none focus:border-[#1eff7a]"
+                        />
                         <button
                           type="button"
-                          onClick={() => runVipAction(item, "add")}
-                          disabled={working}
-                          className="rounded-xl bg-cyan-300 px-3 py-2 text-xs font-black text-black hover:brightness-110 disabled:opacity-60"
+                          onClick={() => runVipAction(item, "set")}
+                          disabled={working || !edit.startDate}
+                          className="mt-2 w-full rounded-xl bg-cyan-300 px-3 py-2 text-xs font-black text-black transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          Activar / añadir
+                          Activar
                         </button>
+                      </label>
 
+                      <div className="flex flex-col gap-2">
                         <button
                           type="button"
                           onClick={() => runVipAction(item, "renew")}
                           disabled={working}
-                          className="rounded-xl border border-[#1eff7a]/30 bg-[#021509] px-3 py-2 text-xs font-black text-[#63ff9b] hover:border-[#63ff9b] disabled:opacity-60"
+                          className="rounded-xl border border-[#1eff7a]/30 bg-[#021509] px-3 py-3 text-xs font-black text-[#63ff9b] hover:border-[#63ff9b] disabled:opacity-60"
                         >
-                          Renovó
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => runVipAction(item, "set")}
-                          disabled={working}
-                          className="rounded-xl border border-cyan-300/35 bg-cyan-300/10 px-3 py-2 text-xs font-black text-cyan-100 hover:border-cyan-200 disabled:opacity-60"
-                        >
-                          Poner mes exacto
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => runVipAction(item, "remove")}
-                          disabled={working}
-                          className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-black text-red-200 hover:bg-red-500/20 disabled:opacity-60"
-                        >
-                          Quitar meses
+                          Renovar
                         </button>
                       </div>
                     </div>
@@ -7347,7 +7991,7 @@ function CreatorPanel({ lang, supabase, accountRole }) {
           )}
 
           <p className="mt-4 rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4 text-xs leading-5 text-yellow-100">
-            Regla: los meses deben ser seguidos. Si pasan más de 5 días después de vencida la membresía y no se registra renovación, se reinicia la antigüedad de premios. Los premios ya cobrados se conservan.
+            Regla: el calendario activa el VIP desde la fecha indicada. Renovar agrega 1 mes al vencimiento actual si todavía está vigente; si viene de un premio de sorteo, se respeta su vencimiento y gracia. Si ya pasó la gracia, se reinicia la antigüedad. Los regalos ya obtenidos se conservan.
           </p>
         </Card>
 
@@ -7452,7 +8096,7 @@ function CreatorPanel({ lang, supabase, accountRole }) {
                   }`}
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       <AvatarDisplay
                         src={reward.avatar_url || ""}
                         alt={rewardUserLabel}
@@ -7676,7 +8320,7 @@ function CreatorPanel({ lang, supabase, accountRole }) {
             Revisa el cierre del mes anterior sin reemplazar ganadores guardados. VIP cuenta doble, frecuente requiere 2+ participaciones ponderadas y VIP solo participa en el sorteo VIP.
           </p>
 
-          <div className="mt-5 grid gap-3">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3">
             <button
               type="button"
               onClick={repairMonthlyClose}
@@ -8054,7 +8698,7 @@ function CreatorPanel({ lang, supabase, accountRole }) {
       )}
 
       {participantModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/82 px-4 backdrop-blur-md">
           <div className="w-full max-w-xl rounded-[32px] border border-[#1eff7a]/25 bg-[#020804] p-6 text-white shadow-[0_0_45px_rgba(30,255,122,.18)]">
             <div className="flex items-start justify-between gap-4">
               <h3 className="text-2xl font-black italic">Agregar participante</h3>
@@ -8199,6 +8843,9 @@ function getPresenceConfig(status) {
 
 function StatusSelector({ status, t, onChange, disabled = false }) {
   const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef(null);
+  const menuRef = useRef(null);
   const config = getPresenceConfig(status);
 
   const options = [
@@ -8207,12 +8854,64 @@ function StatusSelector({ status, t, onChange, disabled = false }) {
     { value: "offline", label: t.statusOffline },
   ];
 
+  function updateMenuPosition() {
+    if (!buttonRef.current || typeof window === "undefined") return;
+
+    const rect = buttonRef.current.getBoundingClientRect();
+    const menuWidth = 176;
+    const safeLeft = Math.min(
+      Math.max(8, rect.left),
+      Math.max(8, window.innerWidth - menuWidth - 8)
+    );
+
+    setMenuPosition({
+      top: rect.bottom + 8,
+      left: safeLeft,
+    });
+  }
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    updateMenuPosition();
+
+    function handleOutsideClick(event) {
+      if (
+        buttonRef.current?.contains(event.target) ||
+        menuRef.current?.contains(event.target)
+      ) {
+        return;
+      }
+
+      setOpen(false);
+    }
+
+    function handleReposition() {
+      updateMenuPosition();
+    }
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    window.addEventListener("resize", handleReposition);
+    window.addEventListener("scroll", handleReposition, true);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      window.removeEventListener("resize", handleReposition);
+      window.removeEventListener("scroll", handleReposition, true);
+    };
+  }, [open]);
+
   return (
-    <div className="relative">
+    <div className="relative z-[80]">
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && setOpen((value) => !value)}
+        onClick={() => {
+          if (disabled) return;
+          updateMenuPosition();
+          setOpen((value) => !value);
+        }}
         className={`inline-flex items-center gap-2 rounded-full border border-transparent px-1 py-1 text-sm font-black transition ${config.text} ${
           disabled ? "cursor-not-allowed opacity-70" : "hover:border-[#1eff7a]/25"
         }`}
@@ -8224,7 +8923,11 @@ function StatusSelector({ status, t, onChange, disabled = false }) {
       </button>
 
       {open && (
-        <div className="absolute left-0 z-50 mt-2 w-44 overflow-hidden rounded-2xl border border-[#1eff7a]/20 bg-[#020804] p-2 shadow-[0_18px_40px_rgba(0,0,0,.45)]">
+        <div
+          ref={menuRef}
+          className="fixed z-[130] w-44 overflow-hidden rounded-2xl border border-[#1eff7a]/25 bg-[#020804] p-2 shadow-[0_18px_40px_rgba(0,0,0,.55)]"
+          style={{ top: menuPosition.top, left: menuPosition.left }}
+        >
           {options.map((option) => {
             const optionConfig = getPresenceConfig(option.value);
 
@@ -8256,8 +8959,17 @@ function AvatarDisplay({
   size = "lg",
   onClick,
   uploading = false,
+  vip = false,
 }) {
-  const config = getPresenceConfig(status);
+  const config = vip
+    ? {
+        dot: "bg-[#1eff7a]",
+        text: "text-[#63ff9b]",
+        border: "border-cyan-300/85",
+        shadow: "shadow-[0_0_14px_rgba(34,211,238,.38),0_0_28px_rgba(34,211,238,.14)]",
+        ring: "ring-cyan-300/45",
+      }
+    : getPresenceConfig(status);
 
   const sizes = {
     sm: {
@@ -8281,15 +8993,22 @@ function AvatarDisplay({
   };
 
   const currentSize = sizes[size] || sizes.lg;
+  const baseClassName = `group relative shrink-0 rounded-full border-[3px] bg-black transition duration-500 ${currentSize.wrapper} ${config.border} ${config.shadow}`;
+  const vipAvatarStyle = vip
+    ? {
+        borderColor: "rgba(103,232,249,.92)",
+        boxShadow:
+          "0 0 12px rgba(34,211,238,.42), 0 0 24px rgba(34,211,238,.16)",
+      }
+    : undefined;
+  const vipRingStyle = vip
+    ? {
+        boxShadow: "0 0 0 1px rgba(103,232,249,.55), 0 0 10px rgba(34,211,238,.22)",
+      }
+    : undefined;
 
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!onClick || uploading}
-      className={`group relative shrink-0 rounded-full border-4 bg-black transition duration-500 hover:scale-[1.03] disabled:cursor-default ${currentSize.wrapper} ${config.border} ${config.shadow}`}
-      title={alt}
-    >
+  const avatarContent = (
+    <>
       {src ? (
         <img
           src={src}
@@ -8316,7 +9035,8 @@ function AvatarDisplay({
       )}
 
       <span
-        className={`absolute inset-0 rounded-full ring-2 ring-offset-2 ring-offset-[#020804] transition duration-500 ${config.ring}`}
+        style={vipRingStyle}
+        className={`absolute inset-0 rounded-full ${vip ? "ring-1" : "ring-2"} ring-offset-2 ring-offset-[#020804] transition duration-500 ${config.ring}`}
       />
 
       {uploading && (
@@ -8324,7 +9044,28 @@ function AvatarDisplay({
           ...
         </span>
       )}
-    </button>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={uploading}
+        style={vipAvatarStyle}
+        className={`${baseClassName} hover:scale-[1.03] disabled:cursor-default`}
+        title={alt}
+      >
+        {avatarContent}
+      </button>
+    );
+  }
+
+  return (
+    <div style={vipAvatarStyle} className={baseClassName} title={alt}>
+      {avatarContent}
+    </div>
   );
 }
 
@@ -8496,7 +9237,7 @@ function UserBlockRow({
       <button
         type="button"
         onClick={onAction}
-        className={`group rounded-xl border px-3 py-2 text-xs font-black transition ${
+        className={`group rounded-2xl border px-3 py-2 text-xs font-black transition ${
           danger
             ? "border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20"
             : isBlocked
@@ -8529,24 +9270,28 @@ function Notice({ icon: Icon, children }) {
 
 
 function VIPTab({ profile, user, supabase, onGoToPremios }) {
-  const isVip = Boolean(profile?.is_vip);
-  const totalVipMonths = getVipTotalMonthsSinceStart(profile);
+  const vipAccessState = getVipAccessState(profile);
+  const isVip = vipAccessState.active;
+  const rawTotalVipMonths = getVipTotalMonthsSinceStart(profile);
   const storedVipMonths = Number(profile?.vip_streak_months || 0);
-  const vipMonths = totalVipMonths > 0 ? totalVipMonths : storedVipMonths > 0 ? storedVipMonths : getVipMonths(profile);
-  const storedCycleMonths = Number(profile?.vip_cycle_months || 0);
-  const vipCycleMonths =
-    vipMonths > 0 ? ((vipMonths - 1) % 12) + 1 : storedCycleMonths > 0 ? storedCycleMonths : 0;
+  const vipMonths = isVip ? rawTotalVipMonths : 0;
+  const totalVipMonths = vipMonths;
+  const vipCycleMonths = vipMonths > 0 ? ((vipMonths - 1) % 12) + 1 : 0;
   const vipCycleNumber = getVipCycleNumberFromMonths(vipMonths);
-  const vipBadgeLabel = getVipBadgeLabelFromMonths(vipMonths);
+  const vipDurationLabel = formatVipDuration(totalVipMonths);
+  const vipBadgeMonths = getVipBadgeMonthsForHeader(profile, isVip);
+  const vipBadgeLabel = getVipBadgeLabelFromMonths(vipBadgeMonths);
   const vipStartDate = getVipStartDate(profile);
-  const vipDaysRemaining = getVipDaysRemaining(profile);
-  const vipSinceYear =
-    vipStartDate && !Number.isNaN(new Date(vipStartDate).getTime())
-      ? new Date(vipStartDate).getFullYear()
-      : null;
+  const vipDaysRemaining = vipAccessState.daysRemaining;
+  const nextVipMilestone = getNextVipMilestone(vipMonths);
+  const daysUntilNextReward = isVip ? getDaysUntilVipMilestone(vipStartDate, nextVipMilestone.displayMonth) : null;
+  const vipStartDateParsed = parseVipDate(vipStartDate);
+  const vipSinceYear = vipStartDateParsed ? vipStartDateParsed.getFullYear() : null;
   const [activeVipRewards, setActiveVipRewards] = useState([]);
 
   const [payModalOpen, setPayModalOpen] = useState(false);
+  const [benefitsModalOpen, setBenefitsModalOpen] = useState(false);
+  const [rulesModalOpen, setRulesModalOpen] = useState(false);
   const [paymentUser, setPaymentUser] = useState(profile?.ganker_user || profile?.fortnite_user || "");
   const [paymentMonths, setPaymentMonths] = useState("1");
   const [paymentReceipt, setPaymentReceipt] = useState(null);
@@ -8582,6 +9327,26 @@ function VIPTab({ profile, user, supabase, onGoToPremios }) {
     loadActiveVipRewards();
   }, [user?.id, supabase, profile?.vip_streak_months, profile?.vip_started_at, profile?.vip_until]);
 
+  useEffect(() => {
+    const modalIsOpen = payModalOpen || benefitsModalOpen || rulesModalOpen;
+
+    if (!modalIsOpen || typeof document === "undefined") return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+    };
+  }, [payModalOpen, benefitsModalOpen, rulesModalOpen]);
+
   const milestones = [
     {
       months: 1,
@@ -8598,7 +9363,7 @@ function VIPTab({ profile, user, supabase, onGoToPremios }) {
     {
       months: 6,
       title: "6 meses VIP",
-      reward: "1 lote o pase de batalla hasta 2,000 paVos",
+      reward: "1 lote de hasta 2,000 paVos",
       icon: Gamepad2,
     },
     {
@@ -8614,10 +9379,89 @@ function VIPTab({ profile, user, supabase, onGoToPremios }) {
     "Pase de batalla: $90 MXN",
     "Club Fortnite: $110 MXN",
     "Participación doble en todos los sorteos",
+    "Participación en sorteo mensual VIP para ganar 2,400 paVos",
     "Sorteo de cumpleañero",
     "Insignia azul GKG VIP junto al nombre",
     "Agregar 5 intereses adicionales en la barra de intereses del jugador",
     "Vigencia de premios VIP: 1 año. Si dejas de ser VIP, la vigencia estándar es de 6 meses.",
+  ];
+
+  const benefitCards = [
+    {
+      title: "Objetos vía regalo",
+      detail: "$8 MXN x cada 100 paVos",
+      badge: "Ahorro VIP",
+      icon: Gift,
+      accent: "cyan",
+    },
+    {
+      title: "Pase de batalla",
+      detail: "$90 MXN",
+      badge: "Precio especial",
+      icon: Ticket,
+      accent: "green",
+    },
+    {
+      title: "Club Fortnite",
+      detail: "$110 MXN",
+      badge: "Beneficio premium",
+      icon: Crown,
+      accent: "cyan",
+    },
+    {
+      title: "Participación doble",
+      detail: "Cuenta doble en todos los sorteos",
+      badge: "Más oportunidad",
+      icon: UsersRound,
+      accent: "green",
+    },
+    {
+      title: "Sorteo mensual VIP",
+      detail: "Participa para ganar hasta 2,400 paVos cada mes",
+      badge: "Beneficio destacado",
+      icon: Coins,
+      accent: "gold",
+      featured: true,
+    },
+    {
+      title: "Sorteo de cumpleañero",
+      detail: "Participación especial por tu cumpleaños",
+      badge: "Comunidad GKG",
+      icon: CalendarDays,
+      accent: "green",
+    },
+    {
+      title: "Insignia GKG VIP",
+      detail: "Distintivo azul junto al nombre",
+      badge: "Identidad VIP",
+      icon: BadgeCheck,
+      accent: "cyan",
+    },
+    {
+      title: "Intereses extra",
+      detail: "Agrega 5 intereses adicionales al perfil",
+      badge: "Perfil mejorado",
+      icon: Star,
+      accent: "green",
+    },
+    {
+      title: "Vigencia extendida",
+      detail: "Premios VIP con vigencia de 1 año",
+      badge: "Más tiempo",
+      icon: Clock,
+      accent: "cyan",
+    },
+  ];
+
+  const vipRules = [
+    "La membresía GKG VIP dura 1 mes desde la fecha de activación o renovación confirmada.",
+    "Para conservar la antigüedad VIP, debes renovar dentro del periodo de gracia.",
+    "Después del vencimiento hay 5 días de gracia para renovar sin perder avance.",
+    "Si termina el periodo de gracia sin renovación, se quita el VIP y se reinicia la antigüedad de beneficios.",
+    "Los regalos o premios ya obtenidos se conservan aunque el VIP venza.",
+    "Los premios por antigüedad se desbloquean al cumplir 1, 3, 6 y 12 meses seguidos como VIP.",
+    "El VIP ganado por sorteo activa o extiende membresía, pero no genera automáticamente premios de antigüedad; estos aplican si renuevas y mantienes continuidad.",
+    "Los beneficios VIP aplican a 1 usuario registrado de Ganker Games.",
   ];
 
   function handleReceiptChange(event) {
@@ -8664,7 +9508,7 @@ function VIPTab({ profile, user, supabase, onGoToPremios }) {
         <Card className="overflow-hidden">
           <div className="flex h-full flex-col rounded-3xl border border-cyan-300/25 bg-[radial-gradient(circle_at_top,rgba(0,210,255,.25),transparent_38%),linear-gradient(135deg,rgba(30,255,122,.13),rgba(2,8,4,.92))] p-5">
             <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-300/35 bg-cyan-300/10 text-cyan-200 shadow-[0_0_24px_rgba(34,211,238,.18)]">
+              <div className="flex h-14 w-14 items-center justify-center rounded-[1.35rem] border border-cyan-300/35 bg-cyan-300/10 text-cyan-200 shadow-[0_0_24px_rgba(34,211,238,.18)]">
                 <Crown size={30} />
               </div>
 
@@ -8679,10 +9523,32 @@ function VIPTab({ profile, user, supabase, onGoToPremios }) {
             </div>
 
             <div className="mt-5 rounded-2xl border border-[#1eff7a]/15 bg-[#020804]/75 p-4">
-              <p className="text-sm text-zinc-400">Precio mensual</p>
-              <p className="mt-1 text-4xl font-black text-[#63ff9b]">
-                $99 <span className="text-base text-zinc-300">MXN / mes</span>
-              </p>
+              <div className="flex flex-col gap-3">
+                <div className="min-w-0 text-center">
+                  <p className="text-sm text-zinc-400">Precio mensual</p>
+                  <p className="mt-1 whitespace-nowrap text-4xl font-black leading-none text-[#63ff9b] sm:text-3xl xl:text-4xl">
+                    $99 <span className="ml-1 align-baseline text-sm text-zinc-300 xl:text-base">MXN / mes</span>
+                  </p>
+                </div>
+
+                <div className="grid w-full grid-cols-2 gap-2 sm:max-w-[280px] sm:mx-auto">
+                  <button
+                    type="button"
+                    onClick={() => setBenefitsModalOpen(true)}
+                    className="rounded-xl bg-[#1eff7a] px-3 py-2 text-xs font-black text-black shadow-[0_0_18px_rgba(30,255,122,.20)] transition hover:brightness-110"
+                  >
+                    Beneficios
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRulesModalOpen(true)}
+                    className="rounded-xl border border-[#1eff7a]/45 bg-[#1eff7a]/10 px-3 py-2 text-xs font-black text-[#63ff9b] transition hover:border-[#63ff9b] hover:bg-[#1eff7a]/16"
+                  >
+                    Reglas
+                  </button>
+                </div>
+              </div>
+
               <p className="mt-3 text-xs leading-5 text-zinc-400">
                 La membresía dura 1 mes. Al renovarla sin interrupciones, se acumula tu antigüedad VIP para desbloquear recompensas.
               </p>
@@ -8698,30 +9564,43 @@ function VIPTab({ profile, user, supabase, onGoToPremios }) {
             </div>
 
             <div className="mt-5 grid gap-3">
-              <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-4">
+              <div className="rounded-2xl border border-cyan-300/20 bg-cyan-300/10 p-4 text-center">
                 <p className="text-sm text-cyan-100">Estado actual</p>
                 <p className="mt-1 text-2xl font-black">
-                  {isVip ? `${vipBadgeLabel} activo` : "Sin VIP activo"}
+                  {isVip ? vipAccessState.inGrace ? `${vipBadgeLabel} en gracia` : `${vipBadgeLabel} activo` : "Sin VIP activo"}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#020804]/75 p-4">
+              <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#020804]/75 p-4 text-center">
                 <p className="text-sm text-zinc-400">Meses totales desde inicio</p>
                 <p className="mt-1 text-3xl font-black text-white">
-                  {totalVipMonths} {totalVipMonths === 1 ? "mes" : "meses"}
+                  {vipDurationLabel}
                 </p>
                 <p className="mt-2 text-xs text-cyan-200">
+                  Conteo por días calendario desde el inicio VIP.
+                </p>
+                <p className="mt-1 text-xs text-zinc-400">
                   Ciclo actual: año VIP {vipCycleNumber} · mes {Math.max(0, vipCycleMonths)} de 12
                 </p>
                 <p className="mt-1 text-xs text-zinc-400">
                   Meses registrados en sistema: {storedVipMonths}
                 </p>
                 <p className="mt-2 text-xs text-zinc-400">
-                  Inicio: {formatDateForVip(vipStartDate)}
+                  Inicio real VIP: {formatDateForVip(vipStartDate)}
                 </p>
-                {vipDaysRemaining !== null && (
+                {vipDaysRemaining !== null && !vipAccessState.inGrace && (
                   <p className="mt-2 text-xs font-bold text-[#63ff9b]">
                     Quedan {vipDaysRemaining} días de membresía.
+                  </p>
+                )}
+                {vipAccessState.inGrace && (
+                  <p className="mt-2 text-xs font-bold text-yellow-100">
+                    En periodo de gracia. Faltan {vipAccessState.graceDaysRemaining ?? 0} día(s) para perder VIP si no renueva.
+                  </p>
+                )}
+                {!isVip && profile?.is_vip && vipAccessState.expired && (
+                  <p className="mt-2 text-xs font-bold text-red-200">
+                    VIP vencido. Al cargar comunidad o panel creador se quitan beneficios automáticamente; sus regalos ya obtenidos se conservan.
                   </p>
                 )}
               </div>
@@ -8729,7 +9608,7 @@ function VIPTab({ profile, user, supabase, onGoToPremios }) {
           </div>
         </Card>
 
-        <Card className="flex h-full flex-col">
+        <Card className="flex h-full flex-col overflow-hidden">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.28em] text-[#63ff9b]">
@@ -8738,187 +9617,330 @@ function VIPTab({ profile, user, supabase, onGoToPremios }) {
               <h2 className="mt-2 text-3xl font-black italic">
                 Recompensas por antigüedad
               </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
-                Cada etapa se desbloquea según meses seguidos como VIP. Al pasar de 12 meses, el ciclo de premios reinicia y vuelve a empezar con el emote.
-              </p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[330px]">
-              <div className="flex min-h-[74px] flex-col justify-center rounded-2xl border border-cyan-300/45 bg-cyan-300/10 px-4 py-3 text-right shadow-[0_0_22px_rgba(34,211,238,.14)]">
+            <div className="grid w-full max-w-[360px] gap-3 sm:grid-cols-2 xl:min-w-[360px]">
+              <div className="flex min-h-[88px] flex-col items-center justify-center rounded-2xl border border-cyan-300/45 bg-cyan-300/10 px-4 py-3 text-center shadow-[0_0_22px_rgba(34,211,238,.14)]">
                 <p className="text-xs text-cyan-100">Insignia azul</p>
-                <p className="font-black text-cyan-200">{vipBadgeLabel}</p>
+                <p className="mt-1 font-black text-cyan-200">{vipBadgeLabel}</p>
               </div>
 
               {vipSinceYear && (
-                <div className="flex min-h-[74px] flex-col justify-center rounded-2xl border border-[#1eff7a]/25 bg-[#1eff7a]/10 px-4 py-3 text-right">
+                <div className="flex min-h-[88px] flex-col items-center justify-center rounded-2xl border border-[#1eff7a]/25 bg-[#1eff7a]/10 px-4 py-3 text-center">
                   <p className="text-xs text-[#63ff9b]">Antigüedad</p>
-                  <p className="font-black text-white">VIP desde {vipSinceYear}</p>
+                  <p className="mt-1 font-black text-white">VIP desde {vipSinceYear}</p>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="mt-8 grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {milestones.map((item, index) => {
-              const Icon = item.icon;
-              const displayMonth = getVipDisplayMilestoneMonth(item.months, vipCycleNumber);
-              const rewardRecord = activeVipRewards.find(
-                (reward) =>
-                  Number(reward.milestone_months) === item.months &&
-                  Number(reward.cycle_number || 1) === vipCycleNumber &&
-                  isVipRewardEarned(reward, totalVipMonths, vipCycleNumber)
-              );
-              const unlocked = isVip && totalVipMonths >= displayMonth;
-              const rewardIsValid = Boolean(rewardRecord);
-              const rewardIsClaimed = rewardRecord?.status === "claimed";
-              const titleMonthText = displayMonth === 1 ? "1 mes VIP" : `${displayMonth} meses VIP`;
+          <div
+            className="relative mt-8 overflow-hidden rounded-[36px] bg-[#03110b] p-4 shadow-[0_0_35px_rgba(30,255,122,.06)] sm:p-7"
+            style={{ borderRadius: "36px" }}
+          >
 
-              return (
-                <button
-                  type="button"
-                  key={item.months}
-                  onClick={() => unlocked && rewardIsValid && onGoToPremios?.()}
-                  className={`relative flex h-full min-h-[250px] flex-col rounded-3xl border p-4 text-left transition ${
-                    unlocked
-                      ? "border-cyan-300/45 bg-cyan-300/10 shadow-[0_0_28px_rgba(34,211,238,.14)] hover:scale-[1.02]"
-                      : "border-[#1eff7a]/15 bg-[#020804]/70 cursor-default"
-                  }`}
-                >
-                  {index < milestones.length - 1 && (
-                    <div className="absolute left-1/2 top-8 hidden h-1 w-full bg-gradient-to-r from-[#1eff7a]/30 to-cyan-300/50 md:block" />
-                  )}
-
-                  <div
-                    className={`relative z-10 flex h-14 w-14 items-center justify-center rounded-2xl border ${
-                      unlocked
-                        ? "border-cyan-300/50 bg-cyan-300/15 text-cyan-200"
-                        : "border-[#1eff7a]/20 bg-[#03170c] text-[#63ff9b]"
-                    }`}
-                  >
-                    <Icon size={28} />
-                  </div>
-
-                  <p className="mt-4 text-sm font-black uppercase tracking-[0.16em] text-zinc-400">
-                    {titleMonthText}
+            <div className="relative">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.28em] text-[#63ff9b]">
+                    Ruta de recompensas VIP
                   </p>
-                  <p className="mt-2 min-h-[72px] text-lg font-black leading-tight text-white">{item.reward}</p>
+                  <h3 className="mt-2 text-3xl font-black italic leading-tight text-white sm:text-4xl">
+                    Tu avance VIP
+                  </h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+                    Desbloquea recompensas conforme mantienes tu membresía activa. Los regalos ya obtenidos se conservan aunque el VIP venza.
+                  </p>
+                </div>
 
-                  <span
-                    className={`mt-auto inline-flex w-fit rounded-full px-3 py-1 text-xs font-black ${
-                      unlocked
-                        ? "bg-cyan-300/15 text-cyan-200"
-                        : "bg-zinc-700/40 text-zinc-300"
-                    }`}
-                  >
-                    {rewardIsClaimed ? "Cobrado" : unlocked && rewardIsValid ? "Disponible" : unlocked ? "Por agregar" : "Pendiente"}
-                  </span>
 
-                  {unlocked && rewardIsValid && (
-                    <p className="mt-3 text-xs font-bold text-cyan-100">
-                      Toca para ir a Premios
-                    </p>
-                  )}
-
-                  {unlocked && !rewardIsValid && (
-                    <p className="mt-3 text-xs font-bold text-yellow-100">
-                      Cumple meses, falta generar premio vigente
-                    </p>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-8 rounded-3xl border border-[#1eff7a]/15 bg-[#020804]/70 p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.24em] text-[#63ff9b]">
-                  Premios vigentes por antigüedad
-                </p>
-                <h3 className="mt-1 text-xl font-black text-white">
-                  {earnedActiveVipRewards.length} premio{earnedActiveVipRewards.length === 1 ? "" : "s"} dentro de vigencia
-                </h3>
               </div>
 
-              <button
-                type="button"
-                onClick={() => onGoToPremios?.()}
-                className="rounded-2xl border border-[#1eff7a]/30 bg-[#021509] px-4 py-3 text-xs font-black text-[#63ff9b] hover:border-[#63ff9b]"
-              >
-                Ver en Premios
-              </button>
+
+              <div className="relative mt-8">
+                <div className="pointer-events-none absolute left-6 top-8 hidden h-[calc(100%-4rem)] w-px bg-[linear-gradient(180deg,#22d3ee,#1eff7a,rgba(30,255,122,.12))] sm:left-1/2 sm:block lg:hidden" />
+                <div className="pointer-events-none absolute left-[7%] right-[7%] top-[62px] hidden h-px bg-[#1eff7a]/15 lg:block" />
+
+                <div className="grid gap-4 lg:grid-cols-4">
+                  {milestones.map((item, index) => {
+                    const Icon = item.icon;
+                    const displayMonth = getVipDisplayMilestoneMonth(item.months, vipCycleNumber);
+                    const rewardRecord = activeVipRewards.find(
+                      (reward) =>
+                        Number(reward.milestone_months) === item.months &&
+                        Number(reward.cycle_number || 1) === vipCycleNumber &&
+                        isVipRewardEarned(reward, totalVipMonths, vipCycleNumber)
+                    );
+                    const unlocked = isVip && totalVipMonths >= displayMonth;
+                    const rewardIsValid = Boolean(rewardRecord);
+                    const rewardIsClaimed = rewardRecord?.status === "claimed";
+                    const titleMonthText = `${formatVipDuration(displayMonth)} VIP`;
+                    const daysLeft = unlocked ? 0 : isVip ? getDaysUntilVipMilestone(vipStartDate, displayMonth) : null;
+                    const isNextReward = item.months === nextVipMilestone.baseMonth && isVip && !unlocked;
+                    const progressTone = unlocked
+                      ? "border-cyan-300/60 bg-cyan-300/15 text-cyan-100 shadow-[0_0_22px_rgba(34,211,238,.22)]"
+                      : isNextReward
+                        ? "border-[#1eff7a]/70 bg-[#1eff7a]/16 text-[#63ff9b] shadow-[0_0_22px_rgba(30,255,122,.22)]"
+                        : "border-[#1eff7a]/18 bg-[#020804] text-zinc-400";
+                    const cardTone =
+                      item.months === 1
+                        ? "border-cyan-300/55 shadow-[0_0_28px_rgba(34,211,238,.16)]"
+                        : item.months === 3
+                          ? "border-cyan-300/50 shadow-[0_0_26px_rgba(34,211,238,.14)]"
+                          : item.months === 6
+                            ? "border-[#1eff7a]/48 shadow-[0_0_26px_rgba(30,255,122,.14)]"
+                            : "border-[#1eff7a]/55 shadow-[0_0_30px_rgba(30,255,122,.16)]";
+                    const cardGradient =
+                      item.months === 1
+                        ? "radial-gradient(circle at 18% 12%, rgba(34,211,238,.42), transparent 34%), linear-gradient(155deg, rgba(9,64,72,.96) 0%, rgba(5,34,38,.98) 38%, rgba(2,8,4,1) 100%)"
+                        : item.months === 3
+                          ? "radial-gradient(circle at 18% 12%, rgba(103,232,249,.34), transparent 34%), linear-gradient(155deg, rgba(8,52,62,.96) 0%, rgba(4,28,34,.98) 42%, rgba(2,8,4,1) 100%)"
+                          : item.months === 6
+                            ? "radial-gradient(circle at 18% 12%, rgba(30,255,122,.36), transparent 34%), linear-gradient(155deg, rgba(5,70,31,.96) 0%, rgba(3,36,18,.98) 42%, rgba(2,8,4,1) 100%)"
+                            : "radial-gradient(circle at 18% 12%, rgba(30,255,122,.42), transparent 34%), linear-gradient(155deg, rgba(8,82,35,.96) 0%, rgba(3,42,20,.98) 42%, rgba(2,8,4,1) 100%)";
+                    const cardBorderStyle =
+                      item.months === 1
+                        ? { borderColor: "rgba(103, 232, 249, 0.95)", boxShadow: "0 0 0 1px rgba(34,211,238,.35), 0 0 24px rgba(34,211,238,.22)" }
+                        : item.months === 3
+                          ? { borderColor: "rgba(103, 232, 249, 0.9)", boxShadow: "0 0 0 1px rgba(34,211,238,.3), 0 0 22px rgba(34,211,238,.18)" }
+                          : item.months === 6
+                            ? { borderColor: "rgba(30, 255, 122, 0.9)", boxShadow: "0 0 0 1px rgba(30,255,122,.28), 0 0 22px rgba(30,255,122,.18)" }
+                            : { borderColor: "rgba(30, 255, 122, 0.98)", boxShadow: "0 0 0 1px rgba(30,255,122,.34), 0 0 26px rgba(30,255,122,.22)" };
+                    const statusLabel = rewardIsClaimed
+                      ? "Cobrado"
+                      : unlocked && rewardIsValid
+                        ? "Disponible"
+                        : unlocked
+                          ? "Por agregar"
+                          : "Pendiente";
+
+                    return (
+                      <div key={item.months} className="relative">
+                        <div
+                          className={`relative z-10 flex h-full flex-col overflow-hidden rounded-[34px] border p-4 transition duration-300 hover:-translate-y-1 sm:p-5 lg:min-h-[310px] ${cardTone}`}
+                          style={{ borderRadius: "34px", background: cardGradient, ...cardBorderStyle }}
+                        >
+                          <div className="flex items-center justify-center">
+                            <div className={`${progressTone} flex h-14 w-14 items-center justify-center border-0 bg-transparent shadow-none`}>
+                              <Icon size={28} />
+                            </div>
+                          </div>
+
+                          <div className="mt-5 text-center">
+                            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#63ff9b]">
+                              {titleMonthText}
+                            </p>
+                            <h4 className="mt-2 text-xl font-black leading-tight text-white">
+                              {item.reward}
+                            </h4>
+                          </div>
+
+                          <div className="mt-5 flex flex-wrap justify-center gap-2 text-center">
+                            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${unlocked ? "bg-cyan-300/15 text-cyan-100" : "bg-zinc-700/40 text-zinc-300"}`}>
+                              {statusLabel}
+                            </span>
+                            {!unlocked && isVip && daysLeft !== null && (
+                              <span className="inline-flex rounded-full border border-[#1eff7a]/25 bg-[#1eff7a]/10 px-3 py-1 text-xs font-black text-[#63ff9b]">
+                                Faltan {daysLeft} día(s)
+                              </span>
+                            )}
+                            {!isVip && (
+                              <span className="inline-flex rounded-full border border-red-400/25 bg-red-500/10 px-3 py-1 text-xs font-black text-red-200">
+                                Requiere VIP activo
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="mt-auto pt-5">
+                            <div className="flex flex-wrap items-center justify-center gap-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => rewardIsValid && onGoToPremios?.()}
+                                disabled={!rewardIsValid}
+                                className={`rounded-2xl border px-3 py-2 text-xs font-black transition ${rewardIsValid ? "border-cyan-300/35 bg-cyan-300/10 text-cyan-100 hover:border-cyan-200" : "cursor-not-allowed border-white/10 bg-white/5 text-zinc-500"}`}
+                              >
+                                Ver regalo
+                              </button>
+                              <span className={`inline-flex rounded-2xl border px-3 py-2 text-xs font-black ${rewardIsClaimed ? "border-[#1eff7a]/30 bg-[#1eff7a]/10 text-[#63ff9b]" : unlocked && rewardIsValid ? "border-cyan-300/30 bg-cyan-300/10 text-cyan-100" : unlocked ? "border-yellow-300/25 bg-yellow-300/10 text-yellow-100" : "border-white/10 bg-white/5 text-zinc-400"}`}>
+                                {rewardIsClaimed ? "Estatus: Ya se cobró" : unlocked && rewardIsValid ? "Estatus: Disponible" : unlocked ? "Estatus: Por agregar" : "Estatus: Pendiente"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-
-            {earnedActiveVipRewards.length ? (
-              <div className="mt-4 grid auto-rows-fr gap-3 md:grid-cols-2">
-                {earnedActiveVipRewards.map((reward) => (
-                  <div
-                    key={reward.id}
-                    className="flex h-full min-h-[118px] flex-col rounded-2xl border border-cyan-300/15 bg-cyan-300/10 p-4"
-                  >
-                    <p className="font-black text-white">{reward.reward_name}</p>
-                    <p className="mt-1 text-xs text-zinc-300">
-                      Mes {reward.milestone_months} · Vigente hasta {formatDateForVip(reward.valid_until)}
-                    </p>
-                    <span className={`mt-auto inline-flex w-fit rounded-full px-3 py-1 text-xs font-black ${
-                      reward.status === "claimed"
-                        ? "bg-[#1eff7a]/10 text-[#63ff9b]"
-                        : "bg-cyan-300/10 text-cyan-100"
-                    }`}>
-                      {reward.status === "claimed" ? "Cobrado" : "Disponible"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-zinc-400">
-                Aún no hay premios VIP vigentes registrados. Cuando confirmes meses/fecha desde Creador, aparecerán aquí si están dentro de vigencia.
-              </p>
-            )}
           </div>
+
         </Card>
       </div>
 
-      <Card className="mt-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#1eff7a]/25 bg-[#1eff7a]/10 text-[#63ff9b]">
-            <Ticket size={26} />
-          </div>
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-[#63ff9b]">
-              Beneficios activos
-            </p>
-            <h2 className="text-2xl font-black">Lo que incluye GKG VIP</h2>
-          </div>
-        </div>
 
-        <div className="mt-5 grid auto-rows-fr gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {benefits.map((benefit) => (
-            <div
-              key={benefit}
-              className="flex h-full min-h-[84px] items-center rounded-2xl border border-[#1eff7a]/15 bg-[#03170c]/80 p-4 text-sm font-bold leading-6 text-zinc-200"
-            >
-              <span className="mr-2 text-[#63ff9b]">✦</span>
-              {benefit}
+      <style jsx global>{`
+        @keyframes vipOverlayIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes vipModalIn {
+          from { opacity: 0; transform: translateY(10px) scale(.97); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
+
+      {benefitsModalOpen && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/88 px-3 py-4 backdrop-blur-xl" style={{ isolation: "isolate", animation: "vipOverlayIn 180ms ease-out" }}>
+          <div className="relative w-full overflow-hidden rounded-2xl border border-cyan-300/35 bg-black text-white shadow-[0_0_48px_rgba(34,211,238,.22)]" style={{ maxWidth: "430px", maxHeight: "76dvh", animation: "vipModalIn 220ms cubic-bezier(.22,1,.36,1)" }}>
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,.20),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(30,255,122,.16),transparent_36%),linear-gradient(180deg,#000_0%,#010604_100%)]" />
+            <div className="pointer-events-none absolute left-0 top-0 h-1 w-full bg-gradient-to-r from-cyan-300 via-[#1eff7a] to-cyan-300" />
+
+            <div className="sticky top-0 z-30 flex items-start justify-between gap-3 border-b border-cyan-300/20 bg-black px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.38em] text-cyan-200 sm:text-xs">GKG VIP</p>
+                <h3 className="mt-0.5 text-lg font-black italic text-white drop-shadow-[0_3px_0_rgba(0,0,0,.85)] sm:text-xl">
+                  Beneficios VIP
+                </h3>
+                <p className="mt-1 max-w-xs text-[10px] leading-4 text-zinc-300">
+                  Descuentos, sorteos exclusivos y ventajas reales para miembros activos de Ganker Games.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBenefitsModalOpen(false)}
+                className="relative z-40 shrink-0 rounded-lg border border-cyan-300/45 bg-cyan-300/14 px-2.5 py-1.5 text-[10px] font-black text-cyan-100 shadow-[0_0_20px_rgba(34,211,238,.22)] transition hover:border-cyan-200 hover:bg-cyan-300/20"
+              >
+                Cerrar
+              </button>
             </div>
-          ))}
-        </div>
 
-        <div className="mt-5 grid auto-rows-fr gap-3 lg:grid-cols-3">
-          <p className="flex h-full min-h-[86px] items-center rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4 text-xs leading-5 text-yellow-100">
-            Los beneficios VIP solo aplican a 1 usuario registrado de Ganker Games.
-          </p>
-          <p className="flex h-full min-h-[86px] items-center rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4 text-xs leading-5 text-yellow-100">
-            Los meses deben ser seguidos para reclamar premios. Si interrumpes, el conteo de premios se reinicia.
-          </p>
-          <p className="flex h-full min-h-[86px] items-center rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4 text-xs leading-5 text-yellow-100">
-            Después de los 30 días de membresía tienes 5 días de gracia para renovar. Si no pagas, pierdes el avance pendiente y conservas solo premios ya ganados.
-          </p>
-        </div>
-      </Card>
+            <div className="relative z-10 overflow-y-auto bg-black p-2.5 pb-5" style={{ maxHeight: "calc(76dvh - 92px)" }}>
+              <div className="mb-2 overflow-hidden rounded-xl border border-[#1eff7a]/35 bg-[#020804] shadow-[0_0_24px_rgba(30,255,122,.12)]">
+                <div className="grid gap-0">
+                  <div className="relative overflow-hidden bg-[radial-gradient(circle_at_20%_20%,rgba(30,255,122,.24),transparent_30%),linear-gradient(135deg,#031f10,#000)] p-2.5">
+                    <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full border border-[#1eff7a]/20 bg-[#1eff7a]/10 blur-xl" />
+                    <p className="relative text-[9px] font-black uppercase tracking-[0.22em] text-[#63ff9b]">Beneficio destacado</p>
+                    <h4 className="relative mt-1 text-sm font-black italic text-white">Sorteo mensual VIP</h4>
+                    <p className="relative mt-1 max-w-xs text-[10px] font-bold leading-3 text-[#c9ffd8]">
+                      Cada mes los miembros VIP participan para ganar hasta <span className="text-[#63ff9b]">2,400 paVos</span>.
+                    </p>
+                    <div className="relative mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-[#1eff7a]/30 bg-black px-2 py-1 shadow-[0_0_14px_rgba(30,255,122,.12)]">
+                      <Coins className="text-[#63ff9b]" size={15} />
+                      <span className="text-sm font-black text-white">2,400 paVos</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-      {payModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+              <div className="grid grid-cols-1 gap-1.5">
+                {benefitCards.map((benefit, index) => {
+                  const Icon = benefit.icon;
+                  const isGold = benefit.accent === "gold";
+                  const isGreen = benefit.accent === "green";
+                  const colorClasses = isGold
+                    ? {
+                        border: "border-yellow-300/45",
+                        bg: "bg-[linear-gradient(135deg,#141202,#020804)]",
+                        icon: "text-yellow-200",
+                        iconBox: "border-yellow-300/35 bg-yellow-300/12 shadow-[0_0_24px_rgba(253,224,71,.16)]",
+                        badge: "border-yellow-300/25 bg-yellow-300/10 text-yellow-100",
+                      }
+                    : isGreen
+                      ? {
+                          border: "border-[#1eff7a]/35",
+                          bg: "bg-[linear-gradient(135deg,#04190d,#000)]",
+                          icon: "text-[#63ff9b]",
+                          iconBox: "border-[#1eff7a]/35 bg-[#1eff7a]/12 shadow-[0_0_24px_rgba(30,255,122,.16)]",
+                          badge: "border-[#1eff7a]/25 bg-[#1eff7a]/10 text-[#8cffb1]",
+                        }
+                      : {
+                          border: "border-cyan-300/35",
+                          bg: "bg-[linear-gradient(135deg,#03161a,#000)]",
+                          icon: "text-cyan-200",
+                          iconBox: "border-cyan-300/35 bg-cyan-300/12 shadow-[0_0_24px_rgba(34,211,238,.16)]",
+                          badge: "border-cyan-300/25 bg-cyan-300/10 text-cyan-100",
+                        };
+
+                  return (
+                    <div
+                      key={benefit.title}
+                      className={`group relative min-h-[72px] overflow-hidden rounded-2xl border ${colorClasses.border} bg-black shadow-[0_0_12px_rgba(0,0,0,.42)] transition hover:-translate-y-0.5 hover:shadow-[0_0_18px_rgba(30,255,122,.10)]`}
+                    >
+                      <div className="pointer-events-none absolute inset-y-0 left-0 w-[84px] bg-[radial-gradient(circle_at_center,rgba(255,255,255,.10),transparent_62%)]" />
+                      <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
+                      <div className="relative grid min-h-[72px] grid-cols-[72px_1fr] items-stretch">
+                        <div className={`flex h-full min-h-[72px] w-[72px] items-center justify-center rounded-r-3xl border-r ${colorClasses.iconBox} ${colorClasses.icon}`}>
+                          <Icon size={23} className="block shrink-0" strokeWidth={2.4} />
+                        </div>
+                        <div className="flex min-w-0 flex-col items-center justify-center px-3 py-2 text-center">
+                          <span className={`mb-1 inline-flex rounded-full border px-2 py-0.5 text-[7px] font-black uppercase tracking-wide ${colorClasses.badge}`}>
+                            {benefit.badge}
+                          </span>
+                          <h4 className="text-[14px] font-black leading-tight text-white sm:text-[15px]">{benefit.title}</h4>
+                          <p className="mt-0.5 text-[10px] font-bold leading-3 text-zinc-300 sm:text-[11px]">{benefit.detail}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {rulesModalOpen && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/92 px-3 py-4 backdrop-blur-xl" style={{ isolation: "isolate", animation: "vipOverlayIn 180ms ease-out" }}>
+          <div className="relative w-full overflow-hidden rounded-2xl border border-[#1eff7a]/35 bg-black text-white shadow-[0_0_80px_rgba(30,255,122,.24)]" style={{ maxWidth: "460px", maxHeight: "72dvh", animation: "vipModalIn 220ms cubic-bezier(.22,1,.36,1)" }}>
+            <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-[#1eff7a]/16 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-24 -left-20 h-56 w-56 rounded-full bg-cyan-300/12 blur-3xl" />
+
+            <div className="sticky top-0 z-20 flex items-start justify-between gap-3 border-b border-[#1eff7a]/15 bg-black px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-[9px] font-black uppercase tracking-[0.32em] text-[#63ff9b] sm:text-[10px]">GKG VIP</p>
+                <h3 className="mt-0.5 text-base font-black italic text-white drop-shadow-[0_3px_0_rgba(0,0,0,.70)] sm:text-lg">
+                  Reglas VIP
+                </h3>
+                <p className="mt-1 max-w-xs text-[9px] leading-4 text-zinc-300">
+                  Reglas claras para conservar tu membresía, antigüedad, días de gracia y recompensas.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRulesModalOpen(false)}
+                className="relative z-30 shrink-0 rounded-xl border border-[#1eff7a]/45 bg-[#1eff7a]/12 px-2.5 py-1.5 text-[11px] font-black text-[#63ff9b] shadow-[0_0_20px_rgba(30,255,122,.18)] transition hover:border-[#63ff9b] hover:bg-[#1eff7a]/18"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="relative overflow-y-auto bg-black p-2.5" style={{ maxHeight: "calc(72dvh - 82px)" }}>
+              <div className="grid grid-cols-1 gap-1.5">
+                {vipRules.map((rule, index) => (
+                  <div
+                    key={rule}
+                    className="relative overflow-hidden rounded-xl border border-[#1eff7a]/20 bg-[#03110d] p-2.5 text-[11px] leading-4 text-zinc-100 shadow-[0_0_16px_rgba(30,255,122,.06)]"
+                  >
+                    <div className="pointer-events-none absolute right-0 top-0 h-20 w-20 rounded-full bg-[#1eff7a]/10 blur-3xl" />
+                    <div className="relative flex items-center gap-2.5">
+                      <span className="w-4 shrink-0 text-center text-xs font-black leading-none text-[#63ff9b]">
+                        {index + 1}
+                      </span>
+                      <span className="font-bold">{rule}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {payModalOpen && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/92 px-3 py-4 backdrop-blur-xl" style={{ isolation: "isolate" }}>
           <div className="w-full max-w-lg rounded-3xl border border-[#1eff7a]/25 bg-[#020804] p-6 shadow-[0_0_45px_rgba(30,255,122,.18)]">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -8999,7 +10021,8 @@ function VIPTab({ profile, user, supabase, onGoToPremios }) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </section>
   );
@@ -9459,7 +10482,7 @@ function VIPPrizesTab({ profile, user, supabase }) {
       </Card>
 
       {claimModalOpen && selectedReward && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/82 px-4 backdrop-blur-md">
           <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[32px] border border-[#1eff7a]/25 bg-[#020804] p-6 text-white shadow-[0_0_45px_rgba(30,255,122,.18)]">
             <div className="flex items-start justify-between gap-4">
               <div>
