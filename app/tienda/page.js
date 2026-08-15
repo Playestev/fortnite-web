@@ -4,6 +4,7 @@ import Link from "next/link";
 import { createBrowserClient } from "@supabase/ssr";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { toPng } from "html-to-image";
 
 const LANG_STORAGE_KEY = "gkg-lang";
 const CART_STORAGE_KEY = "gkg-cart";
@@ -12,6 +13,15 @@ const SHOP_RECENT_GONE_KEY = "gkg-shop-recent-gone-v2";
 const VB_TO_LOCAL_RATE = 0.09;
 const AUTO_ROTATE_MS = 10000;
 const CLIENT_GKG_TUTORIAL_SKIP_KEY = "gkg-client-skip-tutorial-v1";
+const SUMMARY_IMAGE_PLACEHOLDER =
+  "data:image/svg+xml;charset=utf-8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160">
+      <rect width="160" height="160" rx="24" fill="#06140d"/>
+      <rect x="5" y="5" width="150" height="150" rx="20" fill="none" stroke="#15d863" stroke-width="4"/>
+      <text x="80" y="93" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="900" fill="#67ff9a">GKG</text>
+    </svg>`
+  );
 
 const STAR_POINTS = [
   { top: "6%", left: "8%", size: 2, delay: "0s", duration: "3.4s" },
@@ -1167,6 +1177,16 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
     { id: "secondary-1", name: "", itemIds: [] },
   ]);
   const [giftModalOpen, setGiftModalOpen] = useState(false);
+  const [giftModalVisible, setGiftModalVisible] = useState(false);
+  const summaryImageRef = useRef(null);
+  const principalUsernameInputRef = useRef(null);
+  const secondaryUsernameInputRef = useRef(null);
+  const [summaryDateLabel, setSummaryDateLabel] = useState("");
+  const [summaryDownloading, setSummaryDownloading] = useState(false);
+  const [principalUsernameError, setPrincipalUsernameError] = useState("");
+  const [secondaryUsernameError, setSecondaryUsernameError] = useState("");
+  const [principalUsernameShake, setPrincipalUsernameShake] = useState(false);
+  const [secondaryUsernameShake, setSecondaryUsernameShake] = useState(false);
 
   const details = useMemo(
     () =>
@@ -1308,6 +1328,10 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
         currentIndex === index ? { ...user, name: value } : user
       )
     );
+
+    if (String(value || "").trim()) {
+      setSecondaryUsernameError("");
+    }
   }
 
   function resetSecondaryUser() {
@@ -1331,11 +1355,199 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
       });
     } else {
       resetSecondaryUser();
+      setSecondaryUsernameError("");
+      setSecondaryUsernameShake(false);
     }
+  }
+
+  function shakeUsernameField(target) {
+    if (target === "principal") {
+      setPrincipalUsernameShake(false);
+      window.requestAnimationFrame(() => {
+        setPrincipalUsernameShake(true);
+        window.setTimeout(() => setPrincipalUsernameShake(false), 460);
+      });
+      window.setTimeout(() => principalUsernameInputRef.current?.focus?.(), 30);
+      return;
+    }
+
+    setSecondaryUsernameShake(false);
+    window.requestAnimationFrame(() => {
+      setSecondaryUsernameShake(true);
+      window.setTimeout(() => setSecondaryUsernameShake(false), 460);
+    });
+    window.setTimeout(() => secondaryUsernameInputRef.current?.focus?.(), 30);
+  }
+
+  function showPrincipalUsernameError(message) {
+    setPrincipalUsernameError(message);
+    shakeUsernameField("principal");
+  }
+
+  function showSecondaryUsernameError(message) {
+    setSecondaryUsernameError(message);
+    shakeUsernameField("secondary");
   }
 
   function formatMoney(value) {
     return language === "en" ? `$${value.toFixed(2)}` : `MX$${value.toFixed(2)}`;
+  }
+
+  function getSummaryImageSrc(rawUrl) {
+    const value = String(rawUrl || "").trim();
+
+    if (!value) return "/ganker-logo.png";
+    if (value.startsWith("/") || value.startsWith("data:") || value.startsWith("blob:")) {
+      return value;
+    }
+
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol !== "https:") return "/ganker-logo.png";
+      return `/api/gkg-image?url=${encodeURIComponent(parsed.toString())}`;
+    } catch {
+      return "/ganker-logo.png";
+    }
+  }
+
+  function getSummaryDateLabel() {
+    return new Intl.DateTimeFormat(language === "en" ? "en-US" : "es-MX", {
+      dateStyle: "long",
+      timeStyle: "short",
+    }).format(new Date());
+  }
+
+  async function waitForSummaryImages(node) {
+    const images = Array.from(node?.querySelectorAll?.("img") || []);
+
+    await Promise.all(
+      images.map(async (image) => {
+        if (!image.complete) {
+          await new Promise((resolve) => {
+            image.addEventListener("load", resolve, { once: true });
+            image.addEventListener("error", resolve, { once: true });
+          });
+        }
+
+        if (typeof image.decode === "function") {
+          try {
+            await image.decode();
+          } catch {}
+        }
+      })
+    );
+  }
+
+  async function downloadSummaryImage() {
+    if (details.length === 0) {
+      alert(labels.emptyCart);
+      return;
+    }
+
+    if (!cleanRecipient) {
+      showPrincipalUsernameError(
+        language === "en"
+          ? "Add the Fortnite username before downloading the summary."
+          : "Agrega el usuario de Fortnite antes de descargar el resumen."
+      );
+      return;
+    }
+
+    setPrincipalUsernameError("");
+
+    if (splitEnabled) {
+      const secondaryUser = activeSplitUsers[0];
+      const primaryItems = getItemsForIds(primaryItemIds);
+      const secondaryItems = secondaryUser ? getItemsForIds(secondaryUser.itemIds) : [];
+
+      if (!secondaryUser?.name) {
+        showSecondaryUsernameError(
+          language === "en"
+            ? "Add the secondary Fortnite username before downloading the summary."
+            : "Agrega el usuario adicional de Fortnite antes de descargar el resumen."
+        );
+        return;
+      }
+
+      setSecondaryUsernameError("");
+
+      if (primaryItems.length === 0) {
+        alert(
+          language === "en"
+            ? "Select at least one item for the main user."
+            : "Selecciona al menos un objeto para el usuario principal."
+        );
+        return;
+      }
+
+      if (secondaryItems.length === 0) {
+        alert(
+          language === "en"
+            ? "Select at least one item for the secondary user."
+            : "Selecciona al menos un objeto para el usuario adicional."
+        );
+        return;
+      }
+    }
+
+    setSummaryDownloading(true);
+    setSummaryDateLabel(getSummaryDateLabel());
+
+    try {
+      await new Promise((resolve) =>
+        window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))
+      );
+
+      const node = summaryImageRef.current;
+      if (!node) throw new Error("No se encontró el resumen para exportar.");
+
+      if (document.fonts?.ready) {
+        try {
+          await document.fonts.ready;
+        } catch {}
+      }
+
+      await waitForSummaryImages(node);
+
+      const dataUrl = await toPng(node, {
+        cacheBust: true,
+        includeQueryParams: true,
+        pixelRatio: 2,
+        backgroundColor: "#020805",
+        // El resumen usa Arial, así evitamos que html-to-image intente
+        // descargar/embeber fuentes externas de toda la aplicación.
+        fontEmbedCSS: "",
+        // Si una miniatura externa falla, la exportación continúa.
+        imagePlaceholder: SUMMARY_IMAGE_PLACEHOLDER,
+      });
+
+      const safeUser = cleanRecipient
+        .replace(/[^a-zA-Z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "usuario";
+
+      const link = document.createElement("a");
+      link.download = `GKG-Resumen-Objetos-${safeUser}-${Date.now()}.png`;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : JSON.stringify(error);
+
+      console.error("Error al generar el resumen de objetos:", error, errorMessage);
+      alert(
+        language === "en"
+          ? `The image could not be generated.${errorMessage ? `\n${errorMessage}` : ""}`
+          : `No se pudo generar la imagen.${errorMessage ? `\n${errorMessage}` : ""}`
+      );
+    } finally {
+      setSummaryDownloading(false);
+    }
   }
 
   function buildItemLines(items) {
@@ -1368,9 +1580,15 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
     }
 
     if (!cleanRecipient) {
-      alert(language === "en" ? "Add the Fortnite username to send to." : "Agrega el usuario de Fortnite a enviar.");
+      showPrincipalUsernameError(
+        language === "en"
+          ? "Add the Fortnite username before sending by WhatsApp."
+          : "Agrega el usuario de Fortnite antes de enviar por WhatsApp."
+      );
       return;
     }
+
+    setPrincipalUsernameError("");
 
     const primaryItems = getItemsForIds(primaryItemIds);
 
@@ -1385,13 +1603,15 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
 
     if (splitEnabled) {
       if (activeSplitUsers.length < 1) {
-        alert(
+        showSecondaryUsernameError(
           language === "en"
-            ? "Add the secondary username."
-            : "Agrega el usuario adicional."
+            ? "Add the secondary Fortnite username before sending by WhatsApp."
+            : "Agrega el usuario adicional de Fortnite antes de enviar por WhatsApp."
         );
         return;
       }
+
+      setSecondaryUsernameError("");
 
       const userWithoutItems = activeSplitUsers.find((user) => getItemsForIds(user.itemIds).length === 0);
       if (userWithoutItems) {
@@ -1436,7 +1656,17 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
     const text = lines.join("\n");
     const url = `https://wa.me/5216568558434?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank", "noopener,noreferrer");
-    setGiftModalOpen(false);
+    setGiftModalVisible(false);
+    window.setTimeout(() => setGiftModalOpen(false), 240);
+  };
+
+  const closeGiftModal = () => {
+    setGiftModalVisible(false);
+    setPrincipalUsernameError("");
+    setSecondaryUsernameError("");
+    setPrincipalUsernameShake(false);
+    setSecondaryUsernameShake(false);
+    window.setTimeout(() => setGiftModalOpen(false), 240);
   };
 
   const openGiftModal = () => {
@@ -1446,13 +1676,17 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
     }
 
     setGiftModalOpen(true);
+    setGiftModalVisible(false);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => setGiftModalVisible(true));
+    });
   };
 
   function RecipientItemSelector({ recipientId, selectedIds = [] }) {
     if (details.length === 0) return null;
 
     return (
-      <div className="mt-3 rounded-2xl border border-[#1a4e3a]/80 bg-[#04120d] p-3">
+      <div className="mt-3 rounded-2xl bg-[#04120d] p-3 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
         <div className="mb-2 flex items-center justify-between gap-2">
           <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[#63ff9b]">
             Selecciona qué objetos recibirá
@@ -1484,10 +1718,10 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
             return (
               <label
                 key={`${recipientId}-${item.id}`}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 transition ${
+                className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition ${
                   checked
-                    ? "border-[#67ff9a]/55 bg-[#15d863]/10"
-                    : "border-[#1a4e3a] bg-[#08140f]/80"
+                    ? "bg-[#15d863]/12 shadow-[0_6px_18px_rgba(0,0,0,0.16)]"
+                    : "bg-[#08140f]/80 shadow-[0_5px_16px_rgba(0,0,0,0.12)]"
                 }`}
               >
                 <input
@@ -1496,6 +1730,18 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
                   onChange={() => toggleRecipientItem(recipientId, item.id)}
                   className="h-4 w-4 shrink-0 accent-[#15d863]"
                 />
+
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#101812] shadow-[0_4px_12px_rgba(0,0,0,0.20)]">
+                  <img
+                    src={getSummaryImageSrc(item._galleryImages?.[0] || item.image || item.galleryImages?.[0])}
+                    alt={getDisplayName(item)}
+                    className="h-full w-full object-contain object-center p-1.5"
+                    loading="lazy"
+                    onError={(event) => {
+                      event.currentTarget.src = "/ganker-logo.png";
+                    }}
+                  />
+                </div>
 
                 <div className="min-w-0 flex-1">
                   <div className="line-clamp-1 text-xs font-black text-white">
@@ -1514,11 +1760,458 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
   }
 
 
+  function renderSummaryImage() {
+    const totalQuantity = details.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+    const primarySummaryItems = getItemsForIds(primaryItemIds);
+    const secondarySummaryUser = activeSplitUsers[0] || null;
+    const secondarySummaryItems = secondarySummaryUser
+      ? getItemsForIds(secondarySummaryUser.itemIds)
+      : [];
+
+    const summaryGroups = splitEnabled
+      ? [
+          {
+            id: "principal",
+            role: language === "en" ? "Main user" : "Usuario principal",
+            username: cleanRecipient || (language === "en" ? "No user" : "Sin usuario"),
+            items: primarySummaryItems,
+          },
+          {
+            id: "secondary",
+            role: language === "en" ? "Additional user" : "Usuario adicional",
+            username:
+              secondarySummaryUser?.name ||
+              (language === "en" ? "No user" : "Sin usuario"),
+            items: secondarySummaryItems,
+          },
+        ]
+      : [
+          {
+            id: "principal",
+            role: language === "en" ? "Fortnite user" : "Usuario de Fortnite",
+            username: cleanRecipient || (language === "en" ? "No user" : "Sin usuario"),
+            items: details,
+          },
+        ];
+
+    function renderSummaryItemsTable(group) {
+      const groupVbucks = group.items.reduce(
+        (sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0),
+        0
+      );
+
+      return (
+        <div key={`summary-group-${group.id}`} style={{ marginBottom: splitEnabled ? "24px" : 0 }}>
+          {splitEnabled && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "18px",
+                marginBottom: "14px",
+                padding: "16px 18px",
+                borderRadius: "18px",
+                border: "1px solid rgba(103,255,154,0.30)",
+                background: "rgba(21,216,99,0.07)",
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    color: "#67ff9a",
+                    fontSize: "13px",
+                    fontWeight: 900,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {group.role}
+                </div>
+                <div
+                  style={{
+                    marginTop: "4px",
+                    color: "#ffffff",
+                    fontSize: "25px",
+                    fontWeight: 900,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {group.username}
+                </div>
+              </div>
+
+              <div style={{ flexShrink: 0, textAlign: "right" }}>
+                <div
+                  style={{
+                    color: "#9db3a8",
+                    fontSize: "12px",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {language === "en" ? "Assigned" : "Asignado"}
+                </div>
+                <div
+                  style={{
+                    marginTop: "4px",
+                    color: "#67ff9a",
+                    fontSize: "22px",
+                    fontWeight: 900,
+                  }}
+                >
+                  {groupVbucks.toLocaleString("es-MX")} {labels.vbucks}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "112px minmax(0, 1fr) 120px 210px",
+              gap: "16px",
+              padding: "0 16px 12px",
+              color: "#67ff9a",
+              fontSize: "14px",
+              fontWeight: 900,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            <div>{language === "en" ? "Item" : "Objeto"}</div>
+            <div>{language === "en" ? "Name" : "Nombre"}</div>
+            <div style={{ textAlign: "center" }}>{language === "en" ? "Qty" : "Cantidad"}</div>
+            <div style={{ textAlign: "right" }}>{language === "en" ? "Price (V-Bucks)" : "Precio (paVos)"}</div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {group.items.map((item) => {
+              const imageUrl =
+                item._galleryImages?.[0] ||
+                item.image ||
+                item.galleryImages?.[0] ||
+                "/ganker-logo.png";
+              const unitPrice = Number(item.price || 0);
+              const itemTotalVbucks = unitPrice * Number(item.qty || 0);
+
+              return (
+                <div
+                  key={`summary-image-${group.id}-${item.id}`}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "112px minmax(0, 1fr) 120px 210px",
+                    gap: "16px",
+                    alignItems: "center",
+                    padding: "14px 16px",
+                    borderRadius: "20px",
+                    border: "1px solid rgba(26,78,58,0.88)",
+                    background: "#06110c",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "96px",
+                      height: "96px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      overflow: "hidden",
+                      borderRadius: "16px",
+                      background: "#101812",
+                    }}
+                  >
+                    <img
+                      src={getSummaryImageSrc(imageUrl)}
+                      alt={getDisplayName(item)}
+                      onError={(event) => {
+                        if (!event.currentTarget.src.endsWith("/ganker-logo.png")) {
+                          event.currentTarget.src = "/ganker-logo.png";
+                        }
+                      }}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        padding: "7px",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: "24px",
+                        lineHeight: 1.18,
+                        fontWeight: 900,
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {getDisplayName(item)}
+                    </div>
+                    {Number(item.qty || 0) > 1 && (
+                      <div
+                        style={{
+                          marginTop: "7px",
+                          color: "#9db3a8",
+                          fontSize: "15px",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {unitPrice} {labels.vbucks} {language === "en" ? "each" : "c/u"}
+                      </div>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      textAlign: "center",
+                      fontSize: "28px",
+                      fontWeight: 900,
+                    }}
+                  >
+                    {item.qty}
+                  </div>
+
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: "28px", fontWeight: 900, color: "#ffffff" }}>
+                      {itemTotalVbucks.toLocaleString("es-MX")}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: "4px",
+                        color: "#67ff9a",
+                        fontSize: "15px",
+                        fontWeight: 900,
+                      }}
+                    >
+                      {labels.vbucks}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          left: "-12000px",
+          top: 0,
+          width: "1080px",
+          pointerEvents: "none",
+          zIndex: -1,
+        }}
+      >
+        <div
+          ref={summaryImageRef}
+          style={{
+            width: "1080px",
+            boxSizing: "border-box",
+            padding: "42px",
+            color: "#ffffff",
+            background:
+              "linear-gradient(180deg, #020805 0%, #04120d 52%, #020805 100%)",
+            fontFamily: "Arial, Helvetica, sans-serif",
+          }}
+        >
+          <div
+            style={{
+              border: "2px solid rgba(21,216,99,0.55)",
+              borderRadius: "34px",
+              overflow: "hidden",
+              background: "rgba(2,8,5,0.96)",
+              boxShadow: "0 0 42px rgba(21,216,99,0.12)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: "24px",
+                padding: "34px 36px 28px",
+                borderBottom: "1px solid rgba(103,255,154,0.24)",
+              }}
+            >
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    marginBottom: "8px",
+                    color: "#67ff9a",
+                    fontSize: "18px",
+                    fontWeight: 900,
+                    letterSpacing: "0.2em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  GKG Tienda Fortnite
+                </div>
+                <div
+                  style={{
+                    fontSize: "48px",
+                    lineHeight: 1.05,
+                    fontWeight: 900,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {language === "en" ? "Item Summary" : "Resumen de Objetos"}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  minWidth: "250px",
+                  textAlign: "right",
+                }}
+              >
+                <div
+                  style={{
+                    marginBottom: "6px",
+                    color: "#67ff9a",
+                    fontSize: "12px",
+                    fontWeight: 900,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {language === "en" ? "Date / time" : "Fecha / hora"}
+                </div>
+                <div style={{ fontSize: "18px", fontWeight: 800, lineHeight: 1.35, color: "#dfffee" }}>
+                  {summaryDateLabel || getSummaryDateLabel()}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: "28px 36px 12px" }}>
+              {summaryGroups.map((group) => renderSummaryItemsTable(group))}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "18px",
+                padding: "22px 36px 32px",
+              }}
+            >
+              <div
+                style={{
+                  borderRadius: "22px",
+                  padding: "20px 22px",
+                  border: "1px solid rgba(103,255,154,0.28)",
+                  background: "#06110c",
+                  textAlign: "center",
+                }}
+              >
+                <div
+                  style={{
+                    marginBottom: "6px",
+                    color: "#9db3a8",
+                    fontSize: "15px",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {language === "en" ? "Total items" : "Total de objetos"}
+                </div>
+                <div style={{ fontSize: "34px", fontWeight: 900 }}>{totalQuantity}</div>
+                {splitEnabled && (
+                  <div
+                    style={{
+                      marginTop: "5px",
+                      color: "#67ff9a",
+                      fontSize: "14px",
+                      fontWeight: 800,
+                      textAlign: "center",
+                    }}
+                  >
+                    {language === "en" ? "Distributed between 2 users" : "Distribuidos entre 2 usuarios"}
+                  </div>
+                )}
+              </div>
+
+              <div
+                style={{
+                  borderRadius: "22px",
+                  padding: "20px 22px",
+                  textAlign: "center",
+                  border: "1px solid rgba(103,255,154,0.46)",
+                  background: "rgba(21,216,99,0.08)",
+                }}
+              >
+                <div
+                  style={{
+                    marginBottom: "6px",
+                    color: "#9db3a8",
+                    fontSize: "15px",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {language === "en" ? "Total in pesos" : "Total en pesos"}
+                </div>
+                <div style={{ color: "#67ff9a", fontSize: "38px", fontWeight: 900 }}>
+                  {formatMoney(totalLocal)}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: "18px 36px 22px",
+                textAlign: "center",
+                borderTop: "1px solid rgba(103,255,154,0.16)",
+                color: "#8ca399",
+                fontSize: "15px",
+                fontWeight: 700,
+              }}
+            >
+              {language === "en"
+                ? "Summary generated from GKG Fortnite Shop"
+                : "Resumen generado desde GKG Tienda Fortnite"}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function renderGiftDataModal() {
     return (
-      <div className="fixed inset-0 z-[145] flex items-end justify-center bg-black/72 p-0 backdrop-blur-[3px] sm:items-center sm:p-4">
+      <>
+        <style>{`
+          @keyframes gkgUsernameShake {
+            0%, 100% { transform: translateX(0); }
+            15% { transform: translateX(-7px); }
+            30% { transform: translateX(7px); }
+            45% { transform: translateX(-5px); }
+            60% { transform: translateX(5px); }
+            75% { transform: translateX(-3px); }
+            90% { transform: translateX(3px); }
+          }
+
+          .gkg-username-shake {
+            animation: gkgUsernameShake 430ms ease-in-out;
+          }
+        `}</style>
+      <div
+        className={`fixed inset-0 z-[145] flex items-end justify-center p-0 backdrop-blur-[3px] transition-all duration-300 ease-out sm:items-center sm:p-4 ${
+          giftModalVisible ? "bg-black/72 opacity-100" : "bg-black/0 opacity-0"
+        }`}
+      >
         <div
-          className="flex h-[100dvh] w-full flex-col overflow-hidden rounded-none border-0 bg-[rgba(4,18,13,0.98)] shadow-[0_0_60px_rgba(21,216,99,0.16)] sm:h-auto sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-[30px] sm:border sm:border-[#124633]/70"
+          className={`flex h-[100dvh] w-full flex-col overflow-hidden rounded-none border-0 bg-[rgba(4,18,13,0.98)] shadow-[0_0_60px_rgba(21,216,99,0.16)] transition-all duration-300 ease-out sm:h-auto sm:max-h-[92dvh] sm:max-w-2xl sm:rounded-[30px] sm:border sm:border-[#124633]/70 ${
+            giftModalVisible
+              ? "translate-y-0 scale-100 opacity-100"
+              : "translate-y-8 scale-[0.97] opacity-0 sm:translate-y-5"
+          }`}
           onClick={(event) => event.stopPropagation()}
         >
           <div className="shrink-0 bg-[rgba(4,18,13,0.98)] p-4">
@@ -1537,7 +2230,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
 
               <button
                 type="button"
-                onClick={() => setGiftModalOpen(false)}
+                onClick={closeGiftModal}
                 className="shrink-0 rounded-xl border border-[#1a4e3a]/70 bg-[#08140f] px-4 py-2 text-sm font-black text-white"
               >
                 {labels.close}
@@ -1546,24 +2239,42 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
           </div>
 
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-6 [-webkit-overflow-scrolling:touch] [touch-action:pan-y] [&::-webkit-scrollbar]:hidden">
-            <div className="rounded-2xl bg-[#06110c] p-3 shadow-[inset_0_0_0_1px_rgba(30,255,122,.18)]">
+            <div className="rounded-2xl bg-[#06110c] p-3 shadow-[0_10px_28px_rgba(0,0,0,0.16)]">
               <label className="block">
                 <span className="mb-2 block text-xs font-black uppercase tracking-wide text-white">
                   Usuario principal a enviar *
                 </span>
                 <input
+                  ref={principalUsernameInputRef}
                   type="text"
                   value={recipientUsername}
-                  onChange={(event) => setRecipientUsername(event.target.value)}
+                  onChange={(event) => {
+                    setRecipientUsername(event.target.value);
+                    if (event.target.value.trim()) setPrincipalUsernameError("");
+                  }}
                   placeholder="Ej. GankerGames"
-                  className="w-full rounded-2xl border border-[#1a4e3a]/70 bg-[#08140f] px-4 py-3 text-sm font-bold text-white outline-none transition placeholder:text-slate-500 focus:border-[#67ff9a]"
+                  aria-invalid={Boolean(principalUsernameError)}
+                  aria-describedby={principalUsernameError ? "gkg-principal-username-error" : undefined}
+                  className={`w-full rounded-2xl border bg-[#08140f] px-4 py-3 text-sm font-bold text-white outline-none shadow-[0_5px_16px_rgba(0,0,0,0.14)] transition placeholder:text-slate-500 ${
+                    principalUsernameError
+                      ? "border-red-500 ring-1 ring-red-500/35 focus:border-red-400 focus:ring-red-500/35"
+                      : "border-[#1a4e3a]/80 focus:border-[#67ff9a] focus:ring-1 focus:ring-[#67ff9a]/35"
+                  } ${principalUsernameShake ? "gkg-username-shake" : ""}`}
                 />
+                {principalUsernameError && (
+                  <p
+                    id="gkg-principal-username-error"
+                    className="mt-2 text-[11px] font-bold leading-4 text-red-400"
+                  >
+                    {principalUsernameError}
+                  </p>
+                )}
               </label>
 
               <RecipientItemSelector recipientId="principal" selectedIds={primaryItemIds} />
             </div>
 
-            <div className="rounded-2xl bg-[#06110c] p-3 shadow-[inset_0_0_0_1px_rgba(30,255,122,.18)]">
+            <div className="rounded-2xl bg-[#06110c] p-3 shadow-[0_10px_28px_rgba(0,0,0,0.16)]">
               <label className="flex cursor-pointer items-center justify-between gap-3">
                 <span>
                   <span className="block text-sm font-black text-white">Agregar 1 usuario adicional</span>
@@ -1583,7 +2294,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
               {splitEnabled && (
                 <div className="mt-3 space-y-3">
                   {splitUsers.slice(0, 1).map((user, index) => (
-                    <div key={user.id} className="rounded-2xl bg-[#04120d] p-3 shadow-[inset_0_0_0_1px_rgba(30,255,122,.16)]">
+                    <div key={user.id} className="rounded-2xl bg-[#04120d] p-3 shadow-[0_8px_22px_rgba(0,0,0,0.15)]">
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <span className="text-xs font-black uppercase tracking-wide text-white">
                           Usuario adicional
@@ -1600,12 +2311,27 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
                       </div>
 
                       <input
+                        ref={secondaryUsernameInputRef}
                         type="text"
                         value={user.name}
                         onChange={(event) => updateSplitUser(index, event.target.value)}
                         placeholder="Nombre del usuario adicional"
-                        className="w-full rounded-xl border border-[#1a4e3a]/70 bg-[#08140f] px-3 py-2 text-sm font-bold text-white outline-none transition placeholder:text-slate-500 focus:border-[#67ff9a]"
+                        aria-invalid={Boolean(secondaryUsernameError)}
+                        aria-describedby={secondaryUsernameError ? "gkg-secondary-username-error" : undefined}
+                        className={`w-full rounded-xl border bg-[#08140f] px-3 py-2 text-sm font-bold text-white outline-none shadow-[0_5px_16px_rgba(0,0,0,0.14)] transition placeholder:text-slate-500 ${
+                          secondaryUsernameError
+                            ? "border-red-500 ring-1 ring-red-500/35 focus:border-red-400 focus:ring-red-500/35"
+                            : "border-[#1a4e3a]/80 focus:border-[#67ff9a] focus:ring-1 focus:ring-[#67ff9a]/35"
+                        } ${secondaryUsernameShake ? "gkg-username-shake" : ""}`}
                       />
+                      {secondaryUsernameError && (
+                        <p
+                          id="gkg-secondary-username-error"
+                          className="mt-2 text-[11px] font-bold leading-4 text-red-400"
+                        >
+                          {secondaryUsernameError}
+                        </p>
+                      )}
 
                       <RecipientItemSelector recipientId={user.id} selectedIds={user.itemIds || []} />
                     </div>
@@ -1616,16 +2342,45 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
           </div>
 
           <div className="shrink-0 bg-[rgba(4,18,13,0.98)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-18px_30px_rgba(4,18,13,.92)]">
-            <button
-              type="button"
-              onClick={confirmSendWhatsApp}
-              className="w-full rounded-2xl bg-[#15d863] px-4 py-4 text-sm font-black text-[#06110a] shadow-[0_0_18px_rgba(21,216,99,0.18)] transition hover:brightness-110"
-            >
-              Confirmar y mandar por WhatsApp
-            </button>
+            <div className="grid gap-3">
+              <button
+                type="button"
+                onClick={downloadSummaryImage}
+                disabled={summaryDownloading}
+                aria-label="Opción 1: Descargar Imagen"
+                title="Opción 1: Descargar Imagen"
+                className="relative mx-auto w-[94%] overflow-hidden bg-transparent p-0 shadow-none transition duration-200 hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 disabled:cursor-wait disabled:opacity-60"
+              >
+                <img
+                  src="/gkg-opcion-1-descargar-imagen.png"
+                  alt="Opción 1: Descargar Imagen"
+                  className="block h-auto w-full"
+                />
+                {summaryDownloading && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/35 text-xs font-black uppercase tracking-wide text-white">
+                    Generando imagen...
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmSendWhatsApp}
+                aria-label="Opción 2: Enviar en Texto por WhatsApp"
+                title="Opción 2: Enviar en Texto por WhatsApp"
+                className="mx-auto w-[94%] overflow-hidden bg-transparent p-0 shadow-none transition duration-200 hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0"
+              >
+                <img
+                  src="/gkg-opcion-2-whatsapp-texto.png"
+                  alt="Opción 2: Enviar en Texto por WhatsApp"
+                  className="block h-auto w-full"
+                />
+              </button>
+            </div>
           </div>
         </div>
       </div>
+      </>
     );
   }
 
@@ -1633,15 +2388,15 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
     <div className="fixed inset-0 z-[130]">
       <div className="absolute inset-0 bg-black/62 backdrop-blur-[2px]" onClick={onClose} />
       <div
-        className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col overflow-hidden border-l border-[#124633] bg-[rgba(4,18,13,0.90)] shadow-[0_0_45px_rgba(21,216,99,0.16)] backdrop-blur-xl sm:max-w-lg ${
+        className={`absolute right-0 top-0 flex h-full w-full max-w-md flex-col overflow-hidden border-l border-[#1eff7a]/30 bg-[rgba(3,16,9,0.84)] shadow-[0_0_45px_rgba(21,216,99,0.16)] backdrop-blur-xl sm:max-w-lg ${
           isClosing ? "animate-[slideOutRight_220ms_ease-in]" : "animate-[slideInRight_220ms_ease-out]"
         }`}
       >
-        <div className="shrink-0 border-b border-[#124633]/70 p-4">
+        <div className="shrink-0 border-b border-[#1eff7a]/25 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#63ff9b]">
-                Ganker Games
+                GKG
               </p>
               <h3 className="text-2xl font-black">{labels.cart}</h3>
             </div>
@@ -1649,22 +2404,28 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-[#1a4e3a] bg-[#08140f] px-4 py-2 font-black text-white"
+              aria-label={labels.close}
+              title={labels.close}
+              className="h-12 w-12 overflow-hidden rounded-xl bg-transparent p-0 shadow-none transition duration-200 hover:-translate-y-0.5 hover:brightness-110"
             >
-              {labels.close}
+              <img
+                src="/gkg-close-icon.png"
+                alt={labels.close}
+                className="block h-full w-full object-contain"
+              />
             </button>
           </div>
         </div>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 pr-2">
           {details.length === 0 && (
-            <div className="rounded-2xl border border-[#124633] bg-[#06110c] p-4 text-slate-300">
+            <div className="rounded-2xl border border-[#1eff7a]/30 bg-[#07140f]/86 p-4 text-slate-300 shadow-[0_0_20px_rgba(21,216,99,0.06)]">
               {labels.emptyCart}
             </div>
           )}
 
           {details.map((item) => (
-            <div key={item.id} className="rounded-2xl border border-[#124633] bg-[#06110c] p-3">
+            <div key={item.id} className="rounded-2xl bg-[#07140f]/86 p-3 shadow-[0_0_20px_rgba(21,216,99,0.06)]">
               <div className="flex gap-3">
                 <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#101812]">
                   <img
@@ -1684,7 +2445,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
                     <button
                       type="button"
                       onClick={() => onUpdateQty(item.id, Math.max(0, item.qty - 1))}
-                      className="h-8 w-8 rounded-lg border border-[#1a4e3a] bg-[#08140f] font-black"
+                      className="h-9 w-9 rounded-xl bg-[#07140f]/86 font-black text-white shadow-[0_0_16px_rgba(21,216,99,0.08)] transition hover:text-[#67ff9a]"
                     >
                       -
                     </button>
@@ -1692,16 +2453,22 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
                     <button
                       type="button"
                       onClick={() => onUpdateQty(item.id, item.qty + 1)}
-                      className="h-8 w-8 rounded-lg border border-[#1a4e3a] bg-[#08140f] font-black"
+                      className="h-9 w-9 rounded-xl bg-[#07140f]/86 font-black text-white shadow-[0_0_16px_rgba(21,216,99,0.08)] transition hover:text-[#67ff9a]"
                     >
                       +
                     </button>
                     <button
                       type="button"
                       onClick={() => onRemove(item.id)}
-                      className="ml-auto text-xs font-black text-red-300"
+                      aria-label={language === "en" ? "Remove item" : "Quitar objeto"}
+                      title={language === "en" ? "Remove item" : "Quitar objeto"}
+                      className="ml-auto h-11 w-11 overflow-hidden rounded-xl bg-transparent p-0 shadow-none transition duration-200 hover:-translate-y-0.5 hover:brightness-110"
                     >
-                      {labels.remove}
+                      <img
+                        src="/gkg-trash-icon.png"
+                        alt={language === "en" ? "Remove item" : "Quitar objeto"}
+                        className="block h-full w-full object-contain"
+                      />
                     </button>
                   </div>
                 </div>
@@ -1711,8 +2478,8 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
 
         </div>
 
-        <div className="shrink-0 border-t border-[#124633]/70 bg-[rgba(4,18,13,0.96)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <div className="rounded-2xl border border-[#124633] bg-[rgba(6,17,12,0.92)] p-4 backdrop-blur-sm">
+        <div className="shrink-0 border-t border-[#1eff7a]/25 bg-[rgba(3,16,9,0.92)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+          <div className="rounded-2xl border border-[#1eff7a]/30 bg-[#07140f]/86 p-4 shadow-[0_0_22px_rgba(21,216,99,0.08)]">
             <div className="flex items-center justify-between text-sm">
               <span>{labels.totalVbucks}</span>
               <span className="font-black">{totalVbucks} {labels.vbucks}</span>
@@ -1726,23 +2493,41 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
               <button
                 type="button"
                 onClick={openGiftModal}
-                className="rounded-2xl bg-[#15d863] px-4 py-3 text-sm font-black text-[#06110a] shadow-[0_0_18px_rgba(21,216,99,0.18)] transition hover:brightness-110"
+                aria-label={labels.sendWhatsApp}
+                title={labels.sendWhatsApp}
+                className="w-full overflow-hidden rounded-2xl bg-transparent p-0 shadow-none transition duration-200 hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0"
               >
-                {labels.sendWhatsApp}
+                <img
+                  src="/whatsapp-button.png"
+                  alt={labels.sendWhatsApp}
+                  className="block h-auto w-full"
+                />
               </button>
               <button
                 type="button"
                 onClick={shareCart}
-                className="rounded-2xl border border-[#1a4e3a] bg-[#08140f]/88 px-4 py-3 text-sm font-black text-white"
+                aria-label={labels.shareLink}
+                title={labels.shareLink}
+                className="w-full overflow-hidden rounded-2xl bg-transparent p-0 shadow-none transition duration-200 hover:-translate-y-0.5 hover:brightness-110"
               >
-                {labels.shareLink}
+                <img
+                  src="/gkg-copiar-enlace.png"
+                  alt={labels.shareLink}
+                  className="block h-auto w-full"
+                />
               </button>
               <button
                 type="button"
                 onClick={onClear}
-                className="rounded-2xl border border-red-500/40 bg-red-500/12 px-4 py-3 text-sm font-black text-red-300"
+                aria-label={language === "en" ? "Clear cart" : "Vaciar carrito"}
+                title={language === "en" ? "Clear cart" : "Vaciar carrito"}
+                className="w-full overflow-hidden rounded-2xl bg-transparent p-0 shadow-none transition duration-200 hover:-translate-y-0.5 hover:brightness-110"
               >
-                {labels.remove}
+                <img
+                  src="/gkg-vaciar-carrito.png"
+                  alt={language === "en" ? "Clear cart" : "Vaciar carrito"}
+                  className="block h-auto w-full"
+                />
               </button>
             </div>
           </div>
@@ -1750,6 +2535,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
       </div>
 
       {giftModalOpen && renderGiftDataModal()}
+      {renderSummaryImage()}
     </div>
   );
 }
@@ -2263,9 +3049,15 @@ function MobileMenuDrawer({ open, labels, cartCount, authHref, authLabel, onClos
           <button
             type="button"
             onClick={onClose}
-            className="rounded-2xl border border-[#1eff7a]/35 bg-[#07140f]/86 px-4 py-3 text-sm font-black text-white shadow-[0_0_18px_rgba(21,216,99,0.10)] transition hover:border-[#67ff9a] hover:text-[#67ff9a]"
+            aria-label={labels.close}
+            title={labels.close}
+            className="h-12 w-12 overflow-hidden rounded-xl bg-transparent p-0 shadow-none transition duration-200 hover:-translate-y-0.5 hover:brightness-110"
           >
-            ✕
+            <img
+              src="/gkg-close-icon.png"
+              alt={labels.close}
+              className="block h-full w-full object-contain"
+            />
           </button>
         </div>
 

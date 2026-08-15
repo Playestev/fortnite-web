@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ProfileNotificationCenter from "@/components/ProfileNotificationCenter";
+import GkgMessagesButton from "@/components/GkgMessagesButton";
 import {
   BadgeCheck,
   ShieldCheck,
@@ -12,6 +13,7 @@ import {
   ArrowDown,
   ArrowUp,
   MapPin,
+  MessageCircle,
   Clock,
   Gamepad2,
   Gift,
@@ -730,7 +732,7 @@ export default function PublicProfilePage() {
         }
       `}</style>
       <GkgTwinkleBackground />
-      <header className="sticky top-0 z-[100] w-full max-w-[100vw] overflow-hidden border-b border-[#0f3d22] bg-[#020804]/95 supports-[backdrop-filter]:bg-[#020804]/90 backdrop-blur-xl">
+      <header className="sticky top-0 z-[100] w-full max-w-[100vw] overflow-visible border-b border-[#0f3d22] bg-[#020804]/95 supports-[backdrop-filter]:bg-[#020804]/90 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3">
           <div
             aria-label="Logo de GankerGames"
@@ -772,6 +774,8 @@ export default function PublicProfilePage() {
                 className="h-8 w-8 object-contain"
               />
             </button>
+
+            {currentUser?.id && <GkgMessagesButton />}
 
             {currentUser?.id && (
               <ProfileNotificationCenter
@@ -985,6 +989,12 @@ export default function PublicProfilePage() {
             </div>
           </Card>
 
+          <PublicSpiritCollectionCard
+            profile={profile}
+            currentUser={currentUser}
+            supabase={supabase}
+          />
+
           <Card className="hidden md:block">
             <h2 className="mb-5 text-lg font-black">Seguidores</h2>
             <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-[#1eff7a]/15">
@@ -1072,6 +1082,205 @@ export default function PublicProfilePage() {
   );
 }
 
+
+
+function PublicSpiritCollectionCard({ profile, currentUser, supabase }) {
+  const [catalog, setCatalog] = useState([]);
+  const [collection, setCollection] = useState([]);
+  const [stats, setStats] = useState({
+    total_spirits: 0,
+    owned_spirits: 0,
+    wanted_spirits: 0,
+    trade_spirits: 0,
+    rating: 0,
+    completed_exchanges: 0,
+  });
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  const catalogById = useMemo(() => new Map((catalog || []).map((item) => [String(item.id), item])), [catalog]);
+  const availableCollection = useMemo(
+    () => (collection || []).filter((item) => ["gift", "trade", "help"].includes(item.status)).slice(0, 6),
+    [collection]
+  );
+  const wantedCollection = useMemo(
+    () => (collection || []).filter((item) => item.status === "wanted").slice(0, 6),
+    [collection]
+  );
+
+  async function getAuthHeaders() {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  async function loadPublicSpirits() {
+    if (!profile?.id) return;
+
+    setLoading(true);
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(`/api/espiritus-gkg?profile_id=${encodeURIComponent(profile.id)}`, {
+        headers,
+        cache: "no-store",
+      });
+      const payload = await response.json();
+
+      if (!response.ok) throw new Error(payload?.error || "No se pudo cargar Espíritus GKG.");
+
+      setCatalog(payload.catalog || []);
+      setCollection(payload.own_collection || []);
+      setStats(payload.stats || {});
+    } catch (error) {
+      setMessage(error.message || "No se pudo cargar Espíritus GKG.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadPublicSpirits();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
+
+  async function sendMessageForSpirit(spiritId) {
+    if (!currentUser?.id) {
+      setMessage("Inicia sesión para enviar mensaje por Espíritus GKG.");
+      return;
+    }
+
+    if (!spiritId || !profile?.id || sending) return;
+
+    setSending(true);
+    setMessage("");
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch("/api/espiritus-gkg", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body: JSON.stringify({
+          action: "send_message",
+          spirit_id: spiritId,
+          receiver_profile_id: profile.id,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) throw new Error(payload?.error || "No se pudo enviar el mensaje.");
+
+      setMessage(payload.message || "Mensaje enviado.");
+    } catch (error) {
+      setMessage(error.message || "No se pudo enviar el mensaje.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <Card>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.26em] text-[#63ff9b]">Espíritus GKG</p>
+          <h2 className="mt-1 text-lg font-black">Colección de Espíritus</h2>
+        </div>
+        <Zap className="text-[#63ff9b]" size={24} />
+      </div>
+
+      {loading ? (
+        <p className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/70 p-4 text-sm font-bold text-[#63ff9b]">
+          Cargando colección...
+        </p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/75 p-3">
+              <p className="text-lg font-black text-white">{stats.owned_spirits || 0}/{stats.total_spirits || 0}</p>
+              <p className="text-xs text-zinc-400">Conseguidos</p>
+            </div>
+            <div className="rounded-2xl border border-cyan-300/15 bg-cyan-300/10 p-3">
+              <p className="text-lg font-black text-white">{stats.wanted_spirits || 0}</p>
+              <p className="text-xs text-zinc-400">Buscados</p>
+            </div>
+            <div className="rounded-2xl border border-fuchsia-300/15 bg-fuchsia-400/10 p-3">
+              <p className="text-lg font-black text-white">{stats.trade_spirits || 0}</p>
+              <p className="text-xs text-zinc-400">Intercambio</p>
+            </div>
+            <div className="rounded-2xl border border-yellow-300/15 bg-yellow-300/10 p-3">
+              <p className="text-lg font-black text-white">{stats.rating ? `${stats.rating}/5` : "—"}</p>
+              <p className="text-xs text-zinc-400">Reputación</p>
+            </div>
+          </div>
+
+          {availableCollection.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/70 p-4">
+              <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#63ff9b]">
+                Disponibles
+              </p>
+              <div className="space-y-2">
+                {availableCollection.map((item) => {
+                  const spirit = catalogById.get(String(item.spirit_id));
+                  const statusLabel = item.status === "gift" ? "Regalo" : item.status === "help" ? "Ayuda" : "Intercambio";
+
+                  return (
+                    <div key={item.id} className="flex items-center justify-between gap-2 rounded-2xl border border-[#1eff7a]/10 bg-[#020804]/75 p-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-white">{spirit?.name || "Espíritu GKG"}</p>
+                        <p className="text-[11px] font-bold text-zinc-500">{statusLabel}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => sendMessageForSpirit(item.spirit_id)}
+                        disabled={sending || currentUser?.id === profile?.id}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[#1eff7a]/30 bg-[#1eff7a]/10 px-3 py-2 text-[11px] font-black text-[#63ff9b] disabled:opacity-50"
+                      >
+                        <MessageCircle size={13} />
+                        Mensaje
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {wantedCollection.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-cyan-300/15 bg-cyan-300/10 p-4">
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-cyan-100">Busca</p>
+              <div className="flex flex-wrap gap-2">
+                {wantedCollection.map((item) => {
+                  const spirit = catalogById.get(String(item.spirit_id));
+                  return (
+                    <span key={item.id} className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs font-bold text-cyan-100">
+                      {spirit?.name || "Espíritu"}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {!availableCollection.length && !wantedCollection.length && (
+            <p className="mt-4 rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/70 p-4 text-sm text-zinc-400">
+              Este usuario todavía no ha marcado Espíritus visibles.
+            </p>
+          )}
+        </>
+      )}
+
+      {message && (
+        <p className="mt-4 rounded-2xl border border-[#1eff7a]/20 bg-[#021509]/80 p-3 text-xs font-bold text-[#63ff9b]">
+          {message}
+        </p>
+      )}
+    </Card>
+  );
+}
 
 
 const GKG_TWINKLE_STARS = [

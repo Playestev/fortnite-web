@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import ProfileNotificationCenter from "@/components/ProfileNotificationCenter";
+import GkgMessagesButton from "@/components/GkgMessagesButton";
 import {
   BadgeCheck,
   CalendarDays,
@@ -47,6 +48,7 @@ import {
 } from "lucide-react";
 
 const LANG_STORAGE_KEY = "gkg-lang";
+const ESPIRITUS_VISIBLE = false;
 const GKG_WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_GKG_WHATSAPP_NUMBER || "526568558434";
 
 const translations = {
@@ -68,6 +70,7 @@ const translations = {
     tabs: {
       profile: "Perfil",
       community: "Comunidad",
+      spirits: "Espíritus",
       prizes: "Premios",
       giveaways: "Sorteos",
       settings: "Configuración",
@@ -265,6 +268,7 @@ const translations = {
     tabs: {
       profile: "Profile",
       community: "Community",
+      spirits: "Spirits",
       prizes: "Prizes",
       giveaways: "Giveaways",
       settings: "Settings",
@@ -647,6 +651,9 @@ function getTabs(t) {
   return [
     { name: t.tabs.profile, key: "Perfil", icon: User },
     { name: t.tabs.community, key: "Comunidad", icon: UsersRound },
+    ...(ESPIRITUS_VISIBLE
+      ? [{ name: t.tabs.spirits || "Espíritus", key: "Espiritus", icon: Zap }]
+      : []),
     { name: "VIP", key: "VIP", icon: Crown },
     { name: t.tabs.prizes, key: "Premios", icon: Trophy },
     { name: t.tabs.giveaways, key: "Sorteos", icon: Gift },
@@ -2537,6 +2544,7 @@ export default function PerfilPage() {
       const allowedTabs = [
         "Perfil",
         "Comunidad",
+        "Espiritus",
         "VIP",
         "Premios",
         "Sorteos",
@@ -3862,7 +3870,7 @@ export default function PerfilPage() {
         className="hidden"
         onChange={handleAvatarFileChange}
       />
-      <header className="sticky top-0 z-[100] w-full max-w-[100vw] overflow-hidden border-b border-[#0f3d22] bg-[#020804]/95 backdrop-blur-xl supports-[backdrop-filter]:bg-[#020804]/90">
+      <header className="sticky top-0 z-[100] w-full max-w-[100vw] overflow-visible border-b border-[#0f3d22] bg-[#020804]/95 backdrop-blur-xl supports-[backdrop-filter]:bg-[#020804]/90">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3">
           <div
             aria-label="Logo de GankerGames"
@@ -3917,6 +3925,8 @@ export default function PerfilPage() {
                 className="h-8 w-8 object-contain"
               />
             </button>
+
+            <GkgMessagesButton />
 
             <ProfileNotificationCenter
               supabase={supabase}
@@ -4154,7 +4164,7 @@ export default function PerfilPage() {
         </div>
       </section>
 
-      <section className="sticky top-0 z-[55] hidden w-full max-w-[100vw] overflow-hidden border-b border-[#0f3d22] bg-[#020804]/95 backdrop-blur-xl md:block">
+      <section className="sticky top-0 z-[55] hidden w-full max-w-[100vw] overflow-visible border-b border-[#0f3d22] bg-[#020804]/95 backdrop-blur-xl md:block">
         <div className="mx-auto w-full max-w-7xl px-3 sm:px-4">
           <div className="flex gap-4 overflow-x-auto">
             {tabs.map((tab) => {
@@ -5038,6 +5048,10 @@ export default function PerfilPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {ESPIRITUS_VISIBLE && activeTab === "Espiritus" && (
+        <EspiritusGkgTab profile={profile} user={user} supabase={supabase} />
       )}
 
       {activeTab === "VIP" && (
@@ -8794,6 +8808,636 @@ function CreatorPanel({ lang, supabase, accountRole }) {
     </section>
   );
 }
+
+const SPIRIT_STATUS_OPTIONS = [
+  {
+    key: "owned",
+    label: "Ya lo tengo",
+    shortLabel: "Conseguido",
+    className: "border-[#1eff7a]/45 bg-[#1eff7a]/12 text-[#63ff9b]",
+  },
+  {
+    key: "wanted",
+    label: "Lo busco",
+    shortLabel: "Busco",
+    className: "border-cyan-300/45 bg-cyan-300/12 text-cyan-100",
+  },
+  {
+    key: "gift",
+    label: "Lo regalo",
+    shortLabel: "Regalo",
+    className: "border-yellow-300/45 bg-yellow-300/12 text-yellow-100",
+  },
+  {
+    key: "trade",
+    label: "Intercambio",
+    shortLabel: "Intercambio",
+    className: "border-fuchsia-300/45 bg-fuchsia-400/12 text-fuchsia-100",
+  },
+  {
+    key: "help",
+    label: "Ayudo a conseguir",
+    shortLabel: "Ayuda",
+    className: "border-orange-300/45 bg-orange-400/12 text-orange-100",
+  },
+  {
+    key: "completed",
+    label: "Completado",
+    shortLabel: "Completado",
+    className: "border-zinc-300/45 bg-zinc-300/12 text-zinc-100",
+  },
+];
+
+const SPIRIT_FILTERS = [
+  { key: "all", label: "Todos" },
+  { key: "wanted", label: "Los que busco" },
+  { key: "gift", label: "Los que regalo" },
+  { key: "trade", label: "Los que intercambio" },
+  { key: "help", label: "Los que ayudan a conseguir" },
+  { key: "completed", label: "Completados" },
+];
+
+const SPIRIT_REPUTATION_ACTIONS = [
+  { key: "completed", label: "Intercambio completado" },
+  { key: "trusted", label: "Usuario confiable" },
+  { key: "no_response", label: "No respondió" },
+  { key: "asked_account", label: "Intentó pedir cuenta" },
+  { key: "report", label: "Reportar" },
+];
+
+function getSpiritStatusConfig(status) {
+  return SPIRIT_STATUS_OPTIONS.find((item) => item.key === status) || {
+    key: "none",
+    label: "Sin marcar",
+    shortLabel: "Sin marcar",
+    className: "border-zinc-700 bg-zinc-900/70 text-zinc-400",
+  };
+}
+
+function getSpiritDisplayName(profile = {}) {
+  return profile?.display_name || profile?.ganker_user || profile?.fortnite_user || "Jugador GKG";
+}
+
+function getSpiritUserName(profile = {}) {
+  return profile?.ganker_user || profile?.fortnite_user || "Usuario GKG";
+}
+
+function formatSpiritMessageDate(value) {
+  if (!value) return "Ahora";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "Ahora";
+
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(parsed);
+}
+
+function EspiritusGkgTab({ profile, user, supabase }) {
+  const [catalog, setCatalog] = useState([]);
+  const [ownCollection, setOwnCollection] = useState([]);
+  const [communityEntries, setCommunityEntries] = useState([]);
+  const [messages, setMessages] = useState([]);
+  const [stats, setStats] = useState({
+    total_spirits: 0,
+    owned_spirits: 0,
+    wanted_spirits: 0,
+    trade_spirits: 0,
+    rating: 0,
+    completed_exchanges: 0,
+  });
+  const [searchText, setSearchText] = useState("");
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [loadingSpirits, setLoadingSpirits] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [spiritMessage, setSpiritMessage] = useState("");
+
+  const collectionBySpiritId = useMemo(() => {
+    return new Map((ownCollection || []).map((item) => [String(item.spirit_id), item]));
+  }, [ownCollection]);
+
+  const catalogById = useMemo(() => {
+    return new Map((catalog || []).map((item) => [String(item.id), item]));
+  }, [catalog]);
+
+  const displayUserName = profile?.ganker_user || profile?.fortnite_user || user?.email?.split("@")[0] || "GankerGames";
+
+  async function getAuthHeaders() {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  async function loadSpirits() {
+    if (!user?.id) return;
+
+    setLoadingSpirits(true);
+    setSpiritMessage("");
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch(`/api/espiritus-gkg?profile_id=${encodeURIComponent(user.id)}`, {
+        headers,
+        cache: "no-store",
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo cargar Espíritus GKG.");
+      }
+
+      setCatalog(payload.catalog || []);
+      setOwnCollection(payload.own_collection || []);
+      setCommunityEntries(payload.community || []);
+      setMessages(payload.messages || []);
+      setStats(payload.stats || {});
+    } catch (error) {
+      setSpiritMessage(error.message || "No se pudo cargar Espíritus GKG.");
+    } finally {
+      setLoadingSpirits(false);
+    }
+  }
+
+  useEffect(() => {
+    loadSpirits();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const filteredCatalog = useMemo(() => {
+    const cleanSearch = searchText.trim().toLowerCase();
+
+    return (catalog || []).filter((spirit) => {
+      const ownStatus = collectionBySpiritId.get(String(spirit.id))?.status || "";
+      const searchable = `${spirit.name || ""} ${spirit.element || ""}`.toLowerCase();
+      const matchesSearch = !cleanSearch || searchable.includes(cleanSearch);
+      const matchesFilter =
+        activeFilter === "all" ||
+        ownStatus === activeFilter ||
+        (activeFilter === "completed" && ["owned", "completed"].includes(ownStatus));
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [activeFilter, catalog, collectionBySpiritId, searchText]);
+
+  async function saveSpiritStatus(spiritId, status) {
+    if (!user?.id || actionLoading) return;
+
+    setActionLoading(true);
+    setSpiritMessage("");
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch("/api/espiritus-gkg", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body: JSON.stringify({
+          action: "save_status",
+          spirit_id: spiritId,
+          status,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo guardar el Espíritu.");
+      }
+
+      setSpiritMessage(payload.message || "Colección actualizada.");
+      await loadSpirits();
+    } catch (error) {
+      setSpiritMessage(error.message || "No se pudo guardar el Espíritu.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function sendSpiritMessage(entry) {
+    if (!user?.id || !entry?.profile_id || actionLoading) return;
+
+    setActionLoading(true);
+    setSpiritMessage("");
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch("/api/espiritus-gkg", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body: JSON.stringify({
+          action: "send_message",
+          spirit_id: entry.spirit_id,
+          receiver_profile_id: entry.profile_id,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo enviar el mensaje.");
+      }
+
+      setSpiritMessage(payload.message || "Mensaje enviado.");
+      await loadSpirits();
+    } catch (error) {
+      setSpiritMessage(error.message || "No se pudo enviar el mensaje.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function markSpiritReputation(entry, reputationAction) {
+    if (!user?.id || !entry?.profile_id || actionLoading) return;
+
+    setActionLoading(true);
+    setSpiritMessage("");
+
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch("/api/espiritus-gkg", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body: JSON.stringify({
+          action: "reputation",
+          spirit_id: entry.spirit_id,
+          target_profile_id: entry.profile_id,
+          reputation_action: reputationAction,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo registrar reputación.");
+      }
+
+      setSpiritMessage(payload.message || "Reputación registrada.");
+      await loadSpirits();
+    } catch (error) {
+      setSpiritMessage(error.message || "No se pudo registrar reputación.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  function getAvailableCommunityEntries(spiritId) {
+    return (communityEntries || [])
+      .filter(
+        (entry) =>
+          String(entry.spirit_id) === String(spiritId) &&
+          String(entry.profile_id) !== String(user?.id || "") &&
+          ["gift", "trade", "help"].includes(entry.status)
+      )
+      .slice(0, 4);
+  }
+
+  function getSeekingCommunityEntries(spiritId) {
+    return (communityEntries || [])
+      .filter(
+        (entry) =>
+          String(entry.spirit_id) === String(spiritId) &&
+          String(entry.profile_id) !== String(user?.id || "") &&
+          entry.status === "wanted"
+      )
+      .slice(0, 3);
+  }
+
+  return (
+    <section className="mx-auto max-w-7xl px-3 py-6 sm:px-4 sm:py-8">
+      <div className="mb-5 overflow-hidden rounded-[2rem] border border-[#1eff7a]/25 bg-[#020804]/88 p-5 shadow-[0_0_32px_rgba(30,255,122,.12)] sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.34em] text-[#63ff9b] sm:text-xs">
+              Nuevo apartado
+            </p>
+            <h2 className="mt-2 text-3xl font-black italic leading-tight text-white sm:text-4xl">
+              Espíritus GKG
+            </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-300">
+              Busca por nombre, marca cuáles tienes, cuáles buscas y conecta con jugadores para regalar, intercambiar o ayudar a completar la colección.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-yellow-300/25 bg-yellow-300/10 p-4 text-sm leading-6 text-yellow-50 lg:max-w-md">
+            <div className="mb-2 flex items-center gap-2 font-black text-yellow-200">
+              <AlertTriangle size={18} />
+              Aviso de seguridad
+            </div>
+            Ganker Games solo ayuda a conectar jugadores para completar su colección de Espíritus en Fortnite. No compartas correos, contraseñas, códigos de acceso ni datos personales. Los intercambios deben realizarse dentro del juego y bajo responsabilidad de cada usuario.
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[330px_1fr]">
+        <aside className="space-y-5">
+          <Card>
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-[#63ff9b]">
+              Colección de {displayUserName}
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <SpiritStatBox label="Conseguidos" value={`${stats.owned_spirits || 0}/${stats.total_spirits || 0}`} icon={Trophy} />
+              <SpiritStatBox label="Buscados" value={stats.wanted_spirits || 0} icon={Search} />
+              <SpiritStatBox label="Intercambio" value={stats.trade_spirits || 0} icon={Gift} />
+              <SpiritStatBox label="Completados" value={stats.completed_exchanges || 0} icon={BadgeCheck} />
+            </div>
+            <div className="mt-4 rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/70 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-bold text-zinc-300">Reputación</span>
+                <span className="inline-flex items-center gap-1 text-lg font-black text-yellow-200">
+                  <Star size={18} fill="currentColor" />
+                  {stats.rating ? `${stats.rating}/5` : "Sin calificar"}
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-zinc-500">
+                Intercambios completados: {stats.completed_exchanges || 0}
+              </p>
+            </div>
+          </Card>
+
+          <Card>
+            <label className="text-xs font-black uppercase tracking-[0.22em] text-[#63ff9b]">
+              Buscador
+            </label>
+            <div className="mt-3 flex items-center gap-3 rounded-2xl border border-[#1eff7a]/25 bg-[#020804] px-4 py-3">
+              <Search size={18} className="shrink-0 text-[#63ff9b]" />
+              <input
+                type="text"
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+                placeholder="Galaxy, Agua, Fuego, Duck, Dorado..."
+                className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-zinc-500"
+              />
+              {searchText && (
+                <button type="button" onClick={() => setSearchText("")} className="text-zinc-400 hover:text-white">
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+          </Card>
+
+          <Card>
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#63ff9b]">
+              Filtros
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {SPIRIT_FILTERS.map((filter) => (
+                <button
+                  key={filter.key}
+                  type="button"
+                  onClick={() => setActiveFilter(filter.key)}
+                  className={`rounded-full border px-3 py-2 text-xs font-black transition ${
+                    activeFilter === filter.key
+                      ? "border-[#1eff7a]/60 bg-[#1eff7a]/15 text-[#63ff9b]"
+                      : "border-[#1eff7a]/15 bg-[#021509] text-zinc-400 hover:border-[#1eff7a]/40 hover:text-white"
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </Card>
+        </aside>
+
+        <section className="space-y-5">
+          {spiritMessage && (
+            <div className="rounded-2xl border border-[#1eff7a]/25 bg-[#021509]/85 p-4 text-sm font-bold text-[#63ff9b]">
+              {spiritMessage}
+            </div>
+          )}
+
+          <div className="rounded-[2rem] border border-[#1eff7a]/20 bg-[#020804]/70 p-4 sm:p-5">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-xl font-black text-white">Lista de Espíritus</h3>
+                <p className="text-sm text-zinc-400">
+                  {loadingSpirits ? "Cargando..." : `${filteredCatalog.length} resultado(s)`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={loadSpirits}
+                disabled={loadingSpirits}
+                className="rounded-2xl border border-[#1eff7a]/35 bg-[#1eff7a]/10 px-4 py-2 text-sm font-black text-[#63ff9b] disabled:opacity-60"
+              >
+                Actualizar
+              </button>
+            </div>
+
+            {loadingSpirits ? (
+              <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/80 p-6 text-center font-black text-[#63ff9b]">
+                Cargando Espíritus GKG...
+              </div>
+            ) : filteredCatalog.length ? (
+              <div className="grid gap-4 xl:grid-cols-2">
+                {filteredCatalog.map((spirit) => {
+                  const ownEntry = collectionBySpiritId.get(String(spirit.id));
+                  const ownStatus = ownEntry?.status || "none";
+                  const statusConfig = getSpiritStatusConfig(ownStatus);
+                  const availableEntries = getAvailableCommunityEntries(spirit.id);
+                  const seekingEntries = getSeekingCommunityEntries(spirit.id);
+
+                  return (
+                    <article
+                      key={spirit.id}
+                      className="overflow-hidden rounded-3xl border border-[#1eff7a]/15 bg-[#021509]/72 p-4 transition hover:border-[#1eff7a]/35 hover:shadow-[0_0_26px_rgba(30,255,122,.10)]"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#1eff7a]/25 bg-[radial-gradient(circle_at_50%_30%,rgba(30,255,122,.28),rgba(2,8,4,.92))] text-3xl shadow-[0_0_18px_rgba(30,255,122,.13)]">
+                          {spirit.image_url ? (
+                            <img src={spirit.image_url} alt={spirit.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <span aria-hidden="true">✨</span>
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="min-w-0 break-words text-lg font-black text-white">
+                              {spirit.name}
+                            </h4>
+                            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${statusConfig.className}`}>
+                              {statusConfig.shortLabel}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs font-bold text-zinc-500">
+                            {spirit.element || "Espíritu Fortnite"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {SPIRIT_STATUS_OPTIONS.map((option) => (
+                          <button
+                            key={option.key}
+                            type="button"
+                            onClick={() => saveSpiritStatus(spirit.id, option.key)}
+                            disabled={actionLoading}
+                            className={`rounded-full border px-3 py-2 text-[11px] font-black transition disabled:opacity-60 ${
+                              ownStatus === option.key
+                                ? option.className
+                                : "border-[#1eff7a]/15 bg-[#020804] text-zinc-400 hover:border-[#1eff7a]/40 hover:text-white"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                        {ownStatus !== "none" && (
+                          <button
+                            type="button"
+                            onClick={() => saveSpiritStatus(spirit.id, "remove")}
+                            disabled={actionLoading}
+                            className="rounded-full border border-red-400/35 bg-red-500/10 px-3 py-2 text-[11px] font-black text-red-200 disabled:opacity-60"
+                          >
+                            Quitar
+                          </button>
+                        )}
+                      </div>
+
+                      {(availableEntries.length > 0 || seekingEntries.length > 0) && (
+                        <div className="mt-4 space-y-3 rounded-2xl border border-[#1eff7a]/12 bg-[#020804]/65 p-3">
+                          {availableEntries.length > 0 && (
+                            <div>
+                              <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-[#63ff9b]">
+                                Disponibles en comunidad
+                              </p>
+                              <div className="space-y-2">
+                                {availableEntries.map((entry) => {
+                                  const entryStatus = getSpiritStatusConfig(entry.status);
+                                  return (
+                                    <div key={entry.id} className="rounded-2xl border border-[#1eff7a]/12 bg-[#021509] p-3">
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <p className="truncate text-sm font-black text-white">
+                                            {getSpiritDisplayName(entry.profile)}
+                                          </p>
+                                          <p className="text-xs text-zinc-500">@{getSpiritUserName(entry.profile)}</p>
+                                        </div>
+                                        <span className={`rounded-full border px-2 py-1 text-[10px] font-black ${entryStatus.className}`}>
+                                          {entryStatus.shortLabel}
+                                        </span>
+                                      </div>
+
+                                      <div className="mt-3 flex flex-wrap gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => sendSpiritMessage(entry)}
+                                          disabled={actionLoading}
+                                          className="inline-flex items-center gap-1.5 rounded-full border border-[#1eff7a]/35 bg-[#1eff7a]/10 px-3 py-2 text-[11px] font-black text-[#63ff9b] disabled:opacity-60"
+                                        >
+                                          <MessageCircle size={14} />
+                                          Enviar mensaje
+                                        </button>
+                                        {SPIRIT_REPUTATION_ACTIONS.map((rep) => (
+                                          <button
+                                            key={rep.key}
+                                            type="button"
+                                            onClick={() => markSpiritReputation(entry, rep.key)}
+                                            disabled={actionLoading}
+                                            className="rounded-full border border-zinc-600 bg-zinc-900/70 px-3 py-2 text-[10px] font-black text-zinc-300 transition hover:border-[#1eff7a]/40 hover:text-white disabled:opacity-60"
+                                          >
+                                            {rep.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {seekingEntries.length > 0 && (
+                            <div>
+                              <p className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-cyan-100">
+                                Usuarios que lo buscan
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {seekingEntries.map((entry) => (
+                                  <span key={entry.id} className="rounded-full border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs font-bold text-cyan-100">
+                                    @{getSpiritUserName(entry.profile)}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/80 p-6 text-center text-sm text-zinc-400">
+                No encontramos Espíritus con ese filtro o búsqueda.
+              </div>
+            )}
+          </div>
+
+          <Card>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-black text-white">Mensajes internos</h3>
+                <p className="text-sm text-zinc-400">Últimos mensajes de Espíritus GKG.</p>
+              </div>
+              <MessageCircle className="text-[#63ff9b]" size={24} />
+            </div>
+
+            <div className="space-y-3">
+              {(messages || []).slice(0, 8).length ? (
+                (messages || []).slice(0, 8).map((message) => {
+                  const spirit = catalogById.get(String(message.spirit_id));
+                  const isSender = String(message.sender_id) === String(user?.id || "");
+                  const otherProfile = isSender ? message.receiver : message.sender;
+
+                  return (
+                    <div key={message.id} className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/70 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-black text-white">
+                          {isSender ? "Para" : "De"}: {getSpiritDisplayName(otherProfile)}
+                        </p>
+                        <span className="text-[11px] font-bold text-zinc-500">
+                          {formatSpiritMessageDate(message.created_at)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs font-bold text-[#63ff9b]">
+                        Espíritu: {spirit?.name || "Espíritu GKG"}
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-zinc-300">{message.message}</p>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/70 p-4 text-sm text-zinc-400">
+                  Aún no tienes mensajes de Espíritus GKG.
+                </p>
+              )}
+            </div>
+          </Card>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function SpiritStatBox({ label, value, icon: Icon }) {
+  return (
+    <div className="rounded-2xl border border-[#1eff7a]/15 bg-[#021509]/75 p-4">
+      <Icon className="mb-2 text-[#63ff9b]" size={22} />
+      <p className="text-xl font-black text-white">{value}</p>
+      <p className="mt-1 text-xs text-zinc-400">{label}</p>
+    </div>
+  );
+}
+
 
 function InfoMini({ label, value }) {
   return (
