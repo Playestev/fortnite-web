@@ -1222,6 +1222,181 @@ function getApiImageSrc(rawUrl) {
   }
 }
 
+function getBundlePresentation(item, language) {
+  const name = getDisplayName(item);
+  if (item._typeKey !== "bundle") return { title: name, caption: "", heroes: [], extras: [] };
+  const officialName = asText(item.bundle?.name).trim() || name;
+  const title = /\b(?:lote|bundle|paquete|pack)\b/i.test(officialName)
+    ? officialName : language === "en" ? `${officialName} Bundle` : `Lote ${officialName}`;
+  const included = getIncludedItems(item);
+  const count = included.length;
+  const caption = count ? (language === "en"
+    ? `Includes ${count} ${count === 1 ? "item" : "items"}`
+    : `Incluye ${count} ${count === 1 ? "objeto" : "objetos"}`) : "";
+  if (item.hasBundleArtwork !== false || item.bundle?.image) return { title, caption, heroes: [], extras: [] };
+  const entries = included.map((entry) => ({
+    image: normalizeUrl(entry.image || entry.galleryImages?.[0] || entry.images?.featured || entry.images?.icon),
+    outfit: getRawTypeKey(entry.typeEnglish || entry.typeLocalized || entry.type, entry) === "outfit",
+  })).filter(({ image }) => image);
+  const images = dedupeStrings([...entries.filter(({ outfit }) => outfit), ...entries].map(({ image }) => image));
+  const heroCount = Math.min(2, new Set(entries.filter(({ outfit }) => outfit).map(({ image }) => image)).size) || 1;
+  return { title, caption, heroes: images.slice(0, heroCount), extras: images.slice(heroCount, heroCount + 4) };
+}
+
+async function buildShopGroupPng(group, language) {
+  const count = group.items.length;
+  const columns = Math.min(Math.max(1, count), count >= 8 ? 4 : 3);
+  const cardScale = 1.6;
+  const width = 32 + columns * 308 * cardScale + (columns - 1) * 16;
+  const rows = Math.ceil(group.items.length / columns);
+  const height = 116 + rows * 328 * cardScale + Math.max(0, rows - 1) * 16;
+  const scale = Math.min(1.5, 12000 / height, Math.sqrt(16000000 / (width * height)));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil(width * scale);
+  canvas.height = Math.ceil(height * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas unavailable");
+  ctx.scale(scale, scale);
+  const backdrop = ctx.createLinearGradient(0, 0, width, height);
+  backdrop.addColorStop(0, "#143e2e");
+  backdrop.addColorStop(1, "#050f09");
+  ctx.fillStyle = backdrop;
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#67ff9a";
+  ctx.font = "bold 20px Arial";
+  ctx.fillText("GANKER GAMES  /  TIENDA FORTNITE", 22, 36);
+  ctx.fillStyle = "#fff";
+  ctx.font = "900 34px Arial";
+  ctx.fillText(group.title.toUpperCase(), 22, 80, width - 44);
+
+  function loadImage(url) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      const timer = window.setTimeout(() => resolve(null), 9000);
+      img.onload = () => { window.clearTimeout(timer); resolve(img); };
+      img.onerror = () => { window.clearTimeout(timer); resolve(null); };
+      img.src = getApiImageSrc(url);
+    });
+  }
+
+  // Some API artwork contains a wide transparent border. Fit its visible
+  // bounds, but draw from the original image to preserve export quality.
+  const probe = document.createElement("canvas");
+  const probeCtx = probe.getContext("2d", { willReadFrequently: true });
+  function drawArtwork(image, x, y, width, height) {
+    const iw = image.naturalWidth, ih = image.naturalHeight;
+    if (!iw || !ih) return;
+    let sx = 0, sy = 0, sw = iw, sh = ih;
+    if (probeCtx) {
+      try {
+        const ratio = Math.min(1, 256 / Math.max(iw, ih));
+        const pw = probe.width = Math.max(1, Math.round(iw * ratio));
+        const ph = probe.height = Math.max(1, Math.round(ih * ratio));
+        probeCtx.drawImage(image, 0, 0, pw, ph);
+        const pixels = probeCtx.getImageData(0, 0, pw, ph).data;
+        let left = pw, top = ph, right = -1, bottom = -1;
+        for (let py = 0; py < ph; py++) {
+          for (let px = 0; px < pw; px++) {
+            if (pixels[(py * pw + px) * 4 + 3] === 0) continue;
+            left = Math.min(left, px); right = Math.max(right, px);
+            top = Math.min(top, py); bottom = Math.max(bottom, py);
+          }
+        }
+        if (right >= left) {
+          sx = Math.max(0, left - 2) * iw / pw;
+          sy = Math.max(0, top - 2) * ih / ph;
+          sw = Math.min(pw, right + 3) * iw / pw - sx;
+          sh = Math.min(ph, bottom + 3) * ih / ph - sy;
+        }
+      } catch {
+        // Still export the original artwork if pixel inspection is unavailable.
+      }
+    }
+    const fit = Math.min(width / sw, height / sh);
+    const w = sw * fit, h = sh * fit;
+    ctx.drawImage(image, sx, sy, sw, sh, x + (width - w) / 2, y + (height - h) / 2, w, h);
+  }
+
+  for (let start = 0; start < count; start += 8) {
+    await Promise.all(group.items.slice(start, start + 8).map(async (item, offset) => {
+      const index = start + offset;
+      const bundle = getBundlePresentation(item, language);
+      const [heroes, extras] = await Promise.all([bundle.heroes, bundle.extras].map(async (urls) =>
+        (await Promise.all(urls.map(loadImage))).filter(Boolean)));
+      const candidates = heroes.length ? [] : (item._galleryImages || []).slice(0, 2);
+      let img = null;
+      for (const url of candidates) {
+        img = await loadImage(url);
+        if (img) break;
+      }
+      ctx.save();
+      ctx.translate(16 + index % columns * (308 * cardScale + 16),
+        100 + Math.floor(index / columns) * (328 * cardScale + 16));
+      ctx.scale(cardScale, cardScale);
+      const x = 0;
+      const y = 0;
+      const gradient = ctx.createLinearGradient(x, y, x, y + 328);
+      gradient.addColorStop(0, "#138956");
+      gradient.addColorStop(1, "#43ad87");
+      ctx.beginPath();
+      ctx.roundRect(x, y, 308, 328, 19);
+      ctx.clip();
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x, y, 308, 328);
+      if (img) drawArtwork(img, x + 6, y + 6, 296, bundle.caption ? 191 : 238);
+      const fade = ctx.createLinearGradient(x, y + 196, x, y + 328);
+      fade.addColorStop(0, "rgba(4,24,17,0)");
+      fade.addColorStop(1, "#061a12");
+      ctx.fillStyle = fade;
+      ctx.fillRect(x, y + 196, 308, 132);
+      heroes.forEach((hero, i) => {
+        const cell = 292 / heroes.length;
+        drawArtwork(hero, x + 8 + i * cell, y + 4, cell, extras.length ? 150 : 193);
+      });
+      if (heroes.length && extras.length) {
+        ctx.fillStyle = "#092d20";
+        ctx.beginPath();
+        ctx.roundRect(x + 14, y + 157, 280, 43, 9);
+        ctx.fill();
+        extras.forEach((extra, i) => {
+          const cell = 272 / extras.length;
+          drawArtwork(extra, x + 18 + i * cell, y + 160, cell, 37);
+        });
+      }
+      if (item._isFreshNew) {
+        ctx.fillStyle = "#f1ff36";
+        ctx.beginPath();
+        ctx.roundRect(x + 14, y + 211, 94, 22, 6);
+        ctx.fill();
+        ctx.fillStyle = "#111";
+        ctx.font = "italic 900 14px Arial";
+        ctx.fillText(language === "en" ? "NEW!" : "¡NUEVO!", x + 22, y + 227);
+      }
+      ctx.fillStyle = "#fff";
+      ctx.font = "900 21px Arial";
+      ctx.fillText(bundle.title, x + 14, y + (bundle.caption ? 251 : 255), 280);
+      if (bundle.caption) {
+        ctx.fillStyle = "#d4e7da";
+        ctx.font = "bold 13px Arial";
+        ctx.fillText(bundle.caption, x + 14, y + 268, 280);
+      }
+      ctx.fillStyle = "#67ff9a";
+      ctx.font = "900 36px Arial";
+      const price = Number(item.price);
+      ctx.fillText(price > 0 ? localPrice(language, price) : "—", x + 14, y + (bundle.caption ? 300 : 288), 280);
+      ctx.fillStyle = "#d4e7da";
+      ctx.font = "bold 17px Arial";
+      ctx.fillText(price > 0 ? formatVbucks(price) + (language === "en" ? " V-Bucks" : " paVos") : "—", x + 14, y + (bundle.caption ? 320 : 314), 280);
+      ctx.restore();
+    }));
+  }
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) throw new Error("PNG unavailable");
+  return blob;
+}
+
 function RotatingImage({
   images,
   alt,
@@ -3483,6 +3658,7 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
 
 function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
   const displayType = getDisplayType(item, labels);
+  const bundle = getBundlePresentation(item, language);
   const isNewArrival = Boolean(item._isFreshNew && !item._isLeavingSoon);
   const hasDepartureDate = Boolean(item._latestOutDate);
   const timeRemaining = hasDepartureDate
@@ -3528,14 +3704,29 @@ function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
               background: "linear-gradient(180deg, #146b42 0%, #0a3a26 58%, #04130d 100%)",
             }}
           >
-            <div className="absolute inset-x-1 bottom-[3.55rem] top-1 z-10 transition-transform duration-300 group-hover:scale-[1.035]">
-              <RotatingImage
+            <div className={`absolute inset-x-1 top-1 z-10 transition-transform duration-300 group-hover:scale-[1.035] ${bundle.caption ? "bottom-[4.6rem]" : "bottom-[3.55rem]"}`}>
+              {bundle.heroes.length > 0 ? (
+                <div className="relative z-10 flex h-full flex-col gap-1 px-1 pt-3">
+                  <div className="flex min-h-0 flex-1 justify-center gap-1">
+                    {bundle.heroes.map((url) => (
+                      <RotatingImage key={url} images={[url]} alt="" className="h-full min-w-0 flex-1" fitPadding={0.015} preferUncropped />
+                    ))}
+                  </div>
+                  {bundle.extras.length > 0 && (
+                    <div className="flex h-8 shrink-0 justify-center gap-1 rounded-md bg-black/40 px-1 sm:h-10">
+                      {bundle.extras.map((url) => (
+                        <RotatingImage key={url} images={[url]} alt="" className="h-full min-w-0 flex-1" fitPadding={0.035} preferUncropped />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : <RotatingImage
                 images={item._galleryImages}
                 alt={getDisplayName(item)}
                 className="h-full w-full"
                 fitPadding={0.012}
                 preferUncropped={item._typeKey !== "bundle"}
-              />
+              />}
             </div>
 
             <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,transparent_46%,rgba(0,0,0,0.16)_64%,rgba(0,0,0,0.88)_100%)]" />
@@ -3559,8 +3750,9 @@ function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
 
             <div className="absolute inset-x-0 bottom-0 z-30 p-2">
               <h2 className="line-clamp-2 min-h-[2.15em] text-[0.78rem] font-black uppercase leading-[1.05] text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.85)] sm:text-[0.9rem]">
-                {getDisplayName(item)}
+                {bundle.title}
               </h2>
+              {bundle.caption && <p className="text-[10px] font-semibold leading-tight text-emerald-100">{bundle.caption}</p>}
 
               <div className="mt-1 flex min-w-0 items-center gap-1.5">
                 <VCoinIcon className="h-4 w-4 shrink-0 text-[9px] sm:h-[18px] sm:w-[18px] sm:text-[10px]" />
@@ -4064,6 +4256,11 @@ export default function Home() {
   const [cartOpen, setCartOpen] = useState(false);
   const [cartPulse, setCartPulse] = useState(false);
   const [modalEntry, setModalEntry] = useState(null);
+  const [groupExport, setGroupExport] = useState(null);
+  useEffect(() => {
+    const href = groupExport?.href;
+    return () => { if (href) URL.revokeObjectURL(href); };
+  }, [groupExport]);
   const [sectionViews, setSectionViews] = useState({});
 
   useEffect(() => {
@@ -4196,7 +4393,7 @@ export default function Home() {
         // Se consulta en paralelo la metadata oficial: historial, tipo real de
         // oferta e imagen Product.BR. Esto evita deducir un lote por el número
         // de artículos o escoger una versión LEGO por el orden del array.
-        const newnessRequest = fetch(`/api/gkg-shop-newness?lang=${language}&schema=offers-v3`).catch(
+        const newnessRequest = fetch(`/api/gkg-shop-newness?lang=${language}&schema=offers-v5`).catch(
           () => null
         );
 
@@ -4265,11 +4462,12 @@ export default function Home() {
                 return { ...item, isFirstAppearance: false };
               }
 
-              const authoritativeGallery = Array.isArray(historyData.galleryImages)
+              const useOfferArtwork = historyData.isBundle !== true || historyData.hasBundleArtwork === true;
+              const authoritativeGallery = useOfferArtwork && Array.isArray(historyData.galleryImages)
                 ? historyData.galleryImages.filter(Boolean)
                 : [];
               const primaryImage = normalizeUrl(
-                historyData.primaryImage || authoritativeGallery[0]
+                useOfferArtwork ? historyData.primaryImage || authoritativeGallery[0] : ""
               );
               const currentIncludedItems = Array.isArray(item.includedItems)
                 ? item.includedItems
@@ -4288,6 +4486,13 @@ export default function Home() {
                     }))
                 : [];
 
+              const preserveBundle = historyData.isBundle === false &&
+                (item.isBundle === true || /^(?:bundle|lote)$/i.test(asText(item.typeEnglish).trim())) &&
+                new Set([...currentIncludedItems, ...authoritativeIncludedItems]
+                  .filter((entry) => getRawTypeKey(entry.typeEnglish || entry.typeLocalized, entry) === "outfit")
+                  .map((entry) => entry.id || getDisplayName(entry))).size > 1;
+              if (preserveBundle) return { ...item, isBundle: true, isFirstAppearance: historyData.isFirstAppearance === true };
+
               return {
                 ...item,
                 nameLocalized: historyData.offerName || item.nameLocalized,
@@ -4296,6 +4501,7 @@ export default function Home() {
                     ? historyData.isBundle
                     : item.isBundle,
                 isVehicleOffer: historyData.isVehicleOffer ?? item.isVehicleOffer,
+                hasBundleArtwork: historyData.hasBundleArtwork,
                 typeEnglish: historyData.typeEnglish || item.typeEnglish,
                 typeLocalized: historyData.typeLocalized || item.typeLocalized,
                 primaryImage: primaryImage || item.primaryImage,
@@ -4828,6 +5034,22 @@ export default function Home() {
                     <h3 className="text-xl font-black uppercase italic leading-none text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] sm:text-2xl">
                       {group.title}
                     </h3>
+                    <button
+                      type="button"
+                      title={language === "en" ? "Download section image" : "Descargar imagen de la sección"}
+                      aria-label={language === "en" ? "Download section image" : "Descargar imagen de la sección"}
+                      disabled={groupExport?.status === "loading"}
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-md hover:bg-white/10 disabled:opacity-50"
+                      onClick={async () => {
+                        setGroupExport({ id: group.id, status: "loading" });
+                        try {
+                          const png = await buildShopGroupPng(group, language);
+                          setGroupExport({ id: group.id, href: URL.createObjectURL(png), status: "ready" });
+                        } catch {
+                          setGroupExport({ id: group.id, status: "error" });
+                        }
+                      }}
+                    >
                     <svg
                       viewBox="0 0 24 24"
                       className="h-5 w-5 shrink-0 text-white/80"
@@ -4840,9 +5062,20 @@ export default function Home() {
                     >
                       <path d="m6 9 6 6 6-6" />
                     </svg>
+                    </button>
+                    {groupExport?.id === group.id && (
+                      <span className="text-xs text-[#67ff9a]" role="status">
+                        {groupExport.status === "loading" ? (language === "en" ? "Preparing PNG…" : "Preparando PNG…")
+                          : groupExport.href ? (
+                            <a href={groupExport.href} download={`GKG-${group.title.replace(/[^\p{L}\p{N}]+/gu, "-")}.png`} className="font-bold underline">
+                              {language === "en" ? "Save PNG" : "Guardar PNG"}
+                            </a>
+                          ) : (language === "en" ? "Try again" : "Intenta de nuevo")}
+                      </span>
+                    )}
                   </div>
 
-                  <div className="mx-auto grid w-full grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4 min-[1100px]:grid-cols-6 sm:gap-2">
+                  <div data-export-grid className="mx-auto grid w-full grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4 min-[1100px]:grid-cols-6 sm:gap-2">
                     {group.items.map((item) => (
                       <ShopCard
                         key={item.id}
