@@ -79,7 +79,11 @@ function getOfferPresentation(entry, language) {
     /outfit|athenacharacter/i.test(typeFor(primaryCosmetic)) &&
     cosmetics.every((cosmetic) => cosmetic === primaryCosmetic ||
       /backpack|back.?bling/i.test(typeFor(cosmetic)));
-  const isBundle = Boolean(entry?.bundle) && !outfitWithIncludedBackpack;
+  const hasMultipleOutfits = new Set(cosmetics.filter((cosmetic) =>
+    /outfit|athenacharacter/i.test(typeFor(cosmetic))
+  ).map((cosmetic) => cosmetic.id || cosmetic.name).filter(Boolean)).size > 1;
+  const bundleAsset = /bundle/i.test(entry?.newDisplayAsset?.id || entry?.newDisplayAssetPath || "");
+  const isBundle = bundleAsset || (Boolean(entry?.bundle) && !outfitWithIncludedBackpack) || hasMultipleOutfits;
   const isVehicleOffer = Array.isArray(entry.cars) && entry.cars.length > 0 &&
     !cosmetics.some((cosmetic) => /outfit|athenacharacter/i.test(typeFor(cosmetic)));
   const renderImages = Array.isArray(entry?.newDisplayAsset?.renderImages)
@@ -108,9 +112,12 @@ function getOfferPresentation(entry, language) {
       ? nonJunoRenders
       : fallbackRenders;
 
+  // The asset ID classifies the offer, but its renders can depict only one
+  // included skin. Only explicit bundle artwork disables the composition.
+  const bundleArtwork = isBundle ? uniqueImages([entry.bundle?.image]) : [];
   const galleryImages = uniqueImages([
-    isBundle ? entry.bundle.image : "",
-    ...safeRenders,
+    ...bundleArtwork,
+    ...(isBundle ? [] : safeRenders),
     ...mainCosmeticImages,
     ...cosmeticImages,
   ]);
@@ -132,9 +139,10 @@ function getOfferPresentation(entry, language) {
 
   return {
     isBundle,
+    hasBundleArtwork: bundleArtwork.length > 0,
     isVehicleOffer,
     offerName:
-      entry?.bundle?.name || primaryCosmetic?.name || "",
+      entry?.bundle?.name || (isBundle ? "" : primaryCosmetic?.name) || "",
     typeEnglish: isVehicleOffer ? "vehicle" : isBundle
       ? "bundle"
       : typeFor(primaryCosmetic),

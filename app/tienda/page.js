@@ -1233,7 +1233,7 @@ function getBundlePresentation(item, language) {
   const caption = count ? (language === "en"
     ? `Includes ${count} ${count === 1 ? "item" : "items"}`
     : `Incluye ${count} ${count === 1 ? "objeto" : "objetos"}`) : "";
-  if (item.hasBundleArtwork !== false || item.bundle?.image) return { title, caption, heroes: [], extras: [] };
+  if (item.hasBundleArtwork === true || normalizeUrl(item.bundle?.image)) return { title, caption, heroes: [], extras: [] };
   const entries = included.map((entry) => ({
     image: normalizeUrl(entry.image || entry.galleryImages?.[0] || entry.images?.featured || entry.images?.icon),
     outfit: getRawTypeKey(entry.typeEnglish || entry.typeLocalized || entry.type, entry) === "outfit",
@@ -4393,7 +4393,7 @@ export default function Home() {
         // Se consulta en paralelo la metadata oficial: historial, tipo real de
         // oferta e imagen Product.BR. Esto evita deducir un lote por el número
         // de artículos o escoger una versión LEGO por el orden del array.
-        const newnessRequest = fetch(`/api/gkg-shop-newness?lang=${language}&schema=offers-v5`).catch(
+        const newnessRequest = fetch(`/api/gkg-shop-newness?lang=${language}&schema=offers-v6`).catch(
           () => null
         );
 
