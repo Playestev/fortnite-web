@@ -3701,7 +3701,7 @@ function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
           <div
             className="relative aspect-[0.82/1] overflow-hidden sm:aspect-square"
             style={{
-              background: "linear-gradient(180deg, #146b42 0%, #0a3a26 58%, #04130d 100%)",
+              background: "var(--gkg-card-background, linear-gradient(180deg, #146b42 0%, #0a3a26 58%, #04130d 100%))",
             }}
           >
             <div className={`absolute inset-x-1 top-1 z-10 transition-transform duration-300 group-hover:scale-[1.035] ${bundle.caption ? "bottom-[4.6rem]" : "bottom-[3.55rem]"}`}>
@@ -3912,6 +3912,26 @@ function MobileMenuDrawer({ open, labels, cartCount, authHref, authLabel, onClos
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function NovemberLeaves() {
+  return (
+    <div aria-hidden="true" className="gkg-november-leaves pointer-events-none fixed inset-0 overflow-hidden">
+      {Array.from({ length: 16 }, (_, i) => (
+        <svg key={i} viewBox="0 0 40 40" className="gkg-november-leaf" style={{
+          left: `${(i * 37 + 4) % 100}%`,
+          width: `${13 + (i * 7) % 17}px`,
+          color: ["#ff943d", "#d4482e", "#f5b35d", "#ad3629"][i % 4],
+          animationDuration: `${13 + i % 7}s`,
+          animationDelay: `-${i * 1.73}s`,
+          "--gkg-leaf-drift": `${i % 2 ? 64 : -52}px`,
+        }}>
+          <path fill="currentColor" d="M18 33C8 30 5 24 5 17l8 2L11 8l8 5L24 2l4 11 8-3-3 10 5-1c-2 9-9 14-20 14Z" />
+          <path d="M15 38c6-7 8-12 10-23" fill="none" stroke="#642619" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      ))}
     </div>
   );
 }
@@ -4231,6 +4251,19 @@ function TutorialPreviewModal({ open, onClose, onSkipClient }) {
 
 export default function Home() {
   const [language, setLanguage] = useState("es-419");
+  const [novemberTheme, setNovemberTheme] = useState(true);
+  useEffect(() => {
+    try {
+      setNovemberTheme(window.localStorage.getItem("gkg-shop-theme") !== "default");
+    } catch {}
+  }, []);
+  function toggleNovemberTheme() {
+    const next = !novemberTheme;
+    setNovemberTheme(next);
+    try {
+      window.localStorage.setItem("gkg-shop-theme", next ? "november" : "default");
+    } catch {}
+  }
   const labels = LABELS[language];
   const supabase = useMemo(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -4676,8 +4709,49 @@ export default function Home() {
   const authLabel = sessionUser?.id ? labels.myProfile : labels.login;
 
   return (
-    <main className="min-h-screen w-full overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_20%),linear-gradient(180deg,_#000000_0%,_#021106_45%,_#000000_100%)] text-white">
+    <main data-shop-theme={novemberTheme ? "november" : "default"} className="min-h-screen w-full overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_20%),linear-gradient(180deg,_#000000_0%,_#021106_45%,_#000000_100%)] text-white">
       <style jsx global>{`
+        main[data-shop-theme="november"] {
+          isolation: isolate;
+          background: linear-gradient(180deg, #170b08 0%, #0c0807 48%, #050404 100%);
+          --gkg-card-background: linear-gradient(155deg, #8b351d 0%, #4a1b13 53%, #140a08 100%);
+        }
+        .gkg-november-leaves { z-index: -1; }
+        .gkg-november-leaf {
+          position: absolute;
+          top: -42px;
+          opacity: .56;
+          animation: gkgNovemberFall linear infinite;
+        }
+        @keyframes gkgNovemberFall {
+          from { transform: translate3d(0, -4vh, 0) rotate(-35deg); }
+          to { transform: translate3d(var(--gkg-leaf-drift), 115vh, 0) rotate(315deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .gkg-november-leaf { animation: none; }
+          .gkg-november-leaf:nth-child(3n+1) { top: 16%; }
+          .gkg-november-leaf:nth-child(3n+2) { top: 47%; }
+          .gkg-november-leaf:nth-child(3n) { top: 79%; }
+        }
+        [data-shop-theme="november"] :is([class*="text-[#67ff9a]"],[class*="text-[#63ff9b]"],[class*="text-[#7dffae]"],[class*="text-emerald-100"],[class*="text-[#59ffbd]"],[class*="text-[#9cffbe]"],[class*="text-[#8effb5]"]) {
+          color: #ffb47d;
+        }
+        [data-shop-theme="november"] :is([class*="bg-[#15d863]"],[class*="bg-[#19df6c]"]) { background-color: #f58a42; }
+        [data-shop-theme="november"] :is([class*="bg-[#07140f]"],[class*="bg-[#08140f]"],[class*="bg-[#021509]"],[class*="bg-[#020905]"],[class*="bg-[#060b07]"],[class*="bg-[#040804]"],[class*="bg-[#0c110d]"],[class*="bg-[#04120d]"],[class*="bg-[#06110c]"],[class*="bg-[#0b1f15]"]) {
+          background-color: #1d100d;
+        }
+        [data-shop-theme="november"] :is([class*="border-[#1eff7a]"],[class*="border-[#8cff9f]"],[class*="border-[#67ff9a]"],[class*="border-[#15d863]"],[class*="border-[#63ff9b]"]) { border-color: #d16a38; }
+        [data-shop-theme="november"] :is([class*="border-[#1a4e3a]"],[class*="border-[#1a2c21]"],[class*="border-[#153321]"],[class*="border-[#284635]"],[class*="border-[#255239]"],[class*="border-[#1d4a2d]"],[class*="border-[#154636]"]) { border-color: #663521; }
+        [data-shop-theme="november"] :is([class*="135deg,#0d2418"],[class*="rgba(0,255,102,0.10)"],[class*="rgba(22,232,61,0.28)"]) {
+          background-image: linear-gradient(135deg, #431e16, #180c0a);
+        }
+        [data-shop-theme="november"] [class*="135deg,#16e83d"] {
+          background-image: linear-gradient(135deg, #d85925, #91301e 65%, #641d17);
+        }
+        [data-shop-theme="november"] :is([class*="shadow-"][class*="rgba(21,255,98"],[class*="shadow-"][class*="rgba(21,216,99"],[class*="shadow-"][class*="rgba(30,255,122"]) {
+          box-shadow: 0 5px 20px rgba(187,61,24,.24);
+        }
+        .gkg-theme-toggle:focus-visible { outline: 2px solid #ffb47d; outline-offset: 3px; }
         @keyframes slideInRight {
           from { transform: translateX(100%); opacity: 0.65; }
           to { transform: translateX(0); opacity: 1; }
@@ -4746,7 +4820,7 @@ export default function Home() {
           75% { opacity: 0.9; transform: scale(1.15); }
         }
       `}</style>
-      <SparkleBackground />
+      {novemberTheme ? <NovemberLeaves /> : <SparkleBackground />}
       <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#153321] bg-[#020905]/92 backdrop-blur-xl shadow-[0_8px_28px_rgba(0,0,0,0.38)]">
         <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-4 py-3 md:px-6">
           <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -4945,10 +5019,23 @@ export default function Home() {
 
         <div className="mb-6 rounded-[24px] border border-[#1a2c21] bg-[#060b07]/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.25)] md:rounded-[28px] md:p-5">
           <div className="flex flex-col gap-4">
-            <div className="min-w-0">
+            <div className="flex min-w-0 flex-col gap-3">
               <h2 className="text-2xl font-black uppercase italic sm:text-3xl md:text-5xl">
                 {titleText}
               </h2>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={novemberTheme}
+                onClick={toggleNovemberTheme}
+                className="gkg-theme-toggle inline-flex items-center gap-2 self-center rounded-full border border-[#1eff7a]/35 bg-[#07140f] px-3 py-2 text-xs font-bold text-[#67ff9a]"
+              >
+                <span aria-hidden="true">🍂</span>
+                {language === "en" ? "November theme" : "Tema de noviembre"}
+                <span aria-hidden="true" className={`inline-flex h-4 w-8 items-center rounded-full p-0.5 ${novemberTheme ? "justify-end bg-[#f58a42]" : "justify-start bg-white/20"}`}>
+                  <span className="h-3 w-3 rounded-full bg-white" />
+                </span>
+              </button>
             </div>
 
             <div className="flex w-full flex-col gap-3">
