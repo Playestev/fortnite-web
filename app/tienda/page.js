@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { createBrowserClient } from "@supabase/ssr";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toPng } from "html-to-image";
 
 const LANG_STORAGE_KEY = "gkg-lang";
 const CART_STORAGE_KEY = "gkg-cart";
-const SHOP_SNAPSHOT_KEY = "gkg-shop-snapshot-v2";
-const SHOP_RECENT_GONE_KEY = "gkg-shop-recent-gone-v2";
+const SHOP_SNAPSHOT_KEY = "gkg-shop-snapshot-v4";
+const SHOP_RECENT_GONE_KEY = "gkg-shop-recent-gone-v4";
 const VB_TO_LOCAL_RATE = 0.09;
 const AUTO_ROTATE_MS = 10000;
+const PRODUCT_IMAGE_LOAD_TIMEOUT_MS = 12000;
+const PRODUCT_IMAGE_MAX_FAILURES = 4;
 const CLIENT_GKG_TUTORIAL_SKIP_KEY = "gkg-client-skip-tutorial-v1";
 const SUMMARY_IMAGE_PLACEHOLDER =
   "data:image/svg+xml;charset=utf-8," +
@@ -85,6 +87,7 @@ const LABELS = {
     setLabel: "Set",
     rarityLabel: "Rareza",
     timeLeft: "Se va en",
+    leavesOn: "Sale el",
     loading: "Cargando tienda...",
     noResults: "No se encontraron resultados con ese filtro.",
     noRecentlyGone: "Aún no hay objetos registrados como recién salidos.",
@@ -170,6 +173,7 @@ const LABELS = {
     setLabel: "Set",
     rarityLabel: "Rarity",
     timeLeft: "Leaves in",
+    leavesOn: "Leaves on",
     loading: "Loading shop...",
     noResults: "No results found with that filter.",
     noRecentlyGone: "No recently gone items registered yet.",
@@ -245,7 +249,11 @@ function asText(value) {
 }
 
 function normalizeUrl(url) {
-  return String(url || "").trim().replace(/^http:/i, "https:").replace(/\?.*$/, "");
+  if (typeof url !== "string") return "";
+  const value = url.trim();
+  if (!value) return "";
+  if (value.startsWith("//")) return `https:${value}`;
+  return value.replace(/^http:/i, "https:");
 }
 
 function dedupeStrings(values) {
@@ -280,6 +288,12 @@ function localPrice(language, vbucks) {
   return language === "en" ? `$${price.toFixed(2)}` : `MX$${price.toFixed(2)}`;
 }
 
+function formatVbucks(value) {
+  return new Intl.NumberFormat("es-MX", {
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
 function getCountdownToNextShopUpdate() {
   const now = new Date();
   const next = new Date(now);
@@ -305,13 +319,94 @@ function getTimeUntilDate(dateString, language) {
   return `${minutes}m`;
 }
 
+function getCompactTimeUntilDate(dateString, language) {
+  if (!dateString) return language === "en" ? "NO DATE" : "SIN FECHA";
+  const diff = new Date(dateString).getTime() - Date.now();
+  if (!Number.isFinite(diff)) return language === "en" ? "NO DATE" : "SIN FECHA";
+  if (diff <= 0) return language === "en" ? "LEFT" : "YA SALIÓ";
+
+  const totalMinutes = Math.max(0, Math.floor(diff / 60000));
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) return `${days}D ${hours}H`;
+  if (hours > 0) return `${hours}H ${minutes}M`;
+  return `${Math.max(1, minutes)}M`;
+}
+
+function getShopDateTimestamp(value) {
+  if (value === null || value === undefined || value === "") return NaN;
+
+  if (typeof value === "number") {
+    const milliseconds = value < 1e12 ? value * 1000 : value;
+    return Number.isFinite(milliseconds) ? milliseconds : NaN;
+  }
+
+  const text = String(value).trim();
+  if (!text) return NaN;
+
+  if (/^\d{10,13}$/.test(text)) {
+    const numeric = Number(text);
+    const milliseconds = text.length <= 10 ? numeric * 1000 : numeric;
+    return Number.isFinite(milliseconds) ? milliseconds : NaN;
+  }
+
+  return new Date(text).getTime();
+}
+
+function getDirectOutDateValues(item) {
+  return [
+    item?.outDate,
+    item?.out_date,
+    item?.out,
+    item?.until,
+    item?.expiresAt,
+    item?.expirationDate,
+    item?.endDate,
+    item?.end_date,
+    item?.dates?.outDate,
+    item?.dates?.out,
+    item?.shopDates?.outDate,
+    item?.shopDates?.out,
+    item?.offer?.outDate,
+    item?.offer?.out_date,
+    item?.offer?.dates?.outDate,
+    item?.offer?.dates?.out,
+    item?.shop?.outDate,
+    item?.meta?.outDate,
+  ].filter((value) => value !== null && value !== undefined && value !== "");
+}
+
+function hasValidApiOutDate(item) {
+  return getDirectOutDateValues(item).some((value) =>
+    Number.isFinite(getShopDateTimestamp(value))
+  );
+}
+
+function formatShopDepartureDate(dateString, language) {
+  const timestamp = getShopDateTimestamp(dateString);
+  if (!Number.isFinite(timestamp)) return language === "en" ? "No date" : "Sin fecha";
+
+  return new Intl.DateTimeFormat(language === "en" ? "en-US" : "es-MX", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
+}
+
 function extractHistory(rawHistory) {
   if (!Array.isArray(rawHistory)) return [];
   return rawHistory
-    .map((entry) => ({
-      inDate: entry?.inDate || entry?.date || entry?.added || "",
-      outDate: entry?.outDate || entry?.until || "",
-    }))
+    .map((entry) =>
+      typeof entry === "string"
+        ? { inDate: entry, outDate: "" }
+        : {
+            inDate: entry?.inDate || entry?.date || entry?.added || "",
+            outDate: entry?.outDate || entry?.until || "",
+          }
+    )
     .filter((entry) => entry.inDate || entry.outDate);
 }
 
@@ -323,7 +418,9 @@ function getLatestInDate(item) {
     .map((value) => new Date(value).getTime())
     .filter((value) => Number.isFinite(value));
 
-  const directDates = [item.inDate, item.addedAt, item.updatedAt, item.addedDate]
+  // inDate representa cuándo entró la oferta a la tienda. addedDate solo
+  // indica cuándo se agregó el cosmético a los archivos del juego.
+  const directDates = [item.inDate]
     .filter(Boolean)
     .map((value) => new Date(value).getTime())
     .filter((value) => Number.isFinite(value));
@@ -334,27 +431,49 @@ function getLatestInDate(item) {
 }
 
 function getLatestOutDate(item) {
+  const directDates = getDirectOutDateValues(item)
+    .map(getShopDateTimestamp)
+    .filter((value) => Number.isFinite(value));
+
+  if (directDates.length > 0) {
+    const futureDates = directDates.filter((value) => value > Date.now());
+    const selectedDate = futureDates.length > 0 ? Math.min(...futureDates) : Math.max(...directDates);
+    return new Date(selectedDate).toISOString();
+  }
+
   const history = extractHistory(item.shopHistory);
   const historyDates = history
     .map((entry) => entry.outDate)
     .filter(Boolean)
-    .map((value) => new Date(value).getTime())
+    .map(getShopDateTimestamp)
     .filter((value) => Number.isFinite(value));
 
-  const directDates = [item.outDate]
-    .filter(Boolean)
-    .map((value) => new Date(value).getTime())
-    .filter((value) => Number.isFinite(value));
+  if (historyDates.length > 0) {
+    const futureDates = historyDates.filter((value) => value > Date.now());
+    const selectedDate = futureDates.length > 0 ? Math.min(...futureDates) : Math.max(...historyDates);
+    return new Date(selectedDate).toISOString();
+  }
 
-  const all = [...historyDates, ...directDates];
-  if (all.length === 0) return "";
-  return new Date(Math.max(...all)).toISOString();
+  // La fecha debe venir de la API. No asignamos la próxima rotación a todos
+  // porque cada oferta puede permanecer una cantidad distinta de días.
+  return "";
 }
 
 function isWithin24Hours(dateString) {
   if (!dateString) return false;
-  const diff = Math.abs(Date.now() - new Date(dateString).getTime());
-  return Number.isFinite(diff) && diff <= 24 * 60 * 60 * 1000;
+  const diff = Date.now() - new Date(dateString).getTime();
+  return Number.isFinite(diff) && diff >= 0 && diff <= 24 * 60 * 60 * 1000;
+}
+
+function isCurrentShopArrival(dateString) {
+  if (!dateString) return false;
+  const arrivalTime = new Date(dateString).getTime();
+  const now = Date.now();
+  if (!Number.isFinite(arrivalTime) || arrivalTime > now + 5 * 60 * 1000) return false;
+
+  const latestShopReset = new Date(now);
+  latestShopReset.setUTCHours(0, 0, 0, 0);
+  return arrivalTime >= latestShopReset.getTime();
 }
 
 function isLeavingSoon(dateString) {
@@ -364,6 +483,9 @@ function isLeavingSoon(dateString) {
 }
 
 function isNewByHistory(item) {
+  if (typeof item.isFirstAppearance === "boolean") {
+    return item.isFirstAppearance;
+  }
   if (item.isNew === true) return true;
   const history = extractHistory(item.shopHistory);
   if (history.length === 0) return false;
@@ -375,50 +497,69 @@ function isFreshNewItem(item) {
 }
 
 function isRecentItem(item) {
-  return isWithin24Hours(getLatestInDate(item));
+  const shopArrival = item?.inDate || getLatestInDate(item);
+  return isCurrentShopArrival(shopArrival) || isWithin24Hours(shopArrival);
 }
 
 function getCurrentPrice(item) {
-  return Number(item?.price ?? item?.price?.finalPrice ?? item?.finalPrice ?? item?.vbucks ?? item?.priceVbucks ?? 0);
+  const priceObject =
+    item?.price && typeof item.price === "object" && !Array.isArray(item.price)
+      ? item.price
+      : {};
+  const candidates = [
+    typeof item?.price === "number" || typeof item?.price === "string" ? item.price : null,
+    priceObject.finalPrice,
+    priceObject.regularPrice,
+    priceObject.basePrice,
+    priceObject.price,
+    item?.finalPrice,
+    item?.regularPrice,
+    item?.basePrice,
+    item?.vbucks,
+    item?.priceVbucks,
+    item?.offer?.finalPrice,
+    item?.offer?.price,
+  ];
+
+  for (const candidate of candidates) {
+    const value = Number(String(candidate ?? "").replace(/,/g, ""));
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+
+  const devName = asText(item?.devName);
+  const devPrice = devName.match(/(?:for|por)\s+(-?\d[\d,]*)\s+MtxCurrency/i);
+  if (devPrice) {
+    const value = Number(devPrice[1].replace(/,/g, ""));
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+
+  return 0;
 }
 
-function getRawTypeKey(rawType, item = {}) {
-  const value = [
-    asText(rawType),
-    asText(item.typeEnglish),
-    asText(item.typeLocalized),
-    asText(item.type),
-    asText(item.displayType),
-    asText(item.backendType),
-    asText(item.backendValue),
-    asText(item.devName),
-    asText(item.nameEnglish),
-    asText(item.nameLocalized),
-    asText(item.name),
-    asText(item.descriptionEnglish),
-    asText(item.descriptionLocalized),
-    asText(item.description),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
+function getTypeKeyFromText(rawValue) {
+  const value = asText(rawValue).trim().toLowerCase();
+  if (!value) return "other";
+
+  if (/(^|\s|[_-])(bundle|pack|lot|lote|paquete)s?($|\s|[_-])/.test(value)) return "bundle";
 
   // Mascotas / pets. Algunas APIs las mandan como PetCarrier o con nombres localizados.
   if (
     value.includes("petcarrier") ||
+    value.includes("sidekick") ||
+    value.includes("compañero") ||
     value.includes("pet carrier") ||
     value.includes("pet_carrier") ||
     value.includes("mascota") ||
-    value.includes(" pet") ||
+    /(^|\s)pet($|\s)/.test(value) ||
     value.includes("guauff") ||
     value.includes("llamila")
   ) {
     return "pet";
   }
 
-  if (value.includes("bundle") || value.includes("pack") || value.includes("lot") || value.includes("lote")) return "bundle";
   if (
     value.includes("outfit") ||
+    value.includes("atuendo") ||
     value.includes("skin") ||
     value.includes("traje") ||
     value.includes("personaje") ||
@@ -452,10 +593,42 @@ function getRawTypeKey(rawType, item = {}) {
   if (value.includes("toy") || value.includes("juguete")) return "toy";
   if (value.includes("emoji")) return "emoji";
   if (value.includes("banner")) return "banner";
-  if (value.includes("vehicle") || value.includes("car") || value.includes("vehículo") || value.includes("vehiculo") || value.includes("carro")) return "vehicle";
+  if (/\b(?:vehicles?|cars?|carros?|veh[ií]culos?|wheels?|ruedas?|llantas?|decals?)\b/i.test(value)) return "vehicle";
   if (value.includes("instrument") || value.includes("instrumento")) return "instrument";
 
   return "other";
+}
+
+function getRawTypeKey(rawType, item = {}) {
+  // Primero se revisan únicamente los campos estructurados. Los nombres de los
+  // objetos incluidos no deben convertir un lote en mascota, mochila o pico.
+  const structuredValue = [
+    asText(rawType),
+    asText(item.typeEnglish),
+    asText(item.typeLocalized),
+    asText(item.type),
+    asText(item.displayType),
+    asText(item.backendType),
+    asText(item.backendValue),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const structuredKey = getTypeKeyFromText(structuredValue);
+  if (structuredKey !== "other") return structuredKey;
+
+  return getTypeKeyFromText(
+    [
+      asText(item.devName),
+      asText(item.nameEnglish),
+      asText(item.nameLocalized),
+      asText(item.name),
+      asText(item.descriptionEnglish),
+      asText(item.descriptionLocalized),
+      asText(item.description),
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
 }
 
 function getTypeKey(rawType, item = {}) {
@@ -474,17 +647,33 @@ function getTypeKey(rawType, item = {}) {
   ];
 
   const rawKey = getRawTypeKey(rawType, item);
+  const hasBundleFlag = typeof item?.isBundle === "boolean";
+  const vehicleType = [
+    rawType, item.typeEnglish, item.typeLocalized, item.type, item.backendType, item.backendValue,
+  ].some((value) => getTypeKeyFromText(value) === "vehicle");
+  const vehicleName = /^(?:porsche cayenne\b|ruedas?\b|llantas?\b|wheels?\b)/i.test(getDisplayName(item).trim());
+  if (item.isVehicleOffer === true || vehicleType || vehicleName ||
+      (includedTypeKeys.includes("vehicle") && !includedTypeKeys.includes("outfit"))) {
+    return "vehicle";
+  }
 
-  // Regla GKG: si trae más de 4 objetos incluidos, se acomoda como Lote/Bundle.
-  if (includedItems.length > 4) return "bundle";
+  // La presencia de entry.bundle en Fortnite-API es la autoridad. La cantidad
+  // de objetos incluidos no determina si la oferta es un lote: una skin puede
+  // incluir su mochila y continuar siendo una oferta de atuendo.
+  if (item?.isBundle === true || (!hasBundleFlag && rawKey === "bundle")) {
+    return "bundle";
+  }
 
-  // Mascota debe ganar antes que mochila cuando la API lo mande como PetCarrier.
-  if (rawKey === "pet" || includedTypeKeys.includes("pet")) return "pet";
+  const directKey = item?.isBundle === false && rawKey === "bundle"
+    ? "other"
+    : rawKey;
 
-  // Si trae un personaje/outfit, se acomoda como Skin aunque venga con mochila,
-  // pico, papel tapiz, aura, emote, etc. Esto cubre personajes normales, LEGO
-  // o estilos sin LEGO cuando la API los manda dentro del mismo objeto.
-  if (rawKey === "outfit" || includedTypeKeys.includes("outfit")) return "outfit";
+  if (directKey !== "other") return directKey;
+
+  // Si la oferta no es un lote y contiene un atuendo con accesorios incluidos,
+  // se presenta como Skin. Solo después se revisan mascotas u otros tipos.
+  if (includedTypeKeys.includes("outfit")) return "outfit";
+  if (includedTypeKeys.includes("pet")) return "pet";
 
   if (includedTypeKeys.length > 0) {
     const priority = [
@@ -512,13 +701,7 @@ function getTypeKey(rawType, item = {}) {
     if (includedTypeKeys.length === 1) return includedTypeKeys[0];
   }
 
-  // Si la API lo manda como bundle/pack, pero no trae más de 4 objetos,
-  // no lo forzamos como Lote; usamos su tipo principal.
-  if (rawKey === "bundle" && includedItems.length <= 4) {
-    return includedTypeKeys[0] || "outfit";
-  }
-
-  return rawKey;
+  return includedTypeKeys[0] || "other";
 }
 
 function getDisplayType(item, labels) {
@@ -532,15 +715,15 @@ function getTypeSortRank(item) {
   const ranks = {
     bundle: 0,
     outfit: 1,
-    pet: 2,
-    wrap: 3,
-    aura: 4,
-    backpack: 5,
-    pickaxe: 6,
-    glider: 7,
-    emote: 8,
-    jamtrack: 9,
-    shoe: 10,
+    pickaxe: 2,
+    glider: 3,
+    backpack: 4,
+    jamtrack: 5,
+    shoe: 6,
+    pet: 7,
+    wrap: 8,
+    aura: 9,
+    emote: 10,
     contrail: 11,
     loadingscreen: 12,
     spray: 13,
@@ -561,6 +744,8 @@ function sortItems(items, sortMode, preserveTypeRank = true) {
 
   list.sort((a, b) => {
     if (preserveTypeRank) {
+      const newDiff = Number(Boolean(b._isFreshNew)) - Number(Boolean(a._isFreshNew));
+      if (newDiff !== 0) return newDiff;
       const rankDiff = getTypeSortRank(a) - getTypeSortRank(b);
       if (rankDiff !== 0) return rankDiff;
     }
@@ -613,12 +798,12 @@ function sortItems(items, sortMode, preserveTypeRank = true) {
 
 function buildVisibleItems({ items, recentlyGone, selectedSection, search, labels, sortMode }) {
   const searchText = search.trim().toLowerCase();
-  const preserveTypeRank = selectedSection !== "ALL";
 
   const applySearch = (list) => {
     if (!searchText) return list;
-    return list.filter((item) =>
-      [
+
+    return list.filter((item) => {
+      const completeSearchText = [
         getDisplayName(item),
         asText(item.nameEnglish),
         item._section,
@@ -627,9 +812,10 @@ function buildVisibleItems({ items, recentlyGone, selectedSection, search, label
       ]
         .filter(Boolean)
         .join(" ")
-        .toLowerCase()
-        .includes(searchText)
-    );
+        .toLowerCase();
+
+      return completeSearchText.includes(searchText);
+    });
   };
 
   if (selectedSection === "LEFT") {
@@ -643,10 +829,10 @@ function buildVisibleItems({ items, recentlyGone, selectedSection, search, label
   else if (selectedSection !== "ALL") filtered = filtered.filter((item) => item._section === selectedSection);
 
   filtered = applySearch(filtered);
-  return sortItems(filtered, sortMode, preserveTypeRank);
+  return sortItems(filtered, sortMode);
 }
 
-function groupItemsBySection(items) {
+function groupItemsBySection(items, sectionViews = {}) {
   const groups = new Map();
 
   items.forEach((item) => {
@@ -663,7 +849,20 @@ function groupItemsBySection(items) {
     groups.get(sectionName).items.push(item);
   });
 
-  return [...groups.values()].sort((a, b) =>
+  const ranked = [...groups.values()].map((group) => ({
+    ...group,
+    priority: Math.max(...group.items.map((item) => {
+      const isBundleOrSkin = item._typeKey === "bundle" || item._typeKey === "outfit";
+      if (isBundleOrSkin && item._isFreshNew) return 4;
+      if (isBundleOrSkin && item._isRecent) return 3;
+      if (item._isFreshNew) return 2;
+      return item._isRecent ? 1 : 0;
+    })),
+    views: Number(sectionViews[group.id]) || 0,
+    featured: /a\s*[$s]ap\s+rocky/i.test(group.title) ? 1 : 0,
+  }));
+  return ranked.sort((a, b) =>
+    b.priority - a.priority || b.views - a.views || b.featured - a.featured ||
     a.title.localeCompare(b.title, "es", { sensitivity: "base" })
   );
 }
@@ -688,6 +887,45 @@ function getIncludedItems(item) {
     seen.add(key);
     return true;
   });
+}
+
+function collectImageUrls(value, path = "", depth = 0) {
+  if (depth > 4 || value == null) return [];
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => collectImageUrls(entry, path, depth + 1));
+  }
+  if (typeof value !== "object") return [];
+
+  return Object.entries(value).flatMap(([key, entry]) => {
+    const nextPath = `${path}.${key}`.toLowerCase();
+    if (/(^|\.)(lego|bean|beans|juno)(\.|$)/.test(nextPath)) return [];
+    return collectImageUrls(entry, nextPath, depth + 1);
+  });
+}
+
+function getImageSortRank(image, preferredImage) {
+  const value = normalizeUrl(image).toLowerCase();
+  if (!value) return 999;
+  if (preferredImage && value === preferredImage.toLowerCase()) return 0;
+  if (/\/newdisplayassets\/.*\/renderimage_0\./i.test(value)) return 10;
+  if (value.includes("/newdisplayassets/")) return 20;
+  if (/\/featured\.(png|webp|jpe?g)(?:\?|$)/i.test(value)) return 30;
+  if (/\/icon\.(png|webp|jpe?g)(?:\?|$)/i.test(value)) return 40;
+  if (/\/smallicon\.(png|webp|jpe?g)(?:\?|$)/i.test(value)) return 50;
+  return 60;
+}
+
+function sortOfferImages(images, preferredImage) {
+  return dedupeStrings(images)
+    .map((image, index) => ({ image, index }))
+    .sort((a, b) => {
+      const rank =
+        getImageSortRank(a.image, preferredImage) -
+        getImageSortRank(b.image, preferredImage);
+      return rank || a.index - b.index;
+    })
+    .map((entry) => entry.image);
 }
 
 function getGalleryImages(item) {
@@ -723,26 +961,54 @@ function getGalleryImages(item) {
     : [];
 
   const displayAssets = Array.isArray(item.displayAssets)
-    ? item.displayAssets.flatMap((asset) => [
-        asset?.url,
-        asset?.image,
-        asset?.featured,
-        asset?.icon,
-        asset?.full_background,
-        asset?.background,
-      ])
+    ? item.displayAssets
+        .filter((asset) => {
+          const tag = String(asset?.productTag || "").toLowerCase();
+          return tag !== "product.juno" && tag !== "product.bean";
+        })
+        .flatMap((asset) => [
+          asset?.url,
+          asset?.image,
+          asset?.featured,
+          asset?.icon,
+          asset?.full_background,
+          asset?.background,
+        ])
     : [];
 
-  const imageObjectValues =
-    item?.images && typeof item.images === "object" && !Array.isArray(item.images)
-      ? Object.values(item.images)
-      : [];
+  const renderImages = [
+    ...(Array.isArray(item?.newDisplayAsset?.renderImages)
+      ? item.newDisplayAsset.renderImages
+      : []),
+    ...(Array.isArray(item?.renderImages) ? item.renderImages : []),
+  ];
+  const battleRoyaleRenders = renderImages
+    .filter((render) => render?.productTag === "Product.BR")
+    .flatMap((render) => [render?.image, render?.url]);
+  const safeOtherRenders = renderImages
+    .filter((render) => {
+      const tag = String(render?.productTag || "").toLowerCase();
+      return tag !== "product.juno" && tag !== "product.bean";
+    })
+    .flatMap((render) => [render?.image, render?.url]);
+
+  const imageObjectValues = collectImageUrls(item?.images);
 
   const includeImages = getIncludedItems(item).map(
-    (entry) => entry.image || entry?.images?.icon || entry?.images?.featured || entry?.images?.smallIcon
+    (entry) => entry.image || entry?.images?.featured || entry?.images?.icon || entry?.images?.smallIcon
   );
 
-  return dedupeStrings([
+  const preferredImage = normalizeUrl(
+    item.primaryImage || item?.bundle?.image || item.offerImage
+  );
+  const offerType = getTypeKey(
+    item.typeEnglish || item.typeLocalized || item.type,
+    item
+  );
+  const candidates = [
+    preferredImage,
+    item?.bundle?.image,
+    ...battleRoyaleRenders,
     item.image,
     item.featuredImage,
     item.icon,
@@ -751,15 +1017,21 @@ function getGalleryImages(item) {
     ...(Array.isArray(item.galleryImages) ? item.galleryImages : []),
     ...(Array.isArray(item.images) ? item.images : []),
     ...imageObjectValues,
+    ...safeOtherRenders,
     ...displayAssets,
     ...styleImages,
     ...variantImages,
     ...includeImages,
-  ]);
+  ].filter((image) => {
+    if (offerType !== "outfit") return true;
+    return !/\/cosmetics\/(?:lego|beans?)\//i.test(normalizeUrl(image));
+  });
+
+  return sortOfferImages(candidates, preferredImage);
 }
 
-function normalizeShopItems(payload) {
-  const rawItems = Array.isArray(payload?.items)
+function getRawShopItems(payload) {
+  return Array.isArray(payload?.items)
     ? payload.items
     : Array.isArray(payload?.shop)
       ? payload.shop
@@ -770,6 +1042,10 @@ function normalizeShopItems(payload) {
           : Array.isArray(payload)
             ? payload
             : [];
+}
+
+function normalizeShopItems(payload) {
+  const rawItems = getRawShopItems(payload);
 
   return rawItems.map((item, index) => {
     const id = item?.id || item?.mainId || item?.offerId || `${getDisplayName(item)}-${index}`;
@@ -779,20 +1055,29 @@ function normalizeShopItems(payload) {
         ? item.grants
         : [];
 
+    const hasBundleFlag = typeof item?.isBundle === "boolean";
+    const isBundle = hasBundleFlag
+      ? item.isBundle
+      : getRawTypeKey(item.typeEnglish || item.typeLocalized || item.type, item) === "bundle";
+
     const normalized = {
       ...item,
       id,
       includedItems,
+      isBundle,
       price: getCurrentPrice(item),
       _section: getDisplaySection(item),
-      _typeKey: getTypeKey(item.typeEnglish || item.typeLocalized || item.type, { ...item, includedItems }),
+      _typeKey: getTypeKey(item.typeEnglish || item.typeLocalized || item.type, {
+        ...item,
+        includedItems,
+        isBundle,
+      }),
       _latestInDate: getLatestInDate(item),
       _latestOutDate: getLatestOutDate(item),
       _isRecent: isRecentItem(item),
       _isFreshNew: isFreshNewItem(item),
       _isLeavingSoon: isLeavingSoon(getLatestOutDate(item)),
       _galleryImages: getGalleryImages(item),
-      isBundle: includedItems.length > 4,
     };
 
     normalized._typeKey = getTypeKey(item.typeEnglish || item.typeLocalized || item.type, normalized);
@@ -808,6 +1093,7 @@ function saveShopSnapshot(items) {
       nameLocalized: item.nameLocalized,
       image: item.image,
       galleryImages: item.galleryImages,
+      primaryImage: item.primaryImage,
       price: item.price,
       sectionEnglish: item.sectionEnglish,
       sectionLocalized: item.sectionLocalized,
@@ -825,6 +1111,7 @@ function saveShopSnapshot(items) {
       setTextLocalized: item.setTextLocalized,
       includedItems: item.includedItems,
       shopHistory: item.shopHistory,
+      isFirstAppearance: item.isFirstAppearance,
       isBundle: item.isBundle,
     }));
     window.localStorage.setItem(SHOP_SNAPSHOT_KEY, JSON.stringify(compact));
@@ -902,55 +1189,351 @@ function getCardTheme(key) {
 function VCoinIcon({ className = "" }) {
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full border border-[#74fff3]/55 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.96),rgba(183,255,244,0.86)_34%,rgba(26,184,174,0.96)_68%,rgba(5,86,96,1)_100%)] shadow-[0_0_10px_rgba(74,255,243,0.35),inset_0_0_10px_rgba(255,255,255,0.22)] ${className}`}
+      className={`inline-flex items-center justify-center rounded-full border border-white/80 bg-white shadow-[0_2px_6px_rgba(0,0,0,0.38)] ${className}`}
       aria-hidden="true"
     >
-      <span className="translate-y-[0.5px] text-[0.72em] font-black leading-none text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.5)]">
+      <span className="translate-y-[0.5px] text-[0.72em] font-black italic leading-none text-[#30283a]">
         V
       </span>
     </span>
   );
 }
 
+const PRODUCT_IMAGE_BOUNDS_CACHE = new Map();
+
+function getApiImageSrc(rawUrl) {
+  const value = normalizeUrl(rawUrl);
+
+  if (!value) return SUMMARY_IMAGE_PLACEHOLDER;
+  if (
+    value.startsWith("/") ||
+    value.startsWith("data:") ||
+    value.startsWith("blob:")
+  ) {
+    return value;
+  }
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:") return SUMMARY_IMAGE_PLACEHOLDER;
+    return `/api/gkg-image?url=${encodeURIComponent(parsed.toString())}`;
+  } catch {
+    return SUMMARY_IMAGE_PLACEHOLDER;
+  }
+}
+
 function RotatingImage({
   images,
   alt,
   className,
-  style,
-  smartBottomFit = false,
-  smartBottomClassName = "",
-  smartBottomStyle = {},
+  fitPadding = 0.04,
+  preferUncropped = false,
 }) {
-  const safeImages = Array.isArray(images) && images.length > 0 ? images : ["/ganker-logo.png"];
+  const safeImages = useMemo(() => {
+    const normalizedImages = Array.isArray(images)
+      ? dedupeStrings(images.map(normalizeUrl).filter(Boolean))
+      : [];
+
+    return normalizedImages.length > 0
+      ? normalizedImages
+      : [SUMMARY_IMAGE_PLACEHOLDER];
+  }, [images]);
   const firstImage = safeImages[0];
-  const [isTallImage, setIsTallImage] = useState(false);
+  const imageListKey = safeImages.join("\n");
+  const featuredImage = safeImages.find(
+    (image, index) => index > 0 && /\/featured\.(png|webp|jpe?g)(?:\?|$)/i.test(image)
+  );
+  const frameRef = useRef(null);
+  const imageRef = useRef(null);
+  const imageSettledRef = useRef(false);
+  const imageFailureCountRef = useRef(0);
+  const [activeImage, setActiveImage] = useState(firstImage);
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [imageUnavailable, setImageUnavailable] = useState(false);
+  const [visibleBounds, setVisibleBounds] = useState(null);
+  const [fittedStyle, setFittedStyle] = useState(null);
+  const [imageLoadVersion, setImageLoadVersion] = useState(0);
 
   useEffect(() => {
-    setIsTallImage(false);
-  }, [firstImage]);
+    imageSettledRef.current = false;
+    imageFailureCountRef.current = 0;
+    setActiveImage(firstImage);
+    setImageUnavailable(false);
+  }, [firstImage, imageListKey]);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+
+    if (!frame || typeof IntersectionObserver === "undefined") {
+      setShouldLoad(true);
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShouldLoad(true);
+          return;
+        }
+
+        // Si una imagen aun no termina y la tarjeta vuelve a quedar lejos,
+        // se desmonta para liberar ancho de banda a favor de lo que se ve.
+        if (!imageSettledRef.current) setShouldLoad(false);
+      },
+      {
+        // Precarga solo las filas cercanas. Un margen muy grande inicia
+        // decenas de PNG de 1024/2048 px y retrasa las tarjetas visibles.
+        rootMargin: "600px 0px",
+        threshold: 0.01,
+      }
+    );
+
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    imageSettledRef.current = false;
+    setVisibleBounds(PRODUCT_IMAGE_BOUNDS_CACHE.get(activeImage) || null);
+    setFittedStyle(null);
+    setImageLoadVersion(0);
+    setIsLoaded(false);
+    setImageUnavailable(false);
+  }, [activeImage]);
+
+  const advanceToNextImage = useCallback(() => {
+    imageFailureCountRef.current += 1;
+    const activeIndex = safeImages.indexOf(activeImage);
+    const nextImage = safeImages.find(
+      (image, index) => index > activeIndex && image !== activeImage
+    );
+
+    if (
+      nextImage &&
+      imageFailureCountRef.current < PRODUCT_IMAGE_MAX_FAILURES
+    ) {
+      imageSettledRef.current = false;
+      setIsLoaded(false);
+      setImageUnavailable(false);
+      setActiveImage(nextImage);
+      return;
+    }
+
+    // El respaldo se dibuja con HTML y no necesita red, por lo que tampoco
+    // puede quedarse cargando si todas las URL de la API fallan.
+    setVisibleBounds(null);
+    setFittedStyle(null);
+    imageSettledRef.current = true;
+    setImageUnavailable(true);
+    setIsLoaded(true);
+  }, [activeImage, safeImages]);
+
+  useEffect(() => {
+    if (!shouldLoad || isLoaded || imageUnavailable) return undefined;
+
+    // Algunos CDN dejan la solicitud abierta sin disparar onLoad ni onError.
+    // Este limite evita que una tarjeta conserve el spinner indefinidamente.
+    const timeoutId = window.setTimeout(() => {
+      advanceToNextImage();
+    }, PRODUCT_IMAGE_LOAD_TIMEOUT_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [advanceToNextImage, imageUnavailable, isLoaded, shouldLoad]);
+
+  useEffect(() => {
+    const frame = frameRef.current;
+    const image = imageRef.current;
+    if (!frame || !image || !visibleBounds) return undefined;
+
+    const updateFit = () => {
+      const frameWidth = frame.clientWidth;
+      const frameHeight = frame.clientHeight;
+      const naturalWidth = image.naturalWidth;
+      const naturalHeight = image.naturalHeight;
+
+      if (!frameWidth || !frameHeight || !naturalWidth || !naturalHeight) return;
+
+      const padding = Math.max(0, Math.min(Number(fitPadding) || 0, 0.2));
+      const availableWidth = frameWidth * (1 - padding * 2);
+      const availableHeight = frameHeight * (1 - padding * 2);
+      const scale = Math.min(
+        availableWidth / visibleBounds.width,
+        availableHeight / visibleBounds.height
+      );
+
+      const visibleLeft = (frameWidth - visibleBounds.width * scale) / 2;
+      const visibleTop = (frameHeight - visibleBounds.height * scale) / 2;
+
+      setFittedStyle({
+        width: `${naturalWidth * scale}px`,
+        height: `${naturalHeight * scale}px`,
+        left: `${visibleLeft - visibleBounds.x * scale}px`,
+        top: `${visibleTop - visibleBounds.y * scale}px`,
+      });
+    };
+
+    updateFit();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateFit);
+      return () => window.removeEventListener("resize", updateFit);
+    }
+
+    const observer = new ResizeObserver(updateFit);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [fitPadding, imageLoadVersion, visibleBounds]);
+
+  function detectVisibleBounds(image) {
+    const cachedBounds = PRODUCT_IMAGE_BOUNDS_CACHE.get(activeImage);
+    if (cachedBounds) {
+      if (
+        preferUncropped &&
+        activeImage === firstImage &&
+        featuredImage &&
+        cachedBounds.touchesBottom
+      ) {
+        setActiveImage(featuredImage);
+        return;
+      }
+
+      setVisibleBounds(cachedBounds);
+      return;
+    }
+
+    const naturalWidth = image.naturalWidth || 1;
+    const naturalHeight = image.naturalHeight || 1;
+    const maxScanSize = 192;
+    const ratio = Math.min(1, maxScanSize / Math.max(naturalWidth, naturalHeight));
+    const scanWidth = Math.max(1, Math.round(naturalWidth * ratio));
+    const scanHeight = Math.max(1, Math.round(naturalHeight * ratio));
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = scanWidth;
+      canvas.height = scanHeight;
+
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) throw new Error("Canvas no disponible");
+
+      context.clearRect(0, 0, scanWidth, scanHeight);
+      context.drawImage(image, 0, 0, scanWidth, scanHeight);
+
+      const pixels = context.getImageData(0, 0, scanWidth, scanHeight).data;
+      let minX = scanWidth;
+      let minY = scanHeight;
+      let maxX = -1;
+      let maxY = -1;
+
+      for (let y = 0; y < scanHeight; y += 1) {
+        for (let x = 0; x < scanWidth; x += 1) {
+          if (pixels[(y * scanWidth + x) * 4 + 3] <= 16) continue;
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
+        }
+      }
+
+      if (maxX < minX || maxY < minY) throw new Error("Imagen transparente");
+
+      const contentWidth = maxX - minX + 1;
+      const contentHeight = maxY - minY + 1;
+      const marginX = contentWidth * 0.02;
+      const marginY = contentHeight * 0.02;
+      const scaleX = naturalWidth / scanWidth;
+      const scaleY = naturalHeight / scanHeight;
+      const left = Math.max(0, minX - marginX);
+      const top = Math.max(0, minY - marginY);
+      const right = Math.min(scanWidth, maxX + 1 + marginX);
+      const bottom = Math.min(scanHeight, maxY + 1 + marginY);
+      const bounds = {
+        x: left * scaleX,
+        y: top * scaleY,
+        width: Math.max(1, (right - left) * scaleX),
+        height: Math.max(1, (bottom - top) * scaleY),
+        touchesBottom: maxY >= scanHeight - 2,
+      };
+
+      PRODUCT_IMAGE_BOUNDS_CACHE.set(activeImage, bounds);
+
+      if (
+        preferUncropped &&
+        activeImage === firstImage &&
+        featuredImage &&
+        bounds.touchesBottom
+      ) {
+        setActiveImage(featuredImage);
+        return;
+      }
+
+      setVisibleBounds(bounds);
+    } catch {
+      const fullImageBounds = {
+        x: 0,
+        y: 0,
+        width: naturalWidth,
+        height: naturalHeight,
+        touchesBottom: false,
+      };
+
+      PRODUCT_IMAGE_BOUNDS_CACHE.set(activeImage, fullImageBounds);
+      setVisibleBounds(fullImageBounds);
+    }
+  }
 
   return (
-    <img
-      src={firstImage}
-      alt={alt}
-      className={`${className} ${smartBottomFit && isTallImage ? smartBottomClassName : ""} transition-transform duration-300 ease-out`}
-      style={smartBottomFit && isTallImage ? { ...style, ...smartBottomStyle } : style}
-      loading="lazy"
-      onLoad={(event) => {
-        if (!smartBottomFit) return;
+    <span ref={frameRef} className={`relative block overflow-hidden ${className}`}>
+      {!isLoaded && !imageUnavailable && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 flex items-center justify-center bg-black/10"
+        >
+          <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#67ff9a]" />
+        </span>
+      )}
 
-        const image = event.currentTarget;
-        const width = image.naturalWidth || 1;
-        const height = image.naturalHeight || 1;
+      {imageUnavailable && (
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 flex items-center justify-center"
+        >
+          <span className="rounded-xl border-2 border-[#15d863] bg-[#06140d]/85 px-4 py-3 text-xl font-black tracking-wider text-[#67ff9a] shadow-lg">
+            GKG
+          </span>
+        </span>
+      )}
 
-        // Solo aplica a imágenes verticales/personajes.
-        // Armas, mochilas, picos, alas y objetos horizontales se quedan igual.
-        setIsTallImage(height / width >= 1.08);
-      }}
-      onError={(event) => {
-        event.currentTarget.src = "/ganker-logo.png";
-      }}
-    />
+      {shouldLoad && !imageUnavailable && (
+        <img
+          key={activeImage}
+          ref={imageRef}
+          src={getApiImageSrc(activeImage)}
+          alt={alt}
+          className={`pointer-events-none select-none transition-opacity duration-300 ${
+            isLoaded ? "opacity-100" : "opacity-0"
+          } ${
+            fittedStyle
+              ? "absolute max-w-none"
+              : "h-full w-full object-contain"
+          }`}
+          style={fittedStyle || undefined}
+          loading="eager"
+          decoding="async"
+          fetchPriority="auto"
+          draggable="false"
+          onLoad={(event) => {
+            imageSettledRef.current = true;
+            setImageUnavailable(false);
+            setIsLoaded(true);
+            detectVisibleBounds(event.currentTarget);
+            setImageLoadVersion((current) => current + 1);
+          }}
+          onError={advanceToNextImage}
+        />
+      )}
+    </span>
   );
 }
 
@@ -1173,6 +1756,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
   const [recipientUsername, setRecipientUsername] = useState("");
   const [splitEnabled, setSplitEnabled] = useState(false);
   const [primaryItemIds, setPrimaryItemIds] = useState([]);
+  const [removedDeliveryIds, setRemovedDeliveryIds] = useState({});
   const [splitUsers, setSplitUsers] = useState([
     { id: "secondary-1", name: "", itemIds: [] },
   ]);
@@ -1200,7 +1784,17 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
     [cart, allItems]
   );
 
-  const detailIds = useMemo(() => details.map((item) => item.id), [details]);
+  const deliveryUnits = useMemo(() => details.flatMap((item) =>
+    Array.from({ length: Number(item.qty) || 0 }, (_, index) => ({
+      ...item,
+      id: JSON.stringify([item.id, index]),
+      unitNumber: index + 1,
+      originalQuantity: item.qty,
+      qty: 1,
+    }))
+  ), [details]);
+  const detailIds = useMemo(() => deliveryUnits.map((item) => item.id), [deliveryUnits]);
+  const previousDetailIds = useRef([]);
   const detailKey = detailIds.join("|");
 
   useEffect(() => {
@@ -1221,6 +1815,11 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
   }, [open, shouldRender]);
 
   useEffect(() => {
+    const addedIds = detailIds.filter((id) => !previousDetailIds.current.includes(id));
+    previousDetailIds.current = detailIds;
+    setRemovedDeliveryIds((current) => Object.fromEntries(
+      Object.entries(current).map(([id, units]) => [id, units.filter((unit) => detailIds.includes(unit))])
+    ));
     if (!detailIds.length) {
       setPrimaryItemIds([]);
       setSplitUsers((current) =>
@@ -1233,12 +1832,12 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
       return;
     }
 
-    setPrimaryItemIds((current) => syncSelectedCartItems(current, detailIds));
+    setPrimaryItemIds((current) => [...current.filter((id) => detailIds.includes(id)), ...addedIds]);
     setSplitUsers((current) =>
       current.map((user, index) => ({
         ...user,
         id: user.id || `secondary-${index + 1}`,
-        itemIds: syncSelectedCartItems(user.itemIds, detailIds),
+        itemIds: (user.itemIds || []).filter((id) => detailIds.includes(id)),
       }))
     );
   }, [detailKey]);
@@ -1258,18 +1857,28 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
         .filter((user) => user.name)
     : [];
 
-  function syncSelectedCartItems(currentSelection, ids) {
-    const current = Array.isArray(currentSelection) ? currentSelection : [];
-    const validCurrent = current.filter((id) => ids.includes(id));
-    const missingIds = ids.filter((id) => !validCurrent.includes(id));
-
-    if (current.length === 0) return ids;
-    return [...validCurrent, ...missingIds];
-  }
+  const deliveryItems = splitEnabled
+    ? [...getItemsForIds(primaryItemIds), ...activeSplitUsers.flatMap((user) => getItemsForIds(user.itemIds))]
+    : details;
+  const deliveryVbucks = deliveryItems.reduce((sum, item) => sum + Number(item.price || 0) * item.qty, 0);
 
   function getItemsForIds(ids = []) {
     const selectedIds = Array.isArray(ids) ? ids : [];
-    return details.filter((item) => selectedIds.includes(item.id));
+    return deliveryUnits.filter((item) => selectedIds.includes(item.id));
+  }
+
+  function validateDeliveryUnits() {
+    if (!splitEnabled) return true;
+    const assigned = [
+      ...getItemsForIds(primaryItemIds),
+      ...activeSplitUsers.flatMap((user) => getItemsForIds(user.itemIds)),
+    ];
+    const unique = new Set(assigned.map((item) => item.id));
+    if (unique.size === deliveryUnits.length) return true;
+    alert(language === "en"
+      ? "Assign each cart item to at least one user or remove it."
+      : "Asigna cada objeto del carrito a por lo menos un usuario o elimínalo.");
+    return false;
   }
 
   function toggleRecipientItem(recipientId, itemId) {
@@ -1296,15 +1905,49 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
     );
   }
 
+  function deleteDeliveryUnit(recipientId, unit) {
+    const assignedElsewhere = splitEnabled && (recipientId === "principal"
+      ? splitUsers.some((user) => user.itemIds?.includes(unit.id))
+      : primaryItemIds.includes(unit.id));
+    if (assignedElsewhere) {
+      setRemovedDeliveryIds((current) => ({
+        ...current,
+        [recipientId]: [...(current[recipientId] || []), unit.id],
+      }));
+      if (recipientId === "principal") {
+        setPrimaryItemIds((current) => current.filter((id) => id !== unit.id));
+      } else {
+        setSplitUsers((current) => current.map((user) => user.id === recipientId
+          ? { ...user, itemIds: (user.itemIds || []).filter((id) => id !== unit.id) }
+          : user));
+      }
+      return;
+    }
+    const [cartId] = JSON.parse(unit.id);
+    const lastId = JSON.stringify([cartId, Number(unit.originalQuantity) - 1]);
+    const removeAndReindex = (ids) => (ids || [])
+      .filter((id) => id !== unit.id)
+      .map((id) => id === lastId ? unit.id : id);
+    setPrimaryItemIds(removeAndReindex);
+    setRemovedDeliveryIds((current) => Object.fromEntries(
+      Object.entries(current).map(([id, units]) => [id, removeAndReindex(units)])
+    ));
+    setSplitUsers((current) => current.map((user) => ({
+      ...user, itemIds: removeAndReindex(user.itemIds),
+    })));
+    onUpdateQty(cartId, Number(unit.originalQuantity) - 1);
+  }
+
   function selectAllForRecipient(recipientId) {
+    const availableIds = detailIds.filter((id) => !removedDeliveryIds[recipientId]?.includes(id));
     if (recipientId === "principal") {
-      setPrimaryItemIds(detailIds);
+      setPrimaryItemIds(availableIds);
       return;
     }
 
     setSplitUsers((current) =>
       current.map((user) =>
-        user.id === recipientId ? { ...user, itemIds: detailIds } : user
+        user.id === recipientId ? { ...user, itemIds: availableIds } : user
       )
     );
   }
@@ -1335,7 +1978,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
   }
 
   function resetSecondaryUser() {
-    setSplitUsers([{ id: "secondary-1", name: "", itemIds: detailIds }]);
+    setSplitUsers([{ id: "secondary-1", name: "", itemIds: [] }]);
   }
 
   function toggleSecondaryUser(enabled) {
@@ -1343,13 +1986,13 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
 
     if (enabled) {
       setSplitUsers((current) => {
-        const firstUser = current?.[0] || { id: "secondary-1", name: "", itemIds: detailIds };
+        const firstUser = current?.[0] || { id: "secondary-1", name: "", itemIds: [] };
 
         return [
           {
             id: "secondary-1",
             name: firstUser.name || "",
-            itemIds: syncSelectedCartItems(firstUser.itemIds, detailIds),
+            itemIds: (firstUser.itemIds || []).filter((id) => detailIds.includes(id)),
           },
         ];
       });
@@ -1490,6 +2133,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
       }
     }
 
+    if (!validateDeliveryUnits()) return;
     setSummaryDownloading(true);
     setSummaryDateLabel(getSummaryDateLabel());
 
@@ -1590,7 +2234,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
 
     setPrincipalUsernameError("");
 
-    const primaryItems = getItemsForIds(primaryItemIds);
+    const primaryItems = splitEnabled ? getItemsForIds(primaryItemIds) : details;
 
     if (primaryItems.length === 0) {
       alert(
@@ -1624,6 +2268,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
       }
     }
 
+    if (!validateDeliveryUnits()) return;
     const lines = [
       "🛒 Cotización de objetos GKG",
       "",
@@ -1647,14 +2292,14 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
 
     lines.push(
       "",
-      `Total: ${totalVbucks} ${labels.vbucks}`,
-      `Total MX: ${formatMoney(totalLocal)}`,
+      `Total: ${deliveryVbucks} ${labels.vbucks}`,
+      `Total MX: ${formatMoney(deliveryVbucks * VB_TO_LOCAL_RATE)}`,
       "",
       "Quiero cotizar/enviar estos objetos por regalo."
     );
 
     const text = lines.join("\n");
-    const url = `https://wa.me/5216568558434?text=${encodeURIComponent(text)}`;
+    const url = `https://wa.me/5215666494110?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank", "noopener,noreferrer");
     setGiftModalVisible(false);
     window.setTimeout(() => setGiftModalOpen(false), 240);
@@ -1711,12 +2356,12 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
         </div>
 
         <div className="grid gap-2">
-          {details.map((item) => {
+          {deliveryUnits.filter((item) => !removedDeliveryIds[recipientId]?.includes(item.id)).map((item) => {
             const checked = selectedIds.includes(item.id);
             const itemTotal = Number(item.price || 0) * item.qty;
 
             return (
-              <label
+              <div
                 key={`${recipientId}-${item.id}`}
                 className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition ${
                   checked
@@ -1726,6 +2371,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
               >
                 <input
                   type="checkbox"
+                  aria-label={getDisplayName(item)}
                   checked={checked}
                   onChange={() => toggleRecipientItem(recipientId, item.id)}
                   className="h-4 w-4 shrink-0 accent-[#15d863]"
@@ -1745,13 +2391,26 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
 
                 <div className="min-w-0 flex-1">
                   <div className="line-clamp-1 text-xs font-black text-white">
-                    {getDisplayName(item)} x{item.qty}
+                    {getDisplayName(item)}{item.originalQuantity > 1 ? ` · ${item.unitNumber}/${item.originalQuantity}` : ""}
                   </div>
                   <div className="text-[11px] text-slate-400">
                     {itemTotal} {labels.vbucks} · {formatMoney(itemTotal * VB_TO_LOCAL_RATE)}
                   </div>
                 </div>
-              </label>
+                {(
+                  <button
+                    type="button"
+                    onClick={() => deleteDeliveryUnit(recipientId, item)}
+                    aria-label={language === "en" ? "Remove copy from cart" : "Eliminar copia del carrito"}
+                    title={language === "en" ? "Remove copy from cart" : "Eliminar copia del carrito"}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-red-300 hover:bg-red-500/15"
+                  >
+                    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7m4-7v7" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>
@@ -1761,7 +2420,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
 
 
   function renderSummaryImage() {
-    const totalQuantity = details.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+    const totalQuantity = deliveryItems.reduce((sum, item) => sum + Number(item.qty || 0), 0);
     const primarySummaryItems = getItemsForIds(primaryItemIds);
     const secondarySummaryUser = activeSplitUsers[0] || null;
     const secondarySummaryItems = secondarySummaryUser
@@ -1802,7 +2461,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
 
       return (
         <div key={`summary-group-${group.id}`} style={{ marginBottom: splitEnabled ? "24px" : 0 }}>
-          {splitEnabled && (
+          {(
             <div
               style={{
                 display: "flex",
@@ -2158,7 +2817,7 @@ function CartDrawer({ open, labels, language, cart, allItems, onClose, onUpdateQ
                   {language === "en" ? "Total in pesos" : "Total en pesos"}
                 </div>
                 <div style={{ color: "#67ff9a", fontSize: "38px", fontWeight: 900 }}>
-                  {formatMoney(totalLocal)}
+                  {formatMoney(deliveryVbucks * VB_TO_LOCAL_RATE)}
                 </div>
               </div>
             </div>
@@ -2566,7 +3225,7 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
   if (!item) return null;
 
   const leavingSoon = item._isLeavingSoon;
-  const isFreshNew = item._isFreshNew;
+  const isFreshNew = Boolean(item._isFreshNew && !item._isLeavingSoon);
   const displayType = getDisplayType(currentDetail, labels);
   const mainDescription = currentDetail.descriptionLocalized || currentDetail.descriptionEnglish || currentDetail.description || "";
   const extraDescriptionCandidates = [
@@ -2748,6 +3407,9 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
                   <div className="mt-1 text-xl font-black text-white sm:text-2xl">
                     {getTimeUntilDate(item._latestOutDate, language)}
                   </div>
+                  <div className="mt-1 text-xs font-bold uppercase tracking-wide text-white/70">
+                    {labels.leavesOn} {formatShopDepartureDate(item._latestOutDate, language)}
+                  </div>
                 </div>
               )}
 
@@ -2763,7 +3425,7 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
               <div className="mt-4">
                 <button
                   type="button"
-                  onClick={() => onAddToCart(currentDetail)}
+                  onClick={() => onAddToCart(item)}
                   className="w-full rounded-2xl bg-[#19df6c] px-4 py-3.5 text-sm font-black text-black sm:text-base"
                 >
                   {labels.addToCart}
@@ -2820,100 +3482,28 @@ function ItemModal({ item, labels, language, onClose, onAddToCart }) {
 }
 
 function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
-  const theme = getCardTheme(groupKey || item._section || item.id);
   const displayType = getDisplayType(item, labels);
-  const includedCount = Array.isArray(item.includedItems) ? item.includedItems.length : 0;
-  const isLargeBundle = includedCount > 4;
+  const isNewArrival = Boolean(item._isFreshNew && !item._isLeavingSoon);
+  const hasDepartureDate = Boolean(item._latestOutDate);
+  const timeRemaining = hasDepartureDate
+    ? getCompactTimeUntilDate(item._latestOutDate, language)
+    : "";
+  const hasValidPrice = Number(item.price) > 0;
+  const hasAlreadyLeft = timeRemaining === "YA SALIÓ" || timeRemaining === "LEFT";
+  const departureText = hasDepartureDate
+    ? hasAlreadyLeft
+      ? timeRemaining
+      : `${labels.timeLeft} ${timeRemaining}`
+    : "";
+  const departureDateText = hasDepartureDate
+    ? `${labels.leavesOn} ${formatShopDepartureDate(item._latestOutDate, language)}`
+    : "";
 
-  const borderClass =
-    item._isLeavingSoon && item._isFreshNew
-      ? "border-2 border-red-500 ring-2 ring-yellow-400/70"
-      : item._isLeavingSoon
-        ? "border-2 border-red-500"
-        : item._isFreshNew
-          ? "border-2 border-yellow-400"
-          : "border border-white/10";
-
-  if (isLargeBundle) {
-    return (
-      <article className="col-span-2 h-full min-w-0 w-full">
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => onOpen(item)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              onOpen(item);
-            }
-          }}
-          className="group block h-full min-w-0 w-full cursor-pointer text-left transition active:scale-[0.985]"
-        >
-          <div
-            className={`relative h-full overflow-hidden rounded-[18px] shadow-[0_10px_24px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 ${borderClass}`}
-            style={{
-              background: `linear-gradient(180deg, ${theme.middle} 0%, ${theme.top} 100%)`,
-            }}
-          >
-            <div className="relative aspect-[2.15/1] min-h-[168px] overflow-hidden">
-              <RotatingImage
-                images={item._galleryImages}
-                alt={getDisplayName(item)}
-                className="relative z-10 h-full w-full object-contain object-center px-1 py-1 transition-transform duration-300 group-hover:scale-[1.015]"
-                style={{ objectPosition: "center center" }}
-              />
-
-
-              <div className="absolute left-2 top-2 z-30 rounded bg-black/80 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.16em] text-white/80 shadow-md">
-                {labels.typeLabels.bundle}
-              </div>
-
-              {item._isLeavingSoon && (
-                <div className="absolute left-2 top-8 z-30 rounded-full bg-red-500 px-2 py-1 text-[8px] font-black uppercase text-white shadow-lg sm:text-[10px]">
-                  {labels.leavingSoon}
-                </div>
-              )}
-
-              {item._isFreshNew && !item._isLeavingSoon && (
-                <div className="absolute left-2 top-8 z-30 rounded-full bg-yellow-400 px-2 py-1 text-[8px] font-black uppercase text-[#231700] shadow-lg sm:text-[10px]">
-                  {labels.newBadge}
-                </div>
-              )}
-
-              <div className="absolute inset-x-0 bottom-0 z-30 p-2.5">
-                <h2 className="line-clamp-1 text-[0.98rem] font-black leading-tight text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)] sm:text-[1.1rem]">
-                  {getDisplayName(item)}
-                </h2>
-
-                <div className="mt-1 flex max-w-full items-center gap-1.5 overflow-visible">
-                  <VCoinIcon className="h-4 w-4 shrink-0 text-[10px]" />
-
-                  <span className="shrink-0 text-[0.95rem] font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)] sm:text-[1.05rem]">
-                    {item.price}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      onQuickAdd?.(item);
-                    }}
-                    aria-label={labels.addToCart}
-                    title={labels.addToCart}
-                    className="ml-0.5 inline-flex shrink-0 items-center gap-1 rounded-full border border-[#8cff9f] bg-[linear-gradient(135deg,#16e83d_0%,#0dbb2e_48%,#07851f_100%)] py-1 pl-2 pr-1 text-[8px] font-black leading-none text-white shadow-[0_0_0_1px_rgba(21,255,98,0.20),0_0_10px_rgba(21,255,98,0.40),0_4px_8px_rgba(0,0,0,0.28)] ring-1 ring-[#18ff63]/25 transition hover:scale-105 hover:brightness-110 active:scale-95 sm:text-[9px]"
-                  >
-                    <span className="whitespace-nowrap">{localPrice(language, item.price)}</span>
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/18 text-[12px] leading-none text-white">+</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </article>
-    );
-  }
+  const borderClass = item._isLeavingSoon
+    ? "border-[3px] border-red-500 ring-2 ring-red-500/40 shadow-[0_0_18px_rgba(239,68,68,0.28),0_10px_25px_rgba(0,0,0,0.45)]"
+    : isNewArrival
+      ? "border-[3px] border-yellow-300 ring-2 ring-yellow-300/45 shadow-[0_0_18px_rgba(250,204,21,0.24),0_10px_25px_rgba(0,0,0,0.45)]"
+      : "border border-white/15 shadow-[0_10px_25px_rgba(0,0,0,0.42)]";
 
   return (
     <article className="h-full min-w-0 w-full">
@@ -2930,51 +3520,52 @@ function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
         className="group block h-full min-w-0 w-full cursor-pointer text-left transition active:scale-[0.985]"
       >
         <div
-          className={`relative h-full overflow-hidden rounded-[18px] shadow-[0_10px_24px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 ${borderClass}`}
-          style={{
-            background: `linear-gradient(180deg, ${theme.middle} 0%, ${theme.top} 100%)`,
-          }}
+          className={`relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-[10px] transition duration-300 hover:-translate-y-1 hover:brightness-105 ${borderClass}`}
         >
-          <div className="relative min-h-[208px] overflow-hidden aspect-[0.88/1] sm:min-h-[235px]">
-            <div className="relative z-10 flex h-full w-full items-end justify-center px-2 pb-11 pt-2 transition-transform duration-300 group-hover:scale-[1.02]">
+          <div
+            className="relative aspect-[0.82/1] overflow-hidden sm:aspect-square"
+            style={{
+              background: "linear-gradient(180deg, #146b42 0%, #0a3a26 58%, #04130d 100%)",
+            }}
+          >
+            <div className="absolute inset-x-1 bottom-[3.55rem] top-1 z-10 transition-transform duration-300 group-hover:scale-[1.035]">
               <RotatingImage
                 images={item._galleryImages}
                 alt={getDisplayName(item)}
-                className="h-full w-[88%] scale-[1.02] object-contain"
-                style={{ objectPosition: "center 72%" }}
-                smartBottomFit
-                smartBottomClassName="!w-[84%] !scale-[1.08] translate-y-2"
-                smartBottomStyle={{ objectPosition: "center bottom" }}
+                className="h-full w-full"
+                fitPadding={0.012}
+                preferUncropped={item._typeKey !== "bundle"}
               />
             </div>
 
+            <div className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,transparent_46%,rgba(0,0,0,0.16)_64%,rgba(0,0,0,0.88)_100%)]" />
+
+            <div className="pointer-events-none absolute left-1 top-1 z-30 flex flex-col items-start gap-1">
+              <span className="rounded-md bg-[#07140f]/95 px-2 py-1 text-[9px] font-black uppercase leading-none tracking-wide text-[#67ff9a] shadow-md sm:text-[10px]">
+                {displayType}
+              </span>
+              {isNewArrival && (
+                <span className="rounded-md bg-yellow-300 px-2 py-0.5 text-[9px] font-black uppercase leading-none tracking-wide text-black shadow-md sm:text-[10px]">
+                  {labels.newBadge}
+                </span>
+              )}
+            </div>
 
             {item._isLeavingSoon && (
-              <div className="absolute left-2 top-2 z-30 rounded-full bg-red-500 px-2 py-1 text-[8px] font-black uppercase text-white shadow-lg sm:text-[10px]">
+              <div className="absolute right-1 top-1 z-30 rounded-md bg-red-500 px-1.5 py-0.5 text-[8px] font-black uppercase leading-none text-white shadow-[0_2px_6px_rgba(0,0,0,0.4)] sm:text-[9px]">
                 {labels.leavingSoon}
               </div>
             )}
 
-            {item._isFreshNew && !item._isLeavingSoon && (
-              <div className="absolute left-2 top-2 z-30 rounded-full bg-yellow-400 px-2 py-1 text-[8px] font-black uppercase text-[#231700] shadow-lg sm:text-[10px]">
-                {labels.newBadge}
-              </div>
-            )}
-
-            <div className="absolute inset-x-0 bottom-0 z-30 p-2.5">
-              <h2 className="line-clamp-2 text-[0.88rem] font-black leading-tight text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)] sm:text-[1rem]">
+            <div className="absolute inset-x-0 bottom-0 z-30 p-2">
+              <h2 className="line-clamp-2 min-h-[2.15em] text-[0.78rem] font-black uppercase leading-[1.05] text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.85)] sm:text-[0.9rem]">
                 {getDisplayName(item)}
               </h2>
 
-              <p className="mt-0.5 text-[8px] font-black uppercase tracking-wide text-white/85 drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)] sm:text-[9px]">
-                {displayType}
-              </p>
-
-              <div className="mt-1.5 flex max-w-full items-center gap-1.5 overflow-visible">
-                <VCoinIcon className="h-4 w-4 shrink-0 text-[10px]" />
-
-                <span className="shrink-0 text-[0.95rem] font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.55)] sm:text-[1.05rem]">
-                  {item.price}
+              <div className="mt-1 flex min-w-0 items-center gap-1.5">
+                <VCoinIcon className="h-4 w-4 shrink-0 text-[9px] sm:h-[18px] sm:w-[18px] sm:text-[10px]" />
+                <span className="shrink-0 whitespace-nowrap pr-0.5 text-base font-black not-italic leading-tight tabular-nums text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.85)] sm:italic">
+                  {hasValidPrice ? formatVbucks(item.price) : language === "en" ? "N/A" : "N/D"}
                 </span>
 
                 <button
@@ -2982,24 +3573,55 @@ function ShopCard({ item, labels, language, onOpen, onQuickAdd, groupKey }) {
                   onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
+                    if (!hasValidPrice) return;
                     onQuickAdd?.(item);
                   }}
-                  aria-label={labels.addToCart}
-                  title={labels.addToCart}
-                  className="ml-0.5 inline-flex shrink-0 items-center gap-1 rounded-full border border-[#8cff9f] bg-[linear-gradient(135deg,#16e83d_0%,#0dbb2e_48%,#07851f_100%)] py-1 pl-2 pr-1 text-[8px] font-black leading-none text-white shadow-[0_0_0_1px_rgba(21,255,98,0.20),0_0_10px_rgba(21,255,98,0.40),0_4px_8px_rgba(0,0,0,0.28)] ring-1 ring-[#18ff63]/25 transition hover:scale-105 hover:brightness-110 active:scale-95 sm:text-[9px]"
+                  disabled={!hasValidPrice}
+                  aria-label={`${labels.addToCart}: ${localPrice(language, item.price)}`}
+                  title={`${labels.addToCart} · ${localPrice(language, item.price)}`}
+                  className="ml-auto inline-flex min-h-6 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md border border-white/90 bg-white px-1.5 text-[#252234] shadow-[0_2px_7px_rgba(0,0,0,0.5)] transition hover:brightness-95 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-7 sm:px-2"
                 >
-                  <span className="whitespace-nowrap">{localPrice(language, item.price)}</span>
-                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-white/18 text-[12px] leading-none text-white">+</span>
+                  <span className="text-[10px] font-black leading-tight tabular-nums sm:text-xs">
+                    {hasValidPrice ? `MX$${(Number(item.price) * VB_TO_LOCAL_RATE).toFixed(2)}` : "—"}
+                  </span>
+                  <span aria-hidden="true" className="text-base font-black leading-none">+</span>
                 </button>
               </div>
             </div>
+          </div>
+
+          <div className="flex min-h-[48px] items-center gap-1.5 border-t border-[#1f6848]/70 bg-[#07140f] px-2 py-1.5 text-white">
+            {hasDepartureDate && (
+              <>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4 shrink-0 text-white/75"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
+                <div className="min-w-0 leading-tight">
+                  <div className="whitespace-nowrap text-[0.66rem] font-black uppercase sm:text-[0.73rem]">
+                    {departureText}
+                  </div>
+                  <div className="mt-0.5 whitespace-nowrap text-[0.53rem] font-bold uppercase text-white/70 sm:text-[0.59rem]">
+                    {departureDateText}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
     </article>
   );
 }
-
 function MobileMenuDrawer({ open, labels, cartCount, authHref, authLabel, onClose, onCartOpen }) {
   const [shouldRender, setShouldRender] = useState(open);
   const [isClosing, setIsClosing] = useState(false);
@@ -3442,6 +4064,24 @@ export default function Home() {
   const [cartOpen, setCartOpen] = useState(false);
   const [cartPulse, setCartPulse] = useState(false);
   const [modalEntry, setModalEntry] = useState(null);
+  const [sectionViews, setSectionViews] = useState({});
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("gkg-section-views-v1") || "{}");
+      if (saved && typeof saved === "object" && !Array.isArray(saved)) setSectionViews(saved);
+    } catch {}
+  }, []);
+
+  function openShopItem(item) {
+    const section = item._section || "Shop";
+    const next = { ...sectionViews, [section]: (Number(sectionViews[section]) || 0) + 1 };
+    setSectionViews(next);
+    try {
+      localStorage.setItem("gkg-section-views-v1", JSON.stringify(next));
+    } catch {}
+    setModalEntry(item);
+  }
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [sortModalOpen, setSortModalOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -3553,13 +4193,130 @@ export default function Home() {
         setLoading(true);
         setError("");
 
-        const response = await fetch(`/api/shop?lang=${language}`);
+        // Se consulta en paralelo la metadata oficial: historial, tipo real de
+        // oferta e imagen Product.BR. Esto evita deducir un lote por el número
+        // de artículos o escoger una versión LEGO por el orden del array.
+        const newnessRequest = fetch(`/api/gkg-shop-newness?lang=${language}&schema=offers-v3`).catch(
+          () => null
+        );
+
+        const response = await fetch(`/api/shop?lang=${language}&_=${Date.now()}`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
+        });
         const text = await response.text();
-        const payload = text ? JSON.parse(text) : {};
+        let payload = text ? JSON.parse(text) : {};
 
         if (!response.ok) throw new Error(payload.error || "No se pudo cargar la tienda");
 
-        const normalized = normalizeShopItems(payload);
+        const primaryItems = getRawShopItems(payload);
+        const datesAreIncomplete =
+          primaryItems.length === 0 ||
+          primaryItems.some((item) => !hasValidApiOutDate(item));
+
+        if (datesAreIncomplete) {
+          const sourceResponse = await fetch(
+            `/api/gkg-shop-source?lang=${language}&_=${Date.now()}`,
+            {
+              cache: "no-store",
+              headers: { "Cache-Control": "no-cache" },
+            }
+          );
+
+          if (sourceResponse.ok) {
+            const sourceText = await sourceResponse.text();
+            const sourcePayload = sourceText ? JSON.parse(sourceText) : {};
+            const sourceItems = getRawShopItems(sourcePayload);
+
+            if (
+              sourceItems.length > 0 &&
+              sourceItems.every((item) => hasValidApiOutDate(item))
+            ) {
+              payload = sourcePayload;
+            }
+          }
+        }
+
+        let rawItems = getRawShopItems(payload);
+        const newnessResponse = await newnessRequest;
+
+        if (newnessResponse?.ok) {
+          try {
+            const newnessText = await newnessResponse.text();
+            const newnessPayload = newnessText ? JSON.parse(newnessText) : {};
+            const newnessItems = getRawShopItems(newnessPayload);
+            const newnessById = new Map(
+              newnessItems
+                .map((item) => [String(item?.id || item?.offerId || ""), item])
+                .filter(([id]) => id)
+            );
+
+            const getOfferId = (item) => String(item?.offerId || item?.id || "");
+            const canVerifyOffers = newnessPayload.hasOfferIndex === true &&
+              rawItems.some((item) => newnessById.has(getOfferId(item)));
+            rawItems = rawItems.filter((item) => {
+              if (!canVerifyOffers || getDisplaySection(item).trim().toLowerCase() !== "shop") return true;
+              return newnessById.has(getOfferId(item));
+            }).map((item) => {
+              const itemId = getOfferId(item);
+              const historyData = newnessById.get(itemId);
+
+              if (!historyData) {
+                return { ...item, isFirstAppearance: false };
+              }
+
+              const authoritativeGallery = Array.isArray(historyData.galleryImages)
+                ? historyData.galleryImages.filter(Boolean)
+                : [];
+              const primaryImage = normalizeUrl(
+                historyData.primaryImage || authoritativeGallery[0]
+              );
+              const currentIncludedItems = Array.isArray(item.includedItems)
+                ? item.includedItems
+                : [];
+              const currentIncludedById = new Map(
+                currentIncludedItems
+                  .map((entry) => [String(entry?.id || ""), entry])
+                  .filter(([id]) => id)
+              );
+              const authoritativeIncludedItems = Array.isArray(historyData.includedItems)
+                ? historyData.includedItems
+                    .filter((entry) => entry?.id)
+                    .map((entry) => ({
+                      ...(currentIncludedById.get(String(entry.id)) || {}),
+                      ...entry,
+                    }))
+                : [];
+
+              return {
+                ...item,
+                nameLocalized: historyData.offerName || item.nameLocalized,
+                isBundle:
+                  typeof historyData.isBundle === "boolean"
+                    ? historyData.isBundle
+                    : item.isBundle,
+                isVehicleOffer: historyData.isVehicleOffer ?? item.isVehicleOffer,
+                typeEnglish: historyData.typeEnglish || item.typeEnglish,
+                typeLocalized: historyData.typeLocalized || item.typeLocalized,
+                primaryImage: primaryImage || item.primaryImage,
+                image: primaryImage || item.image,
+                galleryImages:
+                  authoritativeGallery.length > 0
+                    ? authoritativeGallery
+                    : item.galleryImages,
+                includedItems:
+                  authoritativeIncludedItems.length > 0
+                    ? authoritativeIncludedItems
+                    : item.includedItems,
+                isFirstAppearance: historyData.isFirstAppearance === true,
+              };
+            });
+          } catch {
+            // Si el historial falla, la tienda continúa sin inventar etiquetas.
+          }
+        }
+
+        const normalized = normalizeShopItems({ items: rawItems });
 
         if (typeof window !== "undefined") {
           const previousSnapshot = readSnapshot();
@@ -3575,7 +4332,7 @@ export default function Home() {
           const mergedGone = mergeRecentlyGone(readRecentlyGone(), goneNow);
           setRecentlyGone(mergedGone);
           saveRecentlyGone(mergedGone);
-          saveShopSnapshot(payload.items || []);
+          saveShopSnapshot(rawItems);
         }
 
         setAllItems(normalized);
@@ -3590,11 +4347,8 @@ export default function Home() {
   }, [language]);
 
   const sections = useMemo(
-    () =>
-      [...new Set(allItems.map((item) => item._section).filter(Boolean))].sort((a, b) =>
-        a.localeCompare(b, language === "en" ? "en" : "es", { sensitivity: "base" })
-      ),
-    [allItems, language]
+    () => groupItemsBySection(allItems, sectionViews).map((group) => group.id),
+    [allItems, sectionViews]
   );
 
   const visibleItems = useMemo(
@@ -3641,8 +4395,8 @@ export default function Home() {
       ].filter((group) => group.items.length > 0);
     }
 
-    return groupItemsBySection(visibleItems);
-  }, [visibleItems, selectedSection, sortMode, labels.recentlyGone, labels.showAllSections]);
+    return groupItemsBySection(visibleItems, sectionViews);
+  }, [visibleItems, sectionViews, selectedSection, sortMode, labels.recentlyGone, labels.showAllSections]);
 
   const cartCount = useMemo(
     () => cart.reduce((sum, item) => sum + Number(item.qty || 0), 0),
@@ -4068,32 +4822,34 @@ export default function Home() {
         {!loading && !error && visibleGroups.length > 0 && (
           <div className="space-y-10">
             {visibleGroups.map((group) => {
-              const groupTheme = getCardTheme(group.id);
-
               return (
-                <section key={group.id} className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="h-4 w-4 rounded-full"
-                      style={{
-                        background: `linear-gradient(135deg, ${groupTheme.top} 0%, ${groupTheme.middle} 100%)`,
-                      }}
-                    />
-                    <div>
-                      <h3 className="text-2xl font-black uppercase italic text-white sm:text-3xl">
-                        {group.title}
-                      </h3>
-                    </div>
+                <section key={group.id} className="space-y-2.5">
+                  <div className="flex items-center gap-2 px-0.5">
+                    <h3 className="text-xl font-black uppercase italic leading-none text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] sm:text-2xl">
+                      {group.title}
+                    </h3>
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="h-5 w-5 shrink-0 text-white/80"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
                   </div>
 
-                  <div className="mx-auto grid w-full grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4 xl:grid-cols-5">
+                  <div className="mx-auto grid w-full grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4 min-[1100px]:grid-cols-6 sm:gap-2">
                     {group.items.map((item) => (
                       <ShopCard
                         key={item.id}
                         item={item}
                         labels={labels}
                         language={language}
-                        onOpen={setModalEntry}
+                        onOpen={openShopItem}
                         onQuickAdd={(entry) => addToCart(entry, false)}
                         groupKey={group.id}
                       />
