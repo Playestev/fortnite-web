@@ -296,12 +296,11 @@ function NotificationCard({ item, onOpen, onDelete, deleting }) {
         style={{
           transform: `translateX(${dragOffset}px)`,
           touchAction: "pan-y",
-          backgroundColor: item.is_read ? "#001309" : "#002313",
         }}
       >
         <div className="flex items-start gap-3">
           <span
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border md:h-9 md:w-9 ${visual.bubble}`}
+            className={`gkg-notification-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-full border md:h-9 md:w-9 ${visual.bubble}`}
           >
             <Icon size={17} />
           </span>
@@ -730,7 +729,7 @@ export default function ProfileNotificationCenter({
       <section
         className="gkg-notification-panel absolute inset-x-3 bottom-3 top-3 z-[1] flex flex-col overflow-hidden rounded-[28px] border border-[#0b6b3a] bg-[#001208] text-white shadow-[0_0_34px_rgba(0,174,89,.18)] md:inset-auto md:w-[390px] md:rounded-[24px]"
         style={{
-          background: "linear-gradient(180deg, #00180c 0%, #001208 100%)",
+          background: "var(--gkg-notification-panel, linear-gradient(180deg, #00180c 0%, #001208 100%))",
           ...(typeof window !== "undefined" && window.innerWidth >= DESKTOP_BREAKPOINT
             ? {
                 top: `${desktopPosition.top}px`,
@@ -748,7 +747,7 @@ export default function ProfileNotificationCenter({
         <header
           className="shrink-0 border-b border-[#0b6b3a] px-4 py-3"
           style={{
-            background: "linear-gradient(180deg, #002713 0%, #001b0e 100%)",
+            background: "var(--gkg-notification-header, linear-gradient(180deg, #002713 0%, #001b0e 100%))",
           }}
         >
           <div className="flex items-start justify-between gap-3">
@@ -836,7 +835,7 @@ export default function ProfileNotificationCenter({
         <div
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 pb-6"
           style={{
-            background: "linear-gradient(180deg, #001208 0%, #001108 100%)",
+            background: "var(--gkg-notification-list, linear-gradient(180deg, #001208 0%, #001108 100%))",
             WebkitOverflowScrolling: "touch",
             touchAction: "pan-y",
           }}

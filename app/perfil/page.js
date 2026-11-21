@@ -1,5 +1,7 @@
 "use client";
 
+import { NovemberBackdrop, NovemberSwitch, useNovemberTheme } from "../_components/NovemberTheme";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -1353,6 +1355,7 @@ function MobileProfileTabsDrawer({ open, tabs, activeTab, onSelect, onClose }) {
 }
 
 export default function PerfilPage() {
+  const [novemberTheme, toggleNovemberTheme] = useNovemberTheme();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -3784,8 +3787,8 @@ export default function PerfilPage() {
   }
 
   return (
-    <main translate="no" className="gkg-mobile-shell relative isolate min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_24%),linear-gradient(180deg,#001f0b_0%,#001708_45%,#001207_100%)] text-white">
-      <GkgTwinkleBackground />
+    <main data-gkg-theme={novemberTheme ? "november" : "default"} translate="no" className="gkg-mobile-shell relative isolate min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_24%),linear-gradient(180deg,#001f0b_0%,#001708_45%,#001207_100%)] text-white">
+      {novemberTheme ? <NovemberBackdrop /> : <GkgTwinkleBackground />}
       <style jsx global>{`
         html,
         body {
@@ -3956,6 +3959,7 @@ export default function PerfilPage() {
           </div>
         </div>
       </header>
+      <NovemberSwitch active={novemberTheme} onToggle={toggleNovemberTheme} english={lang === "en"} />
 
       {languageChanging && (
         <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/72 px-4 backdrop-blur-sm">
@@ -9477,7 +9481,7 @@ function getPresenceConfig(status) {
 
   return {
     labelKey: "statusOnline",
-    dot: "bg-[#1eff7a]",
+    dot: "bg-[#1eff7a] gkg-presence-dot",
     text: "text-[#63ff9b]",
     border: "border-[#1eff7a]",
     shadow: "shadow-[0_0_35px_rgba(30,255,122,.45)]",
@@ -9607,7 +9611,7 @@ function AvatarDisplay({
 }) {
   const config = vip
     ? {
-        dot: "bg-[#1eff7a]",
+        dot: "bg-[#1eff7a] gkg-presence-dot",
         text: "text-[#63ff9b]",
         border: "border-cyan-300/85",
         shadow: "shadow-[0_0_14px_rgba(34,211,238,.38),0_0_28px_rgba(34,211,238,.14)]",

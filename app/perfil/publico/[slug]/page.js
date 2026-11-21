@@ -1,5 +1,7 @@
 "use client";
 
+import { NovemberBackdrop, NovemberSwitch, useNovemberTheme } from "../../../_components/NovemberTheme";
+
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -368,6 +370,7 @@ function PublicProfileTabsDrawer({ open, items, activeTab = "Perfil", onSelect, 
 }
 
 export default function PublicProfilePage() {
+  const [novemberTheme, toggleNovemberTheme] = useNovemberTheme();
   const params = useParams();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -708,7 +711,7 @@ export default function PublicProfilePage() {
   ];
 
   return (
-    <main translate="no" className="relative isolate min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_24%),linear-gradient(180deg,#001f0b_0%,#001708_45%,#001207_100%)] text-white">
+    <main data-gkg-theme={novemberTheme ? "november" : "default"} translate="no" className="relative isolate min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.14),_transparent_24%),linear-gradient(180deg,#001f0b_0%,#001708_45%,#001207_100%)] text-white">
       <style jsx global>{`
         @keyframes gkgTwinkle {
           0%, 100% { opacity: 0.22; transform: scale(0.82); }
@@ -731,7 +734,7 @@ export default function PublicProfilePage() {
           to { transform: translateX(100%); opacity: 0.65; }
         }
       `}</style>
-      <GkgTwinkleBackground />
+      {novemberTheme ? <NovemberBackdrop /> : <GkgTwinkleBackground />}
       <header className="sticky top-0 z-[100] w-full max-w-[100vw] overflow-visible border-b border-[#0f3d22] bg-[#020804]/95 supports-[backdrop-filter]:bg-[#020804]/90 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-3 py-2 sm:px-4 sm:py-3">
           <div
@@ -802,6 +805,7 @@ export default function PublicProfilePage() {
           </div>
         </div>
       </header>
+      <NovemberSwitch active={novemberTheme} onToggle={toggleNovemberTheme} />
 
       <button
         type="button"

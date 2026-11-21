@@ -4263,6 +4263,7 @@ export default function Home() {
     try {
       window.localStorage.setItem("gkg-shop-theme", next ? "november" : "default");
     } catch {}
+    window.dispatchEvent(new CustomEvent("gkg-shop-theme-change", { detail: next }));
   }
   const labels = LABELS[language];
   const supabase = useMemo(() => {

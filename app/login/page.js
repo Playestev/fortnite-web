@@ -1,5 +1,7 @@
 "use client";
 
+import { NovemberBackdrop, NovemberSwitch, useNovemberTheme } from "../_components/NovemberTheme";
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -313,6 +315,7 @@ function PwaInstallButton() {
 }
 
 export default function LoginPage() {
+  const [novemberTheme, toggleNovemberTheme] = useNovemberTheme();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -824,7 +827,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.18),_transparent_28%),linear-gradient(180deg,#000_0%,#021106_100%)] px-4 py-10 text-white">
+    <main data-gkg-theme={novemberTheme ? "november" : "default"} className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(0,255,102,0.18),_transparent_28%),linear-gradient(180deg,#000_0%,#021106_100%)] px-4 py-10 text-white">
+      {novemberTheme && <NovemberBackdrop />}
       <div className="mx-auto max-w-md rounded-[28px] border border-[#1eff7a]/30 bg-[#04120d]/90 p-6 shadow-[0_0_40px_rgba(21,216,99,0.14)]">
         <div className="text-center">
           <div className="relative mx-auto h-28 w-28">
@@ -853,6 +857,7 @@ export default function LoginPage() {
           <h1 className="mt-6 text-3xl font-black italic">
             {mode === "login" ? "Iniciar sesión" : "Crear cuenta GankerGames"}
           </h1>
+          <NovemberSwitch active={novemberTheme} onToggle={toggleNovemberTheme} />
 
           <p className="mt-2 text-sm text-slate-300">
             Accede a tu perfil de GankerGames.
